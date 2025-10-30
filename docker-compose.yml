@@ -1,12 +1,15 @@
 version: '3.9'
 services:
   mock_apis:
-    build: ./mock_apis
+    build:
+      context: ./mock_apis
     container_name: mock_apis
     ports: [ "8000:8000" ]
     volumes: [ "./mock_apis/data:/data:ro" ]
   lab:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.no-tick
     container_name: rust-hft-arbitrage-lab
     ports: [ "8888:8888" ]
     volumes: [ ".:/app" ]

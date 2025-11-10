@@ -1,0 +1,2394 @@
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[1]: warning: -jN forced in submake: disabling jobserver mode.
+gemv.c:104:7: warning: unused variable 'ncpu' [-Wunused-variable]
+  104 |   int ncpu = num_cpu_avail(3);
+      |       ^~~~
+1 warning generated.
+gemv.c:104:7: warning: unused variable 'ncpu' [-Wunused-variable]
+  104 |   int ncpu = num_cpu_avail(3);
+      |       ^~~~
+1 warning generated.
+gemv.c:104:7: warning: unused variable 'ncpu' [-Wunused-variable]
+  104 |   int ncpu = num_cpu_avail(3);
+      |       ^~~~
+1 warning generated.
+gemv.c:104:7: warning: unused variable 'ncpu' [-Wunused-variable]
+  104 |   int ncpu = num_cpu_avail(3);
+      |       ^~~~
+1 warning generated.
+nrm2.c:62:12: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+   62 |     return fabsf(x[0]);
+      |            ^
+nrm2.c:62:12: note: use function 'fabsl' instead
+   62 |     return fabsf(x[0]);
+      |            ^~~~~
+      |            fabsl
+nrm2.c:71:26: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+   71 |   return (sqrt((float)n)*fabsf(x[0]));
+      |                          ^
+nrm2.c:71:26: note: use function 'fabsl' instead
+   71 |   return (sqrt((float)n)*fabsf(x[0]));
+      |                          ^~~~~
+      |                          fabsl
+max.c:142:26: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  142 |   if (incx == 0) return (ABS(*x));
+      |                          ^
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:142:26: note: use function 'fabsl' instead
+  142 |   if (incx == 0) return (ABS(*x));
+      |                          ^~~
+      |                          fabsl
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+2 warnings generated.
+1 warning generated.
+max.c:142:26: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  142 |   if (incx == 0) return (ABS(*x));
+      |                          ^
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:142:26: note: use function 'fabsl' instead
+  142 |   if (incx == 0) return (ABS(*x));
+      |                          ^~~
+      |                          fabsl
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+1 warning generated.
+rotmg.c:102:6: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  102 |                 if(ABS(dq1) > ABS(dq2))
+      |                    ^
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:102:6: note: use function 'fabsl' instead
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:102:17: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  102 |                 if(ABS(dq1) > ABS(dq2))
+      |                               ^
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^gemv.c:104:7: warning: unused variable 'ncpu' [-Wunused-variable]
+  104 |   int ncpu = num_cpu_avail(3);
+      |       ^~~~
+
+rotmg.c:102:17: note: use function 'fabsl' instead
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:157:10: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  157 |                 while (ABS(*dd1) > GAMSQ) {
+      |                        ^
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:157:10: note: use function 'fabsl' instead
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:165:10: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  165 |                 while (ABS(*dd2) <= RGAMSQ && *dd2 != ZERO) {
+      |                        ^
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:165:10: note: use function 'fabsl' instead
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:171:10: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  171 |                 while (ABS(*dd2) > GAMSQ) {
+      |                        ^
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+rotmg.c:171:10: note: use function 'fabsl' instead
+rotmg.c:50:16: note: expanded from macro 'ABS'
+   50 | #define ABS(x) fabsf(x)
+      |                ^
+1 warning generated.
+5 warnings generated.
+nrm2.c:86:12: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   86 |   float fr=fabs(x[0]);
+      |            ^
+nrm2.c:86:12: note: use function 'fabsl' instead
+   86 |   float fr=fabs(x[0]);
+      |            ^~~~
+      |            fabsl
+nrm2.c:87:12: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   87 |   float fi=fabs(x[1]);
+      |            ^
+nrm2.c:87:12: note: use function 'fabsl' instead
+   87 |   float fi=fabs(x[1]);
+      |            ^~~~
+      |            fabsl
+2 warnings generated.
+max.c:144:26: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                          ^
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:144:26: note: use function 'fabsl' instead
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                          ^~~
+      |                          fabsl
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:144:36: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                                    ^
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:144:36: note: use function 'fabsl' instead
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                                    ^~~
+      |                                    fabsl
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+2 warnings generated.
+max.c:144:26: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                          ^
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:144:26: note: use function 'fabsl' instead
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                          ^~~
+      |                          fabsl
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:144:36: warning: absolute value function 'fabsf' given an argument of type 'long double' but has parameter of type 'float' which may cause truncation of value [-Wabsolute-value]
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                                    ^
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+max.c:144:36: note: use function 'fabsl' instead
+  144 |   if (incx == 0) return (ABS(*x) + ABS(*(x+1)));
+      |                                    ^~~
+      |                                    fabsl
+max.c:52:13: note: expanded from macro 'ABS'
+   52 | #define ABS fabsf
+      |             ^
+2 warnings generated.
+ar: creating archive ../libopenblas_haswellp-r0.3.30.a
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[1]: warning: -jN forced in submake: disabling jobserver mode.
+ztbsv_U.c:91:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_U.c:91:9: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_U.c:91:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_U.c:91:21: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+ztbsv_L.c:89:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_L.c:89:9: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_L.c:89:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_L.c:89:21: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+2 warnings generated.
+ztbsv_L.c:89:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_L.c:89:9: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_L.c:89:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_L.c:89:21: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztbsv_U.c:91:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_U.c:91:9: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_U.c:91:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_U.c:91:21: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztbsv_U.c:91:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_U.c:91:9: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_U.c:91:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_U.c:91:21: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztbsv_L.c:89:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_L.c:89:9: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_L.c:89:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_L.c:89:21: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztbsv_L.c:89:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_L.c:89:9: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_L.c:89:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_L.c:89:21: note: use function 'fabsl' instead
+   89 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztbsv_U.c:91:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztbsv_U.c:91:9: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztbsv_U.c:91:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztbsv_U.c:91:21: note: use function 'fabsl' instead
+   91 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztpsv_U.c:80:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztpsv_U.c:80:9: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztpsv_U.c:80:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztpsv_U.c:80:21: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztpsv_L.c:85:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztpsv_L.c:85:11: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztpsv_L.c:85:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztpsv_L.c:85:23: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+ztpsv_L.c:85:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztpsv_L.c:85:11: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztpsv_L.c:85:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztpsv_L.c:85:23: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+ztpsv_U.c:80:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztpsv_U.c:80:9: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztpsv_U.c:80:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztpsv_U.c:80:21: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+2 warnings generated.
+ztpsv_U.c:80:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztpsv_U.c:80:9: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztpsv_U.c:80:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztpsv_U.c:80:21: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+ztpsv_L.c:85:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztpsv_L.c:85:11: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztpsv_L.c:85:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fa2 warnings generated.
+bs(ar) >= fabs(ai)){
+      |                       ^
+ztpsv_L.c:85:23: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+ztpsv_L.c:85:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztpsv_L.c:85:11: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztpsv_L.c:85:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztpsv_L.c:85:23: note: use function 'fabsl' instead
+   85 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+ztpsv_U.c:80:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^
+ztpsv_U.c:80:9: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |         ^~~~
+      |         fabsl
+ztpsv_U.c:80:21: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^
+ztpsv_U.c:80:21: note: use function 'fabsl' instead
+   80 |     if (fabs(ar) >= fabs(ai)){
+      |                     ^~~~
+      |                     fabsl
+2 warnings generated.
+ztrsv_U.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_U.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_U.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_U.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+ztrsv_L.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_L.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_L.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_L.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+2 warnings generated.
+ztrsv_L.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_L.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_L.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_L.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+ztrsv_U.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_U.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_U.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_U.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+ztrsv_U.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_U.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_U.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_U.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+ztrsv_L.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_L.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_L.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_L.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+2 warnings generated.
+ztrsv_L.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_L.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_L.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_L.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+ztrsv_U.c:104:11: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^
+ztrsv_U.c:104:11: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |           ^~~~
+      |           fabsl
+ztrsv_U.c:104:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^
+ztrsv_U.c:104:23: note: use function 'fabsl' instead
+  104 |       if (fabs(ar) >= fabs(ai)){
+      |                       ^~~~
+      |                       fabsl
+2 warnings generated.
+2 warnings generated.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[1]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[1]: warning: -jN forced in submake: disabling jobserver mode.
+blas_server.c:421:22: warning: comparison between pointer and integer ('blas_queue_t *' (aka 'struct blas_queue *') and 'int') [-Wpointer-integer-compare]
+  421 |         while(!tscq || tscq == 0x1) {
+      |                        ~~~~ ^  ~~~
+1 warning generated.
+parameter.c:273:7: warning: unused variable 'size' [-Wunused-variable]
+  273 |   int size = 16;
+      |       ^~~~
+abs.c:55:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   55 |  real = fabs(real);
+      |         ^
+abs.c:55:9: note: use function 'fabsl' instead
+   55 |  real = fabs(real);
+      |         ^~~~
+      |         fabsl
+abs.c:56:9: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   56 |  imag = fabs(imag);
+      |         ^
+abs.c:56:9: note: use function 'fabsl' instead
+   56 |  imag = fabs(imag);
+      |         ^~~~
+      |         fabsl
+1 warning generated.
+2 warnings generated.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[1]: warning: -jN forced in submake: disabling jobserver mode.
+../kernel/x86_64/../generic/trsm_kernel_LT.c../kernel/x86_64/dtrsm_kernel_RN_haswell.c:182:18: warning: :541:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+variable 'jj' set but not used [-Wunused-but-set-variable]
+  541 |   BLASLONG i, j, jj;  182 |   BLASLONG i, j, jj;
+      |                  ^
+
+      |                  ^
+1 warning generated.
+1 warning generated.
+In file included from ../kernel/x86_64/cscal.c:47:
+../kernel/x86_64/cscal_microk_haswell-2.c:135:13: warning: unused function 'cscal_kernel_16_zero_r' [-Wunused-function]
+  135 | static void cscal_kernel_16_zero_r( BLASLONG n, FLOAT *alpha, FLOAT *x)
+      |             ^~~~~~~~~~~~~~~~~~~~~~
+../kernel/x86_64/cscal_microk_haswell-2.c:229:13: warning: unused function 'cscal_kernel_16_zero_i' [-Wunused-function]
+  229 | static void cscal_kernel_16_zero_i( BLASLONG n, FLOAT *alpha, FLOAT *x)
+      |             ^~~~~~~~~~~~~~~~~~~~~~
+2 warnings generated.
+../kernel/x86_64/../generic/trsm_kernel_LT.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+../kernel/x86_64/../generic/trsm_kernel_LT.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+../kernel/x86_64/../generic/trsm_kernel_RN.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+../kernel/x86_64/../generic/trsm_kernel_RN.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+1 warning generated.
+1 warning generated.
+1 warning generated.
+1 warning generated.
+generic/ztrmm_ltcopy_8.c:47:52: warning: variable 'a08' set but not used [-Wunused-but-set-variable]
+   47 |   FLOAT *a01, *a02, *a03 ,*a04, *a05, *a06, *a07, *a08;
+      |                                                    ^
+1 warning generated.
+In file included from ../kernel/x86_64/zscal.c:47:
+../kernel/x86_64/zscal_microk_haswell-2.c:135:13: warning: unused function 'zscal_kernel_8_zero_r' [-Wunused-function]
+  135 | static void zscal_kernel_8_zero_r( BLASLONG n, FLOAT *alpha, FLOAT *x)
+      |             ^~~~~~~~~~~~~~~~~~~~~
+../kernel/x86_64/zscal_microk_haswell-2.c:229:13: warning: unused function 'zscal_kernel_8_zero_i' [-Wunused-function]
+  229 | static void zscal_kernel_8_zero_i( BLASLONG n, FLOAT *alpha, FLOAT *x)
+      |             ^~~~~~~~~~~~~~~~~~~~~
+2 warnings generated.
+../kernel/x86_64/../generic/trsm_kernel_LT.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+../kernel/x86_64/../generic/trsm_kernel_LT.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+../kernel/x86_64/../generic/trsm_kernel_RN.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+../kernel/x86_64/../generic/trsm_kernel_RN.c:182:18: warning: variable 'jj' set but not used [-Wunused-but-set-variable]
+  182 |   BLASLONG i, j, jj;
+      |                  ^
+1 warning generated.
+1 warning generated.
+1 warning generated.
+1 warning generated.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[1]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+getf2_k.c:107:6: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  107 |         if (fabs(temp1) >= FLT_MIN ) {
+      |             ^
+getf2_k.c:107:6: note: use function 'fabsl' instead
+  107 |         if (fabs(temp1) >= FLT_MIN ) {
+      |             ^~~~
+      |             fabsl
+zgetf2_k.c:113:7: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  113 |         if ((fabs(temp1) >= FLT_MIN) || (fabs(temp2) >= FLT_MIN)) {
+      |              ^
+zgetf2_k.c:113:7: note: use function 'fabsl' instead
+  113 |         if ((fabs(temp1) >= FLT_MIN) || (fabs(temp2) >= FLT_MIN)) {
+      |              ^~~~
+      |              fabsl
+zgetf2_k.c:113:35: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  113 |         if ((fabs(temp1) >= FLT_MIN) || (fabs(temp2) >= FLT_MIN)) {
+      |                                          ^
+zgetf2_k.c:113:35: note: use function 'fabsl' instead
+  113 |         if ((fabs(temp1) >= FLT_MIN) || (fabs(temp2) >= FLT_MIN)) {
+      |                                          ^~~~
+      |                                          fabsl
+zgetf2_k.c:120:8: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  120 |           if (fabs(temp1) >= fabs(temp2)){
+      |               ^
+zgetf2_k.c:120:8: note: use function 'fabsl' instead
+  120 |           if (fabs(temp1) >= fabs(temp2)){
+      |               ^~~~
+      |               fabsl
+zgetf2_k.c:120:23: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+  120 |           if (fabs(temp1) >= fabs(temp2)){
+      |                              ^
+zgetf2_k.c:120:23: note: use function 'fabsl' instead
+  120 |           if (fabs(temp1) >= fabs(temp2)){
+      |                              ^~~~
+      |                              fabsl
+1 warning generated.
+4 warnings generated.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.make[3]: warning: -jN forced in submake: disabling jobserver mode.
+
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+ztrti2_U.c:76:7: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   76 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |       ^
+ztrti2_U.c:76:7: note: use function 'fabsl' instead
+   76 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |       ^~~~
+      |       fabsl
+ztrti2_U.c:76:22: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   76 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |                      ^
+ztrti2_U.c:76:22: note: use function 'fabsl' instead
+   76 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |                      ^~~~
+      |                      fabsl
+ztrti2_L.c:75:7: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   75 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |       ^
+ztrti2_L.c:75:7: note: use function 'fabsl' instead
+   75 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |       ^~~~
+      |       fabsl
+ztrti2_L.c:75:22: warning: absolute value function 'fabs' given an argument of type 'long double' but has parameter of type 'double' which may cause truncation of value [-Wabsolute-value]
+   75 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |                      ^
+ztrti2_L.c:75:22: note: use function 'fabsl' instead
+   75 |   if (fabs(ajj_r) >= fabs(ajj_i)){
+      |                      ^~~~
+      |                      fabsl
+2 warnings generated.
+2 warnings generated.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+No receipt for 'com.apple.pkg.Xcode' found at '/'.
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+sgbsvx.f:464:72:
+
+  464 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+sgbsvx.f:398:39:
+
+  398 |       REAL               AMAX, ANORM, BIGNUM, COLCND, RCMAX, RCMIN,
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+sgbsvx.f:464:72:
+
+  464 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+sgbsvx.f:399:42:
+
+  399 |      $                   ROWCND, RPVGRW, SMLNUM
+      |                                          ^~~~~~
+note: 'smlnum' was declared here
+sgehrd.f:306:72:
+
+  306 |          DO 40 I = ILO, IHI - 1 - NX, NB
+      |                                                                        ^
+Warning: 'nx' may be used uninitialized [-Wmaybe-uninitialized]
+sgehrd.f:192:37:
+
+  192 |      $                   NBMIN, NH, NX
+      |                                     ^~
+note: 'nx' was declared here
+sgelsd.f:494:31:
+
+  494 |       ELSE IF( N.GE.MNTHR .AND. LWORK.GE.4*M+M*M+
+      |                               ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+sgelsd.f:228:30:
+
+  228 |      $                   MM, MNTHR, NLVL, NWORK, SMLSIZ, WLALSD
+      |                              ^~~~~
+note: 'mnthr' was declared here
+sgelsd.f:494:31:
+
+  494 |       ELSE IF( N.GE.MNTHR .AND. LWORK.GE.4*M+M*M+
+      |                               ^
+Warning: 'wlalsd' may be used uninitialized [-Wmaybe-uninitialized]
+sgelsd.f:228:58:
+
+  228 |      $                   MM, MNTHR, NLVL, NWORK, SMLSIZ, WLALSD
+      |                                                          ^~~~~~
+note: 'wlalsd' was declared here
+sgelss.f:532:31:
+
+  532 |       ELSE IF( N.GE.MNTHR .AND. LWORK.GE.4*M+M*M+
+      |                               ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+sgelss.f:195:53:
+
+  195 |      $                   MAXWRK, MINMN, MINWRK, MM, MNTHR
+      |                                                     ^~~~~
+note: 'mnthr' was declared here
+sgetc2.f:194:13:
+
+  194 |          IF( IPV.NE.I )
+      |             ^
+Warning: 'ipv' may be used uninitialized [-Wmaybe-uninitialized]
+sgetc2.f:131:33:
+
+  131 |       INTEGER            I, IP, IPV, J, JP, JPV
+      |                                 ^~~
+note: 'ipv' was declared here
+sgetc2.f:200:13:
+
+  200 |          IF( JPV.NE.I )
+      |             ^
+Warning: 'jpv' may be used uninitialized [-Wmaybe-uninitialized]
+sgetc2.f:131:45:
+
+  131 |       INTEGER            I, IP, IPV, J, JP, JPV
+      |                                             ^~~
+note: 'jpv' was declared here
+sgetc2.f:217:9:
+
+  217 |       IF( ABS( A( N, N ) ).LT.SMIN ) THEN
+      |         ^
+Warning: 'smin' may be used uninitialized [-Wmaybe-uninitialized]
+sgetc2.f:132:39:
+
+  132 |       REAL               BIGNUM, EPS, SMIN, SMLNUM, XMAX
+      |                                       ^~~~
+note: 'smin' was declared here
+sgesvx.f:438:72:
+
+  438 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvx.f:376:39:
+
+  376 |       REAL               AMAX, ANORM, BIGNUM, COLCND, RCMAX, RCMIN,
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+sgesvx.f:438:72:
+
+  438 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvx.f:377:42:
+
+  377 |      $                   ROWCND, RPVGRW, SMLNUM
+      |                                          ^~~~~~
+note: 'smlnum' was declared here
+sgesvdx.f:667:12:
+
+  667 |          IF( N.GE.MNTHR ) THEN
+      |            ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvdx.f:290:52:
+
+  290 |      $                   J, MAXWRK, MINMN, MINWRK, MNTHR
+      |                                                    ^~~~~
+note: 'mnthr' was declared here
+sgesvd.f:3205:21:
+
+ 3205 |                   IF( LWORK.GE.M*M+MAX( N+M, 4*M, BDSPAC ) ) THEN
+      |                     ^
+Warning: 'bdspac' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvd.f:234:26:
+
+  234 |       INTEGER            BDSPAC, BLK, CHUNK, I, IE, IERR, IR, ISCL,
+      |                          ^~~~~~
+note: 'bdspac' was declared here
+sgesvd.f:2072:12:
+
+ 2072 |          IF( N.GE.MNTHR ) THEN
+      |            ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvd.f:236:49:
+
+  236 |      $                   MAXWRK, MINMN, MINWRK, MNTHR, NCU, NCVT, NRU,
+      |                                                 ^~~~~
+note: 'mnthr' was declared here
+sgesvd.f:3210:24:
+
+ 3210 |                      IF( LWORK.GE.WRKBL+LDA*M ) THEN
+      |                        ^
+Warning: 'wrkbl' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvd.f:237:32:
+
+  237 |      $                   NRVT, WRKBL
+      |                                ^~~~~
+note: 'wrkbl' was declared here
+sgesvd.f:3465:12:
+
+ 3465 |          IF( IE.GT.2 ) THEN
+      |            ^
+Warning: 'ie' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvd.f:234:49:
+
+  234 |       INTEGER            BDSPAC, BLK, CHUNK, I, IE, IERR, IR, ISCL,
+      |                                                 ^~
+note: 'ie' was declared here
+slaqz0.f:710:72:
+
+  710 |                ESHIFT = ESHIFT+ONE/( SAFMIN*REAL( MAXIT ) )
+      |                                                                        ^
+Warning: 'eshift' may be used uninitialized [-Wmaybe-uninitialized]
+slaqz0.f:321:28:
+
+  321 |       REAL :: SMLNUM, ULP, ESHIFT, SAFMIN, SAFMAX, C1, S1, TEMP, SWAP,
+      |                            ^~~~~~
+note: 'eshift' was declared here
+slahr2.f:302:72:
+
+  302 |       A( K+NB, NB ) = EI
+      |                                                                        ^
+Warning: 'ei' may be used uninitialized [-Wmaybe-uninitialized]
+slahr2.f:203:25:
+
+  203 |       REAL              EI
+      |                         ^~
+note: 'ei' was declared here
+shgeqz.f:466:15:
+
+  466 |             IF( ILSCHR ) THEN
+      |               ^
+Warning: 'ilschr' may be used uninitialized [-Wmaybe-uninitialized]
+shgeqz.f:328:55:
+
+  328 |       LOGICAL            ILAZR2, ILAZRO, ILPIVT, ILQ, ILSCHR, ILZ,
+      |                                                       ^~~~~~
+note: 'ilschr' was declared here
+shgeqz.f:632:25:
+
+  632 |                      IF( ILQ )
+      |                         ^
+Warning: 'ilq' may be used uninitialized [-Wmaybe-uninitialized]
+shgeqz.f:328:50:
+
+  328 |       LOGICAL            ILAZR2, ILAZRO, ILPIVT, ILQ, ILSCHR, ILZ,
+      |                                                  ^~~
+note: 'ilq' was declared here
+shgeqz.f:423:28:
+
+  423 |       ELSE IF( LDZ.LT.1 .OR. ( ILZ .AND. LDZ.LT.N ) ) THEN
+      |                            ^
+Warning: 'ilz' may be used uninitialized [-Wmaybe-uninitialized]
+shgeqz.f:328:63:
+
+  328 |       LOGICAL            ILAZR2, ILAZRO, ILPIVT, ILQ, ILSCHR, ILZ,
+      |                                                               ^~~
+note: 'ilz' was declared here
+slahqr.f:596:16:
+
+  596 |             IF( I2.GT.I )
+      |                ^
+Warning: 'i2' may be used uninitialized [-Wmaybe-uninitialized]
+slahqr.f:236:33:
+
+  236 |       INTEGER            I, I1, I2, ITS, ITMAX, J, K, L, M, NH, NR, NZ,
+      |                                 ^~
+note: 'i2' was declared here
+slals0.f:409:72:
+
+  409 |      $                           DIFRJ ) / ( POLES( I, 2 )+DJ )
+      |                                                                        ^
+Warning: 'difrj' may be used uninitialized [-Wmaybe-uninitialized]
+slals0.f:293:33:
+
+  293 |       REAL               DIFLJ, DIFRJ, DJ, DSIGJ, DSIGJP, TEMP
+      |                                 ^~~~~
+note: 'difrj' was declared here
+slange.f:135:38:
+
+  135 |       REAL               SCALE, SUM, VALUE, TEMP
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slangt.f:127:26:
+
+  127 |       REAL               ANORM, SCALE, SUM, TEMP
+      |                          ^~~~~
+Warning: 'anorm' may be used uninitialized [-Wmaybe-uninitialized]
+slangb.f:146:38:
+
+  146 |       REAL               SCALE, SUM, VALUE, TEMP
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slanhs.f:129:38:
+
+  129 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slansb.f:150:44:
+
+  150 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slansp.f:135:44:
+
+  135 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slansy.f:143:44:
+
+  143 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slantp.f:146:38:
+
+  146 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slantb.f:162:38:
+
+  162 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slantr.f:163:38:
+
+  163 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+slaqp3rk.f:899:72:
+
+  899 |      $         F( KB+1, 1 ), LDF, ONE, A( IF+1, KB+1 ), LDA )
+      |                                                                        ^
+Warning: 'i' may be used uninitialized [-Wmaybe-uninitialized]
+slaqp3rk.f:429:38:
+
+  429 |      $                   LSTICC, KP, I, IF
+      |                                      ^
+note: 'i' was declared here
+slaqr0.f:493:72:
+
+  493 |                NDEC = NDEC + 1
+      |                                                                        ^
+Warning: 'ndec' may be used uninitialized [-Wmaybe-uninitialized]
+slaqr0.f:302:34:
+
+  302 |      $                   LWKOPT, NDEC, NDFL, NH, NHO, NIBBLE, NMIN, NS,
+      |                                  ^~~~
+note: 'ndec' was declared here
+slaqr4.f:504:72:
+
+  504 |                NDEC = NDEC + 1
+      |                                                                        ^
+Warning: 'ndec' may be used uninitialized [-Wmaybe-uninitialized]
+slaqr4.f:312:34:
+
+  312 |      $                   LWKOPT, NDEC, NDFL, NH, NHO, NIBBLE, NMIN, NS,
+      |                                  ^~~~
+note: 'ndec' was declared here
+slarrv.f:287:33:
+
+  287 |       SUBROUTINE SLARRV( N, VL, VU, D, L, PIVMIN,
+      |                                 1~
+Warning: Unused dummy argument 'vu' at (1) [-Wunused-dummy-argument]
+slasy2.f:417:12:
+
+  417 |          IF( IPSV.NE.I ) THEN
+      |            ^
+Warning: 'ipsv' may be used uninitialized [-Wmaybe-uninitialized]
+slasy2.f:199:39:
+
+  199 |       INTEGER            I, IP, IPIV, IPSV, J, JP, JPSV, K
+      |                                       ^~~~
+note: 'ipsv' was declared here
+slasy2.f:423:13:
+
+  423 |          IF( JPSV.NE.I )
+      |             ^
+Warning: 'jpsv' may be used uninitialized [-Wmaybe-uninitialized]
+slasy2.f:199:52:
+
+  199 |       INTEGER            I, IP, IPIV, IPSV, J, JP, JPSV, K
+      |                                                    ^~~~
+note: 'jpsv' was declared here
+slatbs.f:791:72:
+
+  791 |                   X( J ) = X( J ) / TJJS - SUMJ
+      |                                                                        ^
+Warning: 'tjjs' may be used uninitialized [-Wmaybe-uninitialized]
+slatbs.f:265:64:
+
+  265 |       REAL               BIGNUM, GROW, REC, SMLNUM, SUMJ, TJJ, TJJS,
+      |                                                                ^~~~
+note: 'tjjs' was declared here
+slasyf_rk.f:780:45:
+
+  780 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+slasyf_rk.f:286:50:
+
+  286 |       INTEGER            IMAX, ITEMP, J, JB, JJ, JMAX, K, KK, KW, KKW,
+      |                                                  ^~~~
+note: 'jmax' was declared here
+slasyf_rook.f:695:45:
+
+  695 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+slasyf_rook.f:208:50:
+
+  208 |       INTEGER            IMAX, ITEMP, J, JB, JJ, JMAX, JP1, JP2, K, KK,
+      |                                                  ^~~~
+note: 'jmax' was declared here
+slatps.f:772:72:
+
+  772 |                   X( J ) = X( J ) / TJJS - SUMJ
+      |                                                                        ^
+Warning: 'tjjs' may be used uninitialized [-Wmaybe-uninitialized]
+slatps.f:252:64:
+
+  252 |       REAL               BIGNUM, GROW, REC, SMLNUM, SUMJ, TJJ, TJJS,
+      |                                                                ^~~~
+note: 'tjjs' was declared here
+slatrs.f:828:72:
+
+  828 |                   X( J ) = X( J ) / TJJS - SUMJ
+      |                                                                        ^
+Warning: 'tjjs' may be used uninitialized [-Wmaybe-uninitialized]
+slatrs.f:261:64:
+
+  261 |       REAL               BIGNUM, GROW, REC, SMLNUM, SUMJ, TJJ, TJJS,
+      |                                                                ^~~~
+note: 'tjjs' was declared here
+sorgql.f:208:23:
+
+  208 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+sorgql.f:149:26:
+
+  149 |      $                   NB, NBMIN, NX
+      |                          ^~
+note: 'nb' was declared here
+sorgrq.f:208:23:
+
+  208 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+sorgrq.f:149:34:
+
+  149 |      $                   LWKOPT, NB, NBMIN, NX
+      |                                  ^~
+note: 'nb' was declared here
+sormql.f:271:23:
+
+  271 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+sormql.f:192:30:
+
+  192 |      $                   MI, NB, NBMIN, NI, NQ, NW
+      |                              ^~
+note: 'nb' was declared here
+sormrq.f:272:23:
+
+  272 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+sormrq.f:193:30:
+
+  193 |      $                   MI, NB, NBMIN, NI, NQ, NW
+      |                              ^~
+note: 'nb' was declared here
+sormrz.f:293:23:
+
+  293 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+sormrz.f:211:46:
+
+  211 |      $                   LDWORK, LWKOPT, MI, NB, NBMIN, NI, NQ, NW
+      |                                              ^~
+note: 'nb' was declared here
+spbsvx.f:429:72:
+
+  429 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+spbsvx.f:369:39:
+
+  369 |       REAL               AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+spbsvx.f:429:72:
+
+  429 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+spbsvx.f:369:66:
+
+  369 |       REAL               AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                                                  ^~~~~~
+note: 'smlnum' was declared here
+sposvx.f:391:72:
+
+  391 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+sposvx.f:333:39:
+
+  333 |       REAL               AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+sposvx.f:391:72:
+
+  391 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+sposvx.f:333:66:
+
+  333 |       REAL               AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                                                  ^~~~~~
+note: 'smlnum' was declared here
+sstegr.f:263:18:
+
+  263 |      $           ABSTOL, M, W, Z, LDZ, ISUPPZ, WORK, LWORK, IWORK,
+      |                  1~~~~~
+Warning: Unused dummy argument 'abstol' at (1) [-Wunused-dummy-argument]
+ssptrf.f:267:72:
+
+  267 |                KX = IMAX*( IMAX+1 ) / 2 + IMAX
+      |                                                                        ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+ssptrf.f:181:29:
+
+  181 |       INTEGER            I, IMAX, J, JMAX, K, KC, KK, KNC, KP, KPC,
+      |                             ^~~~
+note: 'imax' was declared here
+ssytf2.f:479:18:
+
+  479 |                IF( IMAX.LT.N ) THEN
+      |                  ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+ssytf2.f:219:29:
+
+  219 |       INTEGER            I, IMAX, J, JMAX, K, KK, KP, KSTEP
+      |                             ^~~~
+note: 'imax' was declared here
+ssytf2_rook.f:627:44:
+
+  627 |                   ELSE IF( ( P.EQ.JMAX ).OR.( ROWMAX.LE.COLMAX ) ) THEN
+      |                                            ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+ssytf2_rook.f:218:38:
+
+  218 |       INTEGER            I, IMAX, J, JMAX, ITEMP, K, KK, KP, KSTEP,
+      |                                      ^~~~
+note: 'jmax' was declared here
+ssytf2_rk.f:728:44:
+
+  728 |                   ELSE IF( ( P.EQ.JMAX ).OR.( ROWMAX.LE.COLMAX ) ) THEN
+      |                                            ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+ssytf2_rk.f:265:38:
+
+  265 |       INTEGER            I, IMAX, J, JMAX, ITEMP, K, KK, KP, KSTEP,
+      |                                      ^~~~
+note: 'jmax' was declared here
+stgsna.f:657:72:
+
+  657 |                DIF( KS ) = ZERO
+      |                                                                        ^
+Warning: 'cond' may be used uninitialized [-Wmaybe-uninitialized]
+stgsna.f:409:64:
+
+  409 |       REAL               ALPHAI, ALPHAR, ALPRQT, BETA, C1, C2, COND,
+      |                                                                ^~~~
+note: 'cond' was declared here
+stptri.f:226:72:
+
+  226 |      $                     AP( JCLAST ), AP( JC+1 ), 1 )
+      |                                                                        ^
+Warning: 'jclast' may be used uninitialized [-Wmaybe-uninitialized]
+stptri.f:138:33:
+
+  138 |       INTEGER            J, JC, JCLAST, JJ
+      |                                 ^~~~~~
+note: 'jclast' was declared here
+strsen.f:424:40:
+
+  424 |          ELSE IF( LIWORK.LT.LIWMIN .AND. .NOT.LQUERY ) THEN
+      |                                        ^
+Warning: 'liwmin' may be used uninitialized [-Wmaybe-uninitialized]
+strsen.f:340:49:
+
+  340 |       INTEGER            IERR, K, KASE, KK, KS, LIWMIN, LWMIN, N1, N2,
+      |                                                 ^~~~~~
+note: 'liwmin' was declared here
+stzrzf.f:239:23:
+
+  239 |       IF( NB.GT.1 .AND. NB.LT.M ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+stzrzf.f:172:34:
+
+  172 |      $                   M1, MU, NB, NBMIN, NX
+      |                                  ^~
+note: 'nb' was declared here
+slansf.f:231:36:
+
+  231 |       REAL               SCALE, S, VALUE, AA, TEMP
+      |                                    ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+sgetsls.f:487:72:
+
+  487 |       WORK( 1 ) = SROUNDUP_LWORK( TSZO + LWO )
+      |                                                                        ^
+Warning: 'lwo' may be used uninitialized [-Wmaybe-uninitialized]
+sgetsls.f:185:46:
+
+  185 |      $                   SCLLEN, TSZO, TSZM, LWO, LWM, LW1, LW2,
+      |                                              ^~~
+note: 'lwo' was declared here
+sgetsls.f:282:72:
+
+  282 |         LW2 = LWM
+      |                                                                        ^
+Warning: 'lwm' may be used uninitialized [-Wmaybe-uninitialized]
+sgetsls.f:185:51:
+
+  185 |      $                   SCLLEN, TSZO, TSZM, LWO, LWM, LW1, LW2,
+      |                                                   ^~~
+note: 'lwm' was declared here
+dgbsvx.f:462:72:
+
+  462 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+dgbsvx.f:396:39:
+
+  396 |       DOUBLE PRECISION   AMAX, ANORM, BIGNUM, COLCND, RCMAX, RCMIN,
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+dgbsvx.f:462:72:
+
+  462 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+dgbsvx.f:397:42:
+
+  397 |      $                   ROWCND, RPVGRW, SMLNUM
+      |                                          ^~~~~~
+note: 'smlnum' was declared here
+sgesvdq.f:591:72:
+
+  591 |                  MINWRK = N + MAX( LWQP3, LWCON, LWSVD, LWORQ )
+      |                                                                        ^
+Warning: 'lworq' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvdq.f:436:62:
+
+  436 |      $            LWRK_SORMQR2, LWLQF, LWQRF, LWSVD, LWSVD2, LWORQ,
+      |                                                              ^~~~~
+note: 'lworq' was declared here
+sgesvdq.f:632:72:
+
+  632 |                      OPTWRK = N + MAX( LWRK_SGEQP3, LWRK_SGESVD )
+      |                                                                        ^
+Warning: 'lwrk_sgeqp3' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvdq.f:435:19:
+
+  435 |      $            LWRK_SGEQP3,  LWRK_SGEQRF, LWRK_SORMLQ, LWRK_SORMQR,
+      |                   ^~~~~~~~~~~
+note: 'lwrk_sgeqp3' was declared here
+sgesvdq.f:697:72:
+
+  697 |                    OPTWRK = MAX(LWRK_SGEQP3,LWRK_SGESVD,LWRK_SORMQR)
+      |                                                                        ^
+Warning: 'lwrk_sormqr' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvdq.f:435:59:
+
+  435 |      $            LWRK_SGEQP3,  LWRK_SGEQRF, LWRK_SORMLQ, LWRK_SORMQR,
+      |                                                           ^~~~~~~~~~~
+note: 'lwrk_sormqr' was declared here
+sgesvdq.f:1375:72:
+
+ 1375 |       IF ( CONDA ) RWORK(1) = SCONDA
+      |                                                                        ^
+Warning: 'sconda' may be used uninitialized [-Wmaybe-uninitialized]
+sgesvdq.f:442:37:
+
+  442 |       REAL        BIG, EPSLN, RTMP, SCONDA, SFMIN
+      |                                     ^~~~~~
+note: 'sconda' was declared here
+dgeesx.f:507:72:
+
+  507 |      $      MAXWRK = MAX( MAXWRK, N+2*SDIM*( N-SDIM ) )
+      |                                                                        ^
+Warning: 'maxwrk' may be used uninitialized [-Wmaybe-uninitialized]
+dgeesx.f:313:26:
+
+  313 |      $                   MAXWRK, MINWRK
+      |                          ^~~~~~
+note: 'maxwrk' was declared here
+dgehrd.f:305:72:
+
+  305 |          DO 40 I = ILO, IHI - 1 - NX, NB
+      |                                                                        ^
+Warning: 'nx' may be used uninitialized [-Wmaybe-uninitialized]
+dgehrd.f:192:37:
+
+  192 |      $                   NBMIN, NH, NX
+      |                                     ^~
+note: 'nx' was declared here
+dgelss.f:536:31:
+
+  536 |       ELSE IF( N.GE.MNTHR .AND. LWORK.GE.4*M+M*M+
+      |                               ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+dgelss.f:195:53:
+
+  195 |      $                   MAXWRK, MINMN, MINWRK, MM, MNTHR
+      |                                                     ^~~~~
+note: 'mnthr' was declared here
+dgetc2.f:194:13:
+
+  194 |          IF( IPV.NE.I )
+      |             ^
+Warning: 'ipv' may be used uninitialized [-Wmaybe-uninitialized]
+dgetc2.f:131:33:
+
+  131 |       INTEGER            I, IP, IPV, J, JP, JPV
+      |                                 ^~~
+note: 'ipv' was declared here
+dgetc2.f:200:13:
+
+  200 |          IF( JPV.NE.I )
+      |             ^
+Warning: 'jpv' may be used uninitialized [-Wmaybe-uninitialized]
+dgetc2.f:131:45:
+
+  131 |       INTEGER            I, IP, IPV, J, JP, JPV
+      |                                             ^~~
+note: 'jpv' was declared here
+dgetc2.f:217:9:
+
+  217 |       IF( ABS( A( N, N ) ).LT.SMIN ) THEN
+      |         ^
+Warning: 'smin' may be used uninitialized [-Wmaybe-uninitialized]
+dgetc2.f:132:39:
+
+  132 |       DOUBLE PRECISION   BIGNUM, EPS, SMIN, SMLNUM, XMAX
+      |                                       ^~~~
+note: 'smin' was declared here
+dgesvdx.f:667:12:
+
+  667 |          IF( N.GE.MNTHR ) THEN
+      |            ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvx.f:438:72:
+
+  438 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvx.f:376:39:
+
+  376 |       DOUBLE PRECISION   AMAX, ANORM, BIGNUM, COLCND, RCMAX, RCMIN,
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+dgesvx.f:438:72:
+
+  438 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvdx.f:290:52:
+
+  290 |      $                   J, MAXWRK, MINMN, MINWRK, MNTHR
+      |                                                    ^~~~~
+note: 'mnthr' was declared here
+dgesvx.f:377:42:
+
+  377 |      $                   ROWCND, RPVGRW, SMLNUM
+      |                                          ^~~~~~
+note: 'smlnum' was declared here
+dgesvd.f:3204:21:
+
+ 3204 |                   IF( LWORK.GE.M*M+MAX( N + M, 4*M, BDSPAC ) ) THEN
+      |                     ^
+Warning: 'bdspac' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvd.f:234:26:
+
+  234 |       INTEGER            BDSPAC, BLK, CHUNK, I, IE, IERR, IR, ISCL,
+      |                          ^~~~~~
+note: 'bdspac' was declared here
+dgesvd.f:2071:12:
+
+ 2071 |          IF( N.GE.MNTHR ) THEN
+      |            ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvd.f:236:49:
+
+  236 |      $                   MAXWRK, MINMN, MINWRK, MNTHR, NCU, NCVT, NRU,
+      |                                                 ^~~~~
+note: 'mnthr' was declared here
+dgesvd.f:3209:24:
+
+ 3209 |                      IF( LWORK.GE.WRKBL+LDA*M ) THEN
+      |                        ^
+Warning: 'wrkbl' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvd.f:237:32:
+
+  237 |      $                   NRVT, WRKBL
+      |                                ^~~~~
+note: 'wrkbl' was declared here
+dgesvd.f:3464:12:
+
+ 3464 |          IF( IE.GT.2 ) THEN
+      |            ^
+Warning: 'ie' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvd.f:234:49:
+
+  234 |       INTEGER            BDSPAC, BLK, CHUNK, I, IE, IERR, IR, ISCL,
+      |                                                 ^~
+note: 'ie' was declared here
+dlaqz0.f:713:72:
+
+  713 |                ESHIFT = ESHIFT+ONE/( SAFMIN*DBLE( MAXIT ) )
+      |                                                                        ^
+Warning: 'eshift' may be used uninitialized [-Wmaybe-uninitialized]
+dlaqz0.f:324:40:
+
+  324 |       DOUBLE PRECISION :: SMLNUM, ULP, ESHIFT, SAFMIN, SAFMAX, C1, S1,
+      |                                        ^~~~~~
+note: 'eshift' was declared here
+dlahr2.f:302:72:
+
+  302 |       A( K+NB, NB ) = EI
+      |                                                                        ^
+Warning: 'ei' may be used uninitialized [-Wmaybe-uninitialized]
+dlahr2.f:203:25:
+
+  203 |       DOUBLE PRECISION  EI
+      |                         ^~
+note: 'ei' was declared here
+dhgeqz.f:465:15:
+
+  465 |             IF( ILSCHR ) THEN
+      |               ^
+Warning: 'ilschr' may be used uninitialized [-Wmaybe-uninitialized]
+dhgeqz.f:328:55:
+
+  328 |       LOGICAL            ILAZR2, ILAZRO, ILPIVT, ILQ, ILSCHR, ILZ,
+      |                                                       ^~~~~~
+note: 'ilschr' was declared here
+dhgeqz.f:631:25:
+
+  631 |                      IF( ILQ )
+      |                         ^
+Warning: 'ilq' may be used uninitialized [-Wmaybe-uninitialized]
+dhgeqz.f:328:50:
+
+  328 |       LOGICAL            ILAZR2, ILAZRO, ILPIVT, ILQ, ILSCHR, ILZ,
+      |                                                  ^~~
+note: 'ilq' was declared here
+dhgeqz.f:422:28:
+
+  422 |       ELSE IF( LDZ.LT.1 .OR. ( ILZ .AND. LDZ.LT.N ) ) THEN
+      |                            ^
+Warning: 'ilz' may be used uninitialized [-Wmaybe-uninitialized]
+dhgeqz.f:328:63:
+
+  328 |       LOGICAL            ILAZR2, ILAZRO, ILPIVT, ILQ, ILSCHR, ILZ,
+      |                                                               ^~~
+note: 'ilz' was declared here
+dlahqr.f:596:16:
+
+  596 |             IF( I2.GT.I )
+      |                ^
+Warning: 'i2' may be used uninitialized [-Wmaybe-uninitialized]
+dlahqr.f:236:33:
+
+  236 |       INTEGER            I, I1, I2, ITS, ITMAX, J, K, L, M, NH, NR, NZ,
+      |                                 ^~
+note: 'i2' was declared here
+dlals0.f:409:72:
+
+  409 |      $                           DIFRJ ) / ( POLES( I, 2 )+DJ )
+      |                                                                        ^
+Warning: 'difrj' may be used uninitialized [-Wmaybe-uninitialized]
+dlals0.f:293:33:
+
+  293 |       DOUBLE PRECISION   DIFLJ, DIFRJ, DJ, DSIGJ, DSIGJP, TEMP
+      |                                 ^~~~~
+note: 'difrj' was declared here
+dlangb.f:146:38:
+
+  146 |       DOUBLE PRECISION   SCALE, SUM, VALUE, TEMP
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlangt.f:127:26:
+
+  127 |       DOUBLE PRECISION   ANORM, SCALE, SUM, TEMP
+      |                          ^~~~~
+Warning: 'anorm' may be used uninitialized [-Wmaybe-uninitialized]
+dlange.f:135:38:
+
+  135 |       DOUBLE PRECISION   SCALE, SUM, VALUE, TEMP
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlanhs.f:129:38:
+
+  129 |       DOUBLE PRECISION   SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlansb.f:150:44:
+
+  150 |       DOUBLE PRECISION   ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlansp.f:135:44:
+
+  135 |       DOUBLE PRECISION   ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlansy.f:143:44:
+
+  143 |       DOUBLE PRECISION   ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlantp.f:146:38:
+
+  146 |       DOUBLE PRECISION   SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlantr.f:163:38:
+
+  163 |       DOUBLE PRECISION   SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlantb.f:162:38:
+
+  162 |       DOUBLE PRECISION   SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dlaqp3rk.f:899:72:
+
+  899 |      $         F( KB+1, 1 ), LDF, ONE, A( IF+1, KB+1 ), LDA )
+      |                                                                        ^
+Warning: 'i' may be used uninitialized [-Wmaybe-uninitialized]
+dlaqp3rk.f:429:38:
+
+  429 |      $                   LSTICC, KP, I, IF
+      |                                      ^
+note: 'i' was declared here
+dlaqr0.f:494:72:
+
+  494 |                NDEC = NDEC + 1
+      |                                                                        ^
+Warning: 'ndec' may be used uninitialized [-Wmaybe-uninitialized]
+dlaqr0.f:303:34:
+
+  303 |      $                   LWKOPT, NDEC, NDFL, NH, NHO, NIBBLE, NMIN, NS,
+      |                                  ^~~~
+note: 'ndec' was declared here
+dlaqr4.f:500:72:
+
+  500 |                NDEC = NDEC + 1
+      |                                                                        ^
+Warning: 'ndec' may be used uninitialized [-Wmaybe-uninitialized]
+dlaqr4.f:309:34:
+
+  309 |      $                   LWKOPT, NDEC, NDFL, NH, NHO, NIBBLE, NMIN, NS,
+      |                                  ^~~~
+note: 'ndec' was declared here
+dlarrv.f:287:33:
+
+  287 |       SUBROUTINE DLARRV( N, VL, VU, D, L, PIVMIN,
+      |                                 1~
+Warning: Unused dummy argument 'vu' at (1) [-Wunused-dummy-argument]
+dlasy2.f:417:12:
+
+  417 |          IF( IPSV.NE.I ) THEN
+      |            ^
+Warning: 'ipsv' may be used uninitialized [-Wmaybe-uninitialized]
+dlasy2.f:199:39:
+
+  199 |       INTEGER            I, IP, IPIV, IPSV, J, JP, JPSV, K
+      |                                       ^~~~
+note: 'ipsv' was declared here
+dlasy2.f:423:13:
+
+  423 |          IF( JPSV.NE.I )
+      |             ^
+Warning: 'jpsv' may be used uninitialized [-Wmaybe-uninitialized]
+dlasy2.f:199:52:
+
+  199 |       INTEGER            I, IP, IPIV, IPSV, J, JP, JPSV, K
+      |                                                    ^~~~
+note: 'jpsv' was declared here
+dlasyf_rook.f:695:45:
+
+  695 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+dlasyf_rook.f:208:50:
+
+  208 |       INTEGER            IMAX, ITEMP, J, JB, JJ, JMAX, JP1, JP2, K, KK,
+      |                                                  ^~~~
+note: 'jmax' was declared here
+dlatbs.f:791:72:
+
+  791 |                   X( J ) = X( J ) / TJJS - SUMJ
+      |                                                                        ^
+Warning: 'tjjs' may be used uninitialized [-Wmaybe-uninitialized]
+dlatbs.f:265:64:
+
+  265 |       DOUBLE PRECISION   BIGNUM, GROW, REC, SMLNUM, SUMJ, TJJ, TJJS,
+      |                                                                ^~~~
+note: 'tjjs' was declared here
+dlasyf_rk.f:780:45:
+
+  780 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+dlasyf_rk.f:286:50:
+
+  286 |       INTEGER            IMAX, ITEMP, J, JB, JJ, JMAX, K, KK, KW, KKW,
+      |                                                  ^~~~
+note: 'jmax' was declared here
+dlatps.f:772:72:
+
+  772 |                   X( J ) = X( J ) / TJJS - SUMJ
+      |                                                                        ^
+Warning: 'tjjs' may be used uninitialized [-Wmaybe-uninitialized]
+dlatps.f:252:64:
+
+  252 |       DOUBLE PRECISION   BIGNUM, GROW, REC, SMLNUM, SUMJ, TJJ, TJJS,
+      |                                                                ^~~~
+note: 'tjjs' was declared here
+dlatrs.f:828:72:
+
+  828 |                   X( J ) = X( J ) / TJJS - SUMJ
+      |                                                                        ^
+Warning: 'tjjs' may be used uninitialized [-Wmaybe-uninitialized]
+dlatrs.f:261:64:
+
+  261 |       DOUBLE PRECISION   BIGNUM, GROW, REC, SMLNUM, SUMJ, TJJ, TJJS,
+      |                                                                ^~~~
+note: 'tjjs' was declared here
+dorgrq.f:207:23:
+
+  207 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+dorgrq.f:149:34:
+
+  149 |      $                   LWKOPT, NB, NBMIN, NX
+      |                                  ^~
+note: 'nb' was declared here
+dormql.f:268:23:
+
+  268 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+dormql.f:190:30:
+
+  190 |      $                   MI, NB, NBMIN, NI, NQ, NW
+      |                              ^~
+note: 'nb' was declared here
+dormrq.f:269:23:
+
+  269 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+dormrq.f:191:30:
+
+  191 |      $                   MI, NB, NBMIN, NI, NQ, NW
+      |                              ^~
+note: 'nb' was declared here
+dormrz.f:293:23:
+
+  293 |       IF( NB.GT.1 .AND. NB.LT.K ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+dormrz.f:211:46:
+
+  211 |      $                   LDWORK, LWKOPT, MI, NB, NBMIN, NI, NQ, NW
+      |                                              ^~
+note: 'nb' was declared here
+dpbsvx.f:429:72:
+
+  429 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+dpbsvx.f:369:39:
+
+  369 |       DOUBLE PRECISION   AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+dpbsvx.f:429:72:
+
+  429 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+dpbsvx.f:369:66:
+
+  369 |       DOUBLE PRECISION   AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                                                  ^~~~~~
+note: 'smlnum' was declared here
+dposvx.f:391:72:
+
+  391 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+dposvx.f:333:39:
+
+  333 |       DOUBLE PRECISION   AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+dposvx.f:391:72:
+
+  391 |                SCOND = MAX( SMIN, SMLNUM ) / MIN( SMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+dposvx.f:333:66:
+
+  333 |       DOUBLE PRECISION   AMAX, ANORM, BIGNUM, SCOND, SMAX, SMIN, SMLNUM
+      |                                                                  ^~~~~~
+note: 'smlnum' was declared here
+dstegr.f:263:18:
+
+  263 |      $           ABSTOL, M, W, Z, LDZ, ISUPPZ, WORK, LWORK, IWORK,
+      |                  1~~~~~
+Warning: Unused dummy argument 'abstol' at (1) [-Wunused-dummy-argument]
+dsptrf.f:269:72:
+
+  269 |                KX = IMAX*( IMAX+1 ) / 2 + IMAX
+      |                                                                        ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+dsptrf.f:183:29:
+
+  183 |       INTEGER            I, IMAX, J, JMAX, K, KC, KK, KNC, KP, KPC,
+      |                             ^~~~
+note: 'imax' was declared here
+dsytf2.f:478:18:
+
+  478 |                IF( IMAX.LT.N ) THEN
+      |                  ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+dsytf2.f:218:29:
+
+  218 |       INTEGER            I, IMAX, J, JMAX, K, KK, KP, KSTEP
+      |                             ^~~~
+note: 'imax' was declared here
+dsytf2_rook.f:627:44:
+
+  627 |                   ELSE IF( ( P.EQ.JMAX ).OR.( ROWMAX.LE.COLMAX ) ) THEN
+      |                                            ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+dsytf2_rook.f:218:38:
+
+  218 |       INTEGER            I, IMAX, J, JMAX, ITEMP, K, KK, KP, KSTEP,
+      |                                      ^~~~
+note: 'jmax' was declared here
+dsytf2_rk.f:728:44:
+
+  728 |                   ELSE IF( ( P.EQ.JMAX ).OR.( ROWMAX.LE.COLMAX ) ) THEN
+      |                                            ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+dsytf2_rk.f:265:38:
+
+  265 |       INTEGER            I, IMAX, J, JMAX, ITEMP, K, KK, KP, KSTEP,
+      |                                      ^~~~
+note: 'jmax' was declared here
+dtgsna.f:656:72:
+
+  656 |                DIF( KS ) = ZERO
+      |                                                                        ^
+Warning: 'cond' may be used uninitialized [-Wmaybe-uninitialized]
+dtgsna.f:409:64:
+
+  409 |       DOUBLE PRECISION   ALPHAI, ALPHAR, ALPRQT, BETA, C1, C2, COND,
+      |                                                                ^~~~
+note: 'cond' was declared here
+dtptri.f:226:72:
+
+  226 |      $                     AP( JCLAST ), AP( JC+1 ), 1 )
+      |                                                                        ^
+Warning: 'jclast' may be used uninitialized [-Wmaybe-uninitialized]
+dtptri.f:138:33:
+
+  138 |       INTEGER            J, JC, JCLAST, JJ
+      |                                 ^~~~~~
+note: 'jclast' was declared here
+dtrsen.f:423:40:
+
+  423 |          ELSE IF( LIWORK.LT.LIWMIN .AND. .NOT.LQUERY ) THEN
+      |                                        ^
+Warning: 'liwmin' may be used uninitialized [-Wmaybe-uninitialized]
+dtrsen.f:339:49:
+
+  339 |       INTEGER            IERR, K, KASE, KK, KS, LIWMIN, LWMIN, N1, N2,
+      |                                                 ^~~~~~
+note: 'liwmin' was declared here
+dtrsen.f:421:33:
+
+  421 |          IF( LWORK.LT.LWMIN .AND. .NOT.LQUERY ) THEN
+      |                                 ^
+Warning: 'lwmin' may be used uninitialized [-Wmaybe-uninitialized]
+dtrsen.f:339:57:
+
+  339 |       INTEGER            IERR, K, KASE, KK, KS, LIWMIN, LWMIN, N1, N2,
+      |                                                         ^~~~~
+note: 'lwmin' was declared here
+dtzrzf.f:238:23:
+
+  238 |       IF( NB.GT.1 .AND. NB.LT.M ) THEN
+      |                       ^
+Warning: 'nb' may be used uninitialized [-Wmaybe-uninitialized]
+dtzrzf.f:172:34:
+
+  172 |      $                   M1, MU, NB, NBMIN, NX
+      |                                  ^~
+note: 'nb' was declared here
+dlansf.f:230:36:
+
+  230 |       DOUBLE PRECISION   SCALE, S, VALUE, AA, TEMP
+      |                                    ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+dgetsls.f:487:72:
+
+  487 |       WORK( 1 ) = DBLE( TSZO + LWO )
+      |                                                                        ^
+Warning: 'lwo' may be used uninitialized [-Wmaybe-uninitialized]
+dgetsls.f:185:46:
+
+  185 |      $                   SCLLEN, TSZO, TSZM, LWO, LWM, LW1, LW2,
+      |                                              ^~~
+note: 'lwo' was declared here
+dgetsls.f:282:72:
+
+  282 |         LW2 = LWM
+      |                                                                        ^
+Warning: 'lwm' may be used uninitialized [-Wmaybe-uninitialized]
+dgetsls.f:185:51:
+
+  185 |      $                   SCLLEN, TSZO, TSZM, LWO, LWM, LW1, LW2,
+      |                                                   ^~~
+note: 'lwm' was declared here
+cgbsvx.f:467:72:
+
+  467 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+cgbsvx.f:401:39:
+
+  401 |       REAL               AMAX, ANORM, BIGNUM, COLCND, RCMAX, RCMIN,
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+cgbsvx.f:467:72:
+
+  467 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+cgbsvx.f:402:42:
+
+  402 |      $                   ROWCND, RPVGRW, SMLNUM
+      |                                          ^~~~~~
+note: 'smlnum' was declared here
+dgesvdq.f:588:72:
+
+  588 |                  MINWRK = N + MAX( LWQP3, LWCON, LWSVD, LWORQ )
+      |                                                                        ^
+Warning: 'lworq' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvdq.f:435:62:
+
+  435 |      $            LWRK_DORMQR2, LWLQF, LWQRF, LWSVD, LWSVD2, LWORQ,
+      |                                                              ^~~~~
+note: 'lworq' was declared here
+dgesvdq.f:629:72:
+
+  629 |                      OPTWRK = N + MAX( LWRK_DGEQP3, LWRK_DGESVD )
+      |                                                                        ^
+Warning: 'lwrk_dgeqp3' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvdq.f:434:19:
+
+  434 |      $            LWRK_DGEQP3,  LWRK_DGEQRF, LWRK_DORMLQ, LWRK_DORMQR,
+      |                   ^~~~~~~~~~~
+note: 'lwrk_dgeqp3' was declared here
+dgesvdq.f:694:72:
+
+  694 |                    OPTWRK = MAX(LWRK_DGEQP3,LWRK_DGESVD,LWRK_DORMQR)
+      |                                                                        ^
+Warning: 'lwrk_dormqr' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvdq.f:434:59:
+
+  434 |      $            LWRK_DGEQP3,  LWRK_DGEQRF, LWRK_DORMLQ, LWRK_DORMQR,
+      |                                                           ^~~~~~~~~~~
+note: 'lwrk_dormqr' was declared here
+dgesvdq.f:1372:72:
+
+ 1372 |       IF ( CONDA ) RWORK(1) = SCONDA
+      |                                                                        ^
+Warning: 'sconda' may be used uninitialized [-Wmaybe-uninitialized]
+dgesvdq.f:441:42:
+
+  441 |       DOUBLE PRECISION BIG, EPSLN, RTMP, SCONDA, SFMIN
+      |                                          ^~~~~~
+note: 'sconda' was declared here
+cgehrd.f:308:72:
+
+  308 |          DO 40 I = ILO, IHI - 1 - NX, NB
+      |                                                                        ^
+Warning: 'nx' may be used uninitialized [-Wmaybe-uninitialized]
+cgehrd.f:193:37:
+
+  193 |      $                   NBMIN, NH, NX
+      |                                     ^~
+note: 'nx' was declared here
+cgelsd.f:520:31:
+
+  520 |       ELSE IF( N.GE.MNTHR .AND. LWORK.GE.4*M+M*M+
+      |                               ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+cgelsd.f:246:38:
+
+  246 |      $                   MINWRK, MM, MNTHR, NLVL, NRWORK, NWORK, SMLSIZ
+      |                                      ^~~~~
+note: 'mnthr' was declared here
+cgelss.f:546:31:
+
+  546 |       ELSE IF( N.GE.MNTHR .AND. LWORK.GE.3*M+M*M+MAX( M, NRHS, N-2*M ) )
+      |                               ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+cgelss.f:205:53:
+
+  205 |      $                   MAXWRK, MINMN, MINWRK, MM, MNTHR
+      |                                                     ^~~~~
+note: 'mnthr' was declared here
+cgetc2.f:194:13:
+
+  194 |          IF( IPV.NE.I )
+      |             ^
+Warning: 'ipv' may be used uninitialized [-Wmaybe-uninitialized]
+cgetc2.f:131:33:
+
+  131 |       INTEGER            I, IP, IPV, J, JP, JPV
+      |                                 ^~~
+note: 'ipv' was declared here
+cgetc2.f:200:13:
+
+  200 |          IF( JPV.NE.I )
+      |             ^
+Warning: 'jpv' may be used uninitialized [-Wmaybe-uninitialized]
+cgetc2.f:131:45:
+
+  131 |       INTEGER            I, IP, IPV, J, JP, JPV
+      |                                             ^~~
+note: 'jpv' was declared here
+cgetc2.f:217:9:
+
+  217 |       IF( ABS( A( N, N ) ).LT.SMIN ) THEN
+      |         ^
+Warning: 'smin' may be used uninitialized [-Wmaybe-uninitialized]
+cgetc2.f:132:39:
+
+  132 |       REAL               BIGNUM, EPS, SMIN, SMLNUM, XMAX
+      |                                       ^~~~
+note: 'smin' was declared here
+cgesvx.f:440:72:
+
+  440 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'bignum' may be used uninitialized [-Wmaybe-uninitialized]
+cgesvx.f:378:39:
+
+  378 |       REAL               AMAX, ANORM, BIGNUM, COLCND, RCMAX, RCMIN,
+      |                                       ^~~~~~
+note: 'bignum' was declared here
+cgesvx.f:440:72:
+
+  440 |                ROWCND = MAX( RCMIN, SMLNUM ) / MIN( RCMAX, BIGNUM )
+      |                                                                        ^
+Warning: 'smlnum' may be used uninitialized [-Wmaybe-uninitialized]
+cgesvx.f:379:42:
+
+  379 |      $                   ROWCND, RPVGRW, SMLNUM
+      |                                          ^~~~~~
+note: 'smlnum' was declared here
+cgesvdx.f:674:12:
+
+  674 |          IF( N.GE.MNTHR ) THEN
+      |            ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+cgesvdx.f:301:62:
+
+  301 |      $                   IUTGK, J, K, MAXWRK, MINMN, MINWRK, MNTHR
+      |                                                              ^~~~~
+note: 'mnthr' was declared here
+cgesvd.f:2174:12:
+
+ 2174 |          IF( N.GE.MNTHR ) THEN
+      |            ^
+Warning: 'mnthr' may be used uninitialized [-Wmaybe-uninitialized]
+cgesvd.f:243:49:
+
+  243 |      $                   MAXWRK, MINMN, MINWRK, MNTHR, NCU, NCVT, NRU,
+      |                                                 ^~~~~
+note: 'mnthr' was declared here
+cgesvd.f:3403:24:
+
+ 3403 |                      IF( LWORK.GE.WRKBL+LDA*M ) THEN
+      |                        ^
+Warning: 'wrkbl' may be used uninitialized [-Wmaybe-uninitialized]
+cgesvd.f:244:32:
+
+  244 |      $                   NRVT, WRKBL
+      |                                ^~~~~
+note: 'wrkbl' was declared here
+cgejsv.f:604:57:
+
+  604 |      $        LWSVDJ, LWSVDJV, LRWQP3, LRWCON, LRWSVDJ, IWOFF
+      |                                                         ^~~~~
+Warning: 'iwoff' may be used uninitialized [-Wmaybe-uninitialized]
+chetf2.f:493:18:
+
+  493 |                IF( IMAX.LT.N ) THEN
+      |                  ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+chetf2.f:210:29:
+
+  210 |       INTEGER            I, IMAX, J, JMAX, K, KK, KP, KSTEP
+      |                             ^~~~
+note: 'imax' was declared here
+chetf2_rook.f:688:45:
+
+  688 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+chetf2_rook.f:218:49:
+
+  218 |       INTEGER            I, II, IMAX, ITEMP, J, JMAX, K, KK, KP, KSTEP,
+      |                                                 ^~~~
+note: 'jmax' was declared here
+chetf2_rk.f:789:45:
+
+  789 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+chetf2_rk.f:267:49:
+
+  267 |       INTEGER            I, II, IMAX, ITEMP, J, JMAX, K, KK, KP, KSTEP,
+      |                                                 ^~~~
+note: 'jmax' was declared here
+chptrf.f:281:72:
+
+  281 |                KX = IMAX*( IMAX+1 ) / 2 + IMAX
+      |                                                                        ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+chptrf.f:183:29:
+
+  183 |       INTEGER            I, IMAX, J, JMAX, K, KC, KK, KNC, KP, KPC,
+      |                             ^~~~
+note: 'imax' was declared here
+claed8.f:452:72:
+
+  452 |       W( K ) = Z( JLAM )
+      |                                                                        ^
+Warning: 'jlam' may be used uninitialized [-Wmaybe-uninitialized]
+claed8.f:253:38:
+
+  253 |       INTEGER            I, IMAX, J, JLAM, JMAX, JP, K2, N1, N1P1, N2
+      |                                      ^~~~
+note: 'jlam' was declared here
+clahr2.f:304:72:
+
+  304 |       A( K+NB, NB ) = EI
+      |                                                                        ^
+Warning: 'REALPART_EXPR <ei>' may be used uninitialized [-Wmaybe-uninitialized]
+clahr2.f:203:26:
+
+  203 |       COMPLEX            EI
+      |                          ^~
+note: 'REALPART_EXPR <ei>' was declared here
+clahr2.f:304:72:
+
+  304 |       A( K+NB, NB ) = EI
+      |                                                                        ^
+Warning: 'IMAGPART_EXPR <ei>' may be used uninitialized [-Wmaybe-uninitialized]
+clahr2.f:203:26:
+
+  203 |       COMPLEX            EI
+      |                          ^~
+note: 'IMAGPART_EXPR <ei>' was declared here
+clahef.f:674:72:
+
+  674 |                CALL CCOPY( IMAX-K, A( IMAX, K ), LDA, W( K, K+1 ), 1 )
+      |                                                                        ^
+Warning: 'imax' may be used uninitialized [-Wmaybe-uninitialized]
+clahef.f:202:26:
+
+  202 |       INTEGER            IMAX, J, JB, JJ, JMAX, JP, K, KK, KKW, KP,
+      |                          ^~~~
+note: 'imax' was declared here
+clahef_rk.f:936:45:
+
+  936 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+clahef_rk.f:289:54:
+
+  289 |       INTEGER            IMAX, ITEMP, II, J, JB, JJ, JMAX, K, KK, KKW,
+      |                                                      ^~~~
+note: 'jmax' was declared here
+clahef_rook.f:857:45:
+
+  857 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+clahef_rook.f:210:54:
+
+  210 |       INTEGER            IMAX, ITEMP, II, J, JB, JJ, JMAX, JP1, JP2, K,
+      |                                                      ^~~~
+note: 'jmax' was declared here
+clangb.f:147:38:
+
+  147 |       REAL               SCALE, SUM, VALUE, TEMP
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clals0.f:412:72:
+
+  412 |      $                            DIFRJ ) / ( POLES( I, 2 )+DJ )
+      |                                                                        ^
+Warning: 'difrj' may be used uninitialized [-Wmaybe-uninitialized]
+clals0.f:296:33:
+
+  296 |       REAL               DIFLJ, DIFRJ, DJ, DSIGJ, DSIGJP, TEMP
+      |                                 ^~~~~
+note: 'difrj' was declared here
+clange.f:137:38:
+
+  137 |       REAL               SCALE, SUM, VALUE, TEMP
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clangt.f:127:26:
+
+  127 |       REAL               ANORM, SCALE, SUM, TEMP
+      |                          ^~~~~
+Warning: 'anorm' may be used uninitialized [-Wmaybe-uninitialized]
+clanhb.f:154:44:
+
+  154 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clanhe.f:146:44:
+
+  146 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clanhp.f:139:44:
+
+  139 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clanhs.f:131:38:
+
+  131 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clanht.f:123:26:
+
+  123 |       REAL               ANORM, SCALE, SUM
+      |                          ^~~~~
+Warning: 'anorm' may be used uninitialized [-Wmaybe-uninitialized]
+clansb.f:152:44:
+
+  152 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clansp.f:137:44:
+
+  137 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clansy.f:145:44:
+
+  145 |       REAL               ABSA, SCALE, SUM, VALUE
+      |                                            ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clantb.f:164:38:
+
+  164 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clantp.f:148:38:
+
+  148 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+clantr.f:165:38:
+
+  165 |       REAL               SCALE, SUM, VALUE
+      |                                      ^~~~~
+Warning: 'value' may be used uninitialized [-Wmaybe-uninitialized]
+claqp3rk.f:911:72:
+
+  911 |      $         F( KB+1, 1 ), LDF, CONE, A( IF+1, KB+1 ), LDA )
+      |                                                                        ^
+Warning: 'i' may be used uninitialized [-Wmaybe-uninitialized]
+claqp3rk.f:426:38:
+
+  426 |      $                   LSTICC, KP, I, IF
+      |                                      ^
+note: 'i' was declared here
+claqr0.f:487:72:
+
+  487 |                NDEC = NDEC + 1
+      |                                                                        ^
+Warning: 'ndec' may be used uninitialized [-Wmaybe-uninitialized]
+claqr0.f:289:34:
+
+  289 |      $                   LWKOPT, NDEC, NDFL, NH, NHO, NIBBLE, NMIN, NS,
+      |                                  ^~~~
+note: 'ndec' was declared here
+claqr4.f:497:72:
+
+  497 |                NDEC = NDEC + 1
+      |                                                                        ^
+Warning: 'ndec' may be used uninitialized [-Wmaybe-uninitialized]
+claqr4.f:299:34:
+
+  299 |      $                   LWKOPT, NDEC, NDFL, NH, NHO, NIBBLE, NMIN, NS,
+      |                                  ^~~~
+note: 'ndec' was declared here
+claqz0.f:302:48:
+
+  302 |       REAL :: SMLNUM, ULP, SAFMIN, SAFMAX, C1, TEMPR, BNORM, BTOL
+      |                                                1~~~~
+Warning: Unused variable 'tempr' declared at (1) [-Wunused-variable]
+claqz0.f:656:72:
+
+  656 |                ESHIFT = ESHIFT+CONE/( SAFMIN*REAL( MAXIT ) )
+      |                                                                        ^
+Warning: 'REALPART_EXPR <eshift>' may be used uninitialized [-Wmaybe-uninitialized]
+claqz0.f:303:18:
+
+  303 |       COMPLEX :: ESHIFT, S1, TEMP
+      |                  ^~~~~~
+note: 'REALPART_EXPR <eshift>' was declared here
+claqz0.f:656:72:
+
+  656 |                ESHIFT = ESHIFT+CONE/( SAFMIN*REAL( MAXIT ) )
+      |                                                                        ^
+Warning: 'IMAGPART_EXPR <eshift>' may be used uninitialized [-Wmaybe-uninitialized]
+claqz0.f:303:18:
+
+  303 |       COMPLEX :: ESHIFT, S1, TEMP
+      |                  ^~~~~~
+note: 'IMAGPART_EXPR <eshift>' was declared here
+clarrv.f:281:33:
+
+  281 |       SUBROUTINE CLARRV( N, VL, VU, D, L, PIVMIN,
+      |                                 1~
+Warning: Unused dummy argument 'vu' at (1) [-Wunused-dummy-argument]
+clasyf_rook.f:703:45:
+
+  703 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+clasyf_rook.f:211:50:
+
+  211 |       INTEGER            IMAX, ITEMP, J, JB, JJ, JMAX, JP1, JP2, K, KK,
+      |                                                  ^~~~
+note: 'jmax' was declared here
+clasyf_rk.f:789:45:
+
+  789 |                   ELSE IF( ( P.EQ.JMAX ) .OR. ( ROWMAX.LE.COLMAX ) )
+      |                                             ^
+Warning: 'jmax' may be used uninitialized [-Wmaybe-uninitialized]
+clasyf_rk.f:289:50:
+
+  289 |       INTEGER            IMAX, ITEMP, J, JB, JJ, JMAX, K, KK, KW, KKW,
+      |                                                  ^~~~
+note: 'jmax' was declared here
+make[2]: *** wait: Interrupted system call.  Stop.
+make[2]: *** Waiting for unfinished jobs....
+make[2]: *** [clatrs.o] Interrupt: 2
+make[2]: *** wait: Interrupted system call.  Stop.
+make[1]: *** [lapacklib] Error 2
+make: *** [netlib] Interrupt: 2

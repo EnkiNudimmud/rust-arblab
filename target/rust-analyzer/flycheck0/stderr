@@ -1,6 +1,0 @@
-error: expected `.`, `=`
- --> Cargo.toml:1:13
-  |
-1 | '"$content"'
-  |             ^
-  |

@@ -12,7 +12,7 @@ cargo:rerun-if-env-changed=CARGO_CFG_TARGET_OS
 cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ENV
 cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ENDIAN
 OPT_LEVEL = Some(0)
-OUT_DIR = Some(/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out)
+OUT_DIR = Some(/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out)
 TARGET = Some(x86_64-apple-darwin)
 CARGO_ENCODED_RUSTFLAGS = Some()
 HOST = Some(x86_64-apple-darwin)
@@ -39,13 +39,13 @@ cargo:rerun-if-env-changed=CFLAGS_x86_64_apple_darwin
 CFLAGS_x86_64_apple_darwin = None
 cargo:rerun-if-env-changed=CFLAGS_x86_64-apple-darwin
 CFLAGS_x86_64-apple-darwin = None
-cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-gfp_p256.o) has no symbols
-cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-p256.o) has no symbols
-cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-gfp_p256.o) has no symbols
-cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-p256.o) has no symbols
+cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-gfp_p256.o) has no symbols
+cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-p256.o) has no symbols
+cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-gfp_p256.o) has no symbols
+cargo:warning=/Library/Developer/CommandLineTools/usr/bin/ranlib: file: /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out/libring_core_0_17_14_.a(a0330e891e733f4e-p256.o) has no symbols
 cargo:rustc-link-lib=static=ring_core_0_17_14_
 OPT_LEVEL = Some(0)
-OUT_DIR = Some(/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out)
+OUT_DIR = Some(/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out)
 TARGET = Some(x86_64-apple-darwin)
 CARGO_ENCODED_RUSTFLAGS = Some()
 HOST = Some(x86_64-apple-darwin)
@@ -73,7 +73,7 @@ CFLAGS_x86_64_apple_darwin = None
 cargo:rerun-if-env-changed=CFLAGS_x86_64-apple-darwin
 CFLAGS_x86_64-apple-darwin = None
 cargo:rustc-link-lib=static=ring_core_0_17_14__test
-cargo:rustc-link-search=native=/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab-enriched/target/debug/build/ring-adce468ebb03689d/out
+cargo:rustc-link-search=native=/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/debug/build/ring-adce468ebb03689d/out
 cargo:rerun-if-changed=crypto/perlasm/x86_64-xlate.pl
 cargo:rerun-if-changed=crypto/perlasm/x86gas.pl
 cargo:rerun-if-changed=crypto/perlasm/x86nasm.pl

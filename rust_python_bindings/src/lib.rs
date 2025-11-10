@@ -6,7 +6,6 @@ use aggregator::Aggregator;
 use tokio::sync::{mpsc, broadcast, oneshot};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use log::info;
 
 type HandleId = u64;
 

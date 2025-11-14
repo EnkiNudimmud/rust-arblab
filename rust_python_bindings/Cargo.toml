@@ -8,8 +8,8 @@ name = "hft_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.18", features = ["extension-module", "auto-initialize"] }
-pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
+pyo3 = { version = "0.21", features = ["extension-module", "abi3-py38"] }
+serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.36", features = ["rt-multi-thread", "macros", "time"] }
 connectors_common = { path = "../rust_core/connectors/common" }
 aggregator = { path = "../rust_core/aggregator" }
@@ -17,7 +17,6 @@ connector_binance = { path = "../rust_core/connectors/binance" }
 connector_kraken = { path = "../rust_core/connectors/kraken" }
 connector_coinbase = { path = "../rust_core/connectors/coinbase" }
 connector_coingecko = { path = "../rust_core/connectors/coingecko" }
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 log = "0.4"
 env_logger = "0.10"

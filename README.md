@@ -113,7 +113,7 @@ Prerequisites:
 
 Steps:
 ```bash
-# create & activate venv
+@# create & activate venv
 python -m venv .venv
 source .venv/bin/activate
 
@@ -237,7 +237,7 @@ export COMPOSE_BAKE=true     # optional
 docker-compose up --build
 ```
 
-If you still hit errors, copy the first 80–120 lines of the failing build log and open an issue or paste here.
+
 
 ---
 
@@ -282,7 +282,7 @@ Suggested files to add (if not present):
 
 ---
 
-## Minimal example snippets
+## 12. Minimal example snippets
 
 Build rust and install into interpreter:
 ```bash
@@ -305,6 +305,28 @@ profit, route = compute_triangular_opportunity(ob, ob, ob)
 print("profit", profit, "route", route)
 ```
 
+## 13. Quickstart
+### 13.a Local mode (recommended)
+1. Prepare Python environment (conda or venv). Example with conda (recommended on macOS):
+   conda create -n rhftlab python=3.11 -y
+   conda activate rhftlab
+
+2. Install Python build tooling and maturin:
+   python -m pip install --upgrade pip setuptools wheel maturin
+
+3. Install Python deps for UIs:
+   python -m pip install -r docker/requirements.txt
+
+4. Build & install Rust extension (manifest-path avoids workspace ambiguity):
+   python -m maturin develop --manifest-path rust_connector/Cargo.toml --release
+
+   Note: ensure you use the same Python interpreter to build and run (the one activated in your shell). If you get linker/_Py symbols errors, use the same interpreter for maturin (see README section "Python/Rust ABI").
+
+5. Run the Streamlit app:
+   streamlit run app/streamlit_app.py
+
+### 13.b Docker (reproducible dev image)
+
 Docker build & run:
 ```bash
 export COMPOSE_BAKE=true      # optional
@@ -312,11 +334,64 @@ docker-compose up --build
 # open http://localhost:8501
 ```
 
----
+1. Build and run:
+   export COMPOSE_BAKE=true
+   docker-compose up --build
 
-If you want, I can:
-- prepare a git patch that updates `docker/requirements.txt` (removes any `pyo3` listed) and the `Dockerfile` to use `--manifest-path` and `maturin` as described, or
-- produce a lightweight multi-stage Dockerfile (builder → runtime) so the final image is smaller (no Rust toolchain included).
+2. Open: http://localhost:8501
 
-Thank you — copy this README into `README.md` at repository root to replace the current README or use it as a polished project landing doc.
+Design and usage notes
+- Streaming in Rust:
+  - Connectors spawn background tasks in Tokio (pyo3-asyncio enables safe spawning).
+  - Each connector maintains an in-memory snapshot (Arc<Mutex<Option<OrderBook>>>).
+  - On each incoming update the Rust task updates the snapshot and calls the Python callback under the GIL with a new OrderBook pyobject.
+  - This pattern is robust for UIs (Streamlit) and notebooks: Python receives a consistent snapshot and can process/update state safely.
+
+- CEX vs DEX arbitrage:
+  - CEX: we use WS or REST top-of-book snapshots (Binance/coinbase examples).
+  - DEX: we read pair reserves via JSON‑RPC (ethers provider), compute implied price, and estimate swap impact with Uniswap formula (example helper provided).
+  - compute_dex_cex_arbitrage implemented in Rust for speed; python bridge prefers Rust but falls back to Python implementation.
+
+- Symbols and discovery:
+  - For CEX, the Streamlit UI uses connector.list_symbols() (initial defaults provided). You can extend the Rust connector to fetch dynamic symbol lists via REST endpoints and return them to Python.
+  - For Uniswap, discover pair addresses using The Graph or pre-populated configuration.
+
+Automated market data collection (Streamlit)
+- The Streamlit app includes an "Auto-collect" option: it repeatedly fetches snapshots and stores top-of-book points in session state, with adjustable interval.
+- collected data can be visualized, inspected, and used to compute quick DEX↔CEX arbitrage opportunities.
+- For heavier collection and long-term storage, replace in-memory session collection with a lightweight local database (SQLite) or time-series store (InfluxDB/Prometheus) and persist snapshots to disk.
+
+Building notes & dependency tips
+- ethers 2.x: the crate is split across subcrates (ethers-core, ethers-providers, ethers-contract). Cargo.toml in this repo uses explicit subcrates to import contract/provider types.
+- If cargo/maturin complains about features or versions:
+  - ensure Cargo.toml dependencies match available crate features (we use 2.0.14 in the example).
+  - run `python -m maturin develop --manifest-path rust_connector/Cargo.toml --release` from the activated Python environment.
+- macOS: to avoid PyO3 linker issues, prefer using the Docker image for builds if you experience ABI mismatch errors.
+- If receiving warnings about workspace resolver, you may add `workspace.resolver = "2"` to root Cargo.toml if your workspace crates use edition 2021 — this is informational.
+
+Extending for production
+- Maintain full orderbook state in Rust per symbol and apply incremental diffs (Binance depthUpdate or Coinbase l2update) instead of reconstructing from snapshot messages.
+- Add reconnection/backoff, rate-limits, metrics, and health checks to connectors.
+- Implement task registry (start_stream returns a task id; stop_stream(task_id) cancels it).
+- Add signing and authenticated endpoints for exchanges when you need order placement (keep keys out of repo — use secrets/vault).
+- For on‑chain execution of arbitrage, integrate a safe relay/MEV path (Flashbots, bundle signing, or flash swap onchain), and simulate gas costs & slippage.
+
+Examples
+- Python interactive usage:
+```py
+import python.rust_bridge as bridge
+bridge.list_connectors()
+c = bridge.get_connector("binance")
+c.list_symbols()
+ob = c.fetch_orderbook_sync("BTCUSDT")
+print(ob.top())
+def cb(ob):
+    print("update", ob.top())
+c.start_stream("BTCUSDT", cb)
+```
+
+- Uniswap reserves:
+```py
+from python.rust_bridge import get_connector
+# or call rust_connector.uniswap_get_reserves directly if extension installed
 ```

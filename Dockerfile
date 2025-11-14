@@ -31,15 +31,26 @@ COPY . /app
 RUN python -m pip install --upgrade pip setuptools wheel \
  && python -m pip install --no-cache-dir -r docker/requirements.txt
 
-# Install Rust toolchain non-interactively and maturin is already installed via pip
+# Install Rust toolchain non-interactively
 # rustup bootstrap; installs toolchain (stable)
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
  && rustup toolchain install stable \
  && rustup default stable
 
-# Build and install the Rust-Python extension into the container's Python environment.
-# Use --manifest-path to avoid workspace detection issues.
-RUN python -m maturin develop --release --manifest-path rust_connector/Cargo.toml
+# Build and install the Rust-Python extensions into the container's system Python.
+# Docker workflow: Use 'maturin build' + 'pip install' (no virtualenv required)
+# 'maturin develop' requires virtualenv; in Docker we build wheel and install it
+RUN python -m maturin build --release --manifest-path rust_connector/Cargo.toml && \
+    pip install --no-cache-dir target/wheels/rust_connector-*.whl
+
+# Optionally build other bindings (uncomment as needed):
+# RUN python -m maturin build --release --manifest-path rust_python_bindings/Cargo.toml && \
+#     pip install --no-cache-dir target/wheels/hft_py-*.whl
+# RUN python -m maturin build --release --manifest-path rust_core/signature_optimal_stopping_py/Cargo.toml && \
+#     pip install --no-cache-dir target/wheels/sig_optimal_stopping-*.whl
+
+# Verify installation
+RUN python -c "import rust_connector; print('✓ rust_connector loaded successfully')"
 
 # Expose Streamlit port and run the app
 EXPOSE 8501

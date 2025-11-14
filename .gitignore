@@ -1,0 +1,105 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+*.pdb
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.conda/
+source/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment variables and secrets
+.env
+.env.local
+*.key
+*.pem
+*.crt
+*.cert
+secrets/
+credentials/
+
+# Logs
+*.log
+
+# OS specific
+Thumbs.db
+
+# Backup files
+*.bak
+*.save
+*.backup
+
+# Docker (keep .dockerignore in repo, ignore runtime data)
+docker-volumes/
+*.docker.pid
+
+# GitHub specific
+.github/
+
+# Maturin/PyO3
+*.whl
+wheels/
+
+# Python compiled extensions
+*.so
+*.dylib
+*.dll
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.*.swp
+.*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python version files
+.python-version
+.venv*/

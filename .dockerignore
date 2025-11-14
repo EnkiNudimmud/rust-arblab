@@ -1,0 +1,54 @@
+# Python virtual environments
+.venv/
+.venv39/
+venv/
+env/
+ENV/
+source/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Rust build artifacts
+target/
+rust_core/target/
+rust_connector/target/
+rust_python_bindings/target/
+**/target/
+Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Documentation builds
+docs/_build/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local

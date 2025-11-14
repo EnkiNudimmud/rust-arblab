@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3_asyncio::tokio::future_into_py;
 use connectors_common::types::MarketTick;
 use aggregator::Aggregator;
 use tokio::sync::{mpsc, broadcast, oneshot};
@@ -32,20 +31,22 @@ impl PyAggregator {
         }
     }
 
-    fn subscribe<'py>(&self, py: Python<'py>, callback: PyObject) -> PyResult<&'py PyAny> {
+    fn subscribe(&self, callback: PyObject) -> PyResult<()> {
         let mut rx = self.inner.subscribe();
         let cb = callback.clone();
-        future_into_py(py, async move {
+        
+        // Spawn a background task to handle the subscription
+        tokio::spawn(async move {
             loop {
                 match rx.recv().await {
                     Ok(tick) => {
                         Python::with_gil(|py| {
-                            let dict = PyDict::new(py);
-                            dict.set_item("exchange", tick.exchange.clone()).ok();
-                            dict.set_item("pair", tick.pair.clone()).ok();
-                            dict.set_item("bid", tick.bid).ok();
-                            dict.set_item("ask", tick.ask).ok();
-                            dict.set_item("ts", tick.ts).ok();
+                            let dict = PyDict::new_bound(py);
+                            let _ = dict.set_item("exchange", tick.exchange.clone());
+                            let _ = dict.set_item("pair", tick.pair.clone());
+                            let _ = dict.set_item("bid", tick.bid);
+                            let _ = dict.set_item("ask", tick.ask);
+                            let _ = dict.set_item("ts", tick.ts);
                             let _ = cb.call1(py, (dict,));
                         });
                     }
@@ -53,8 +54,9 @@ impl PyAggregator {
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 }
             }
-            Ok(())
-        })
+        });
+        
+        Ok(())
     }
 
     fn create_input_channel_py(&self, buffer: usize) -> PyResult<usize> {
@@ -134,7 +136,7 @@ impl PyAggregator {
 }
 
 #[pymodule]
-fn hft_py(_py: Python, m: &PyModule) -> PyResult<()> {
+fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAggregator>()?;
     Ok(())
 }

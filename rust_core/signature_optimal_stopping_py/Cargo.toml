@@ -8,10 +8,12 @@ name = "signature_optimal_stopping_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.18", features = ["extension-module", "auto-initialize"] }
+# Use PyO3 with stable ABI for maximum compatibility
+pyo3 = { version = "0.21", features = ["extension-module", "abi3-py38"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
-signature_optimal_stopping = { path = "../signature_optimal_stopping" }
-log = "0.4"
 env_logger = "0.10"
+
+# Local signature crate
+signature_optimal_stopping = { path = "../signature_optimal_stopping" }

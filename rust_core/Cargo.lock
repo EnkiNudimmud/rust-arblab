@@ -140,3 +140,22 @@ name = "unicode-ident"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "462eeb75aeb73aea900253ce739c8e18a67423fadf006037cd3ff27e82748a06"
+
+[[package]]
+name = "pyo3"
+version = "0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "TODO: Add checksum"
+features = [
+ "extension-module",
+ "abi3-py38",
+]
+
+[[package]]
+name = "pyo3-asyncio"
+version = "0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "TODO: Add checksum"
+features = [
+ "tokio-runtime",
+]

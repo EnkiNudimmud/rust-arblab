@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(pwd)/rust-hft-arbitrage-lab-mods"
+ROOT_DIR="$(pwd)/rust-hft-arbitrage-lab"
 echo "Création de l'arborescence dans ${ROOT_DIR}"
 rm -rf "${ROOT_DIR}"
 mkdir -p "${ROOT_DIR}"

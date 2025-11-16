@@ -7,11 +7,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/usr/local/cargo/bin:$PATH \
     PYTHONPATH=/app
 
-# Install system dependencies
+# Install system dependencies including patchelf for maturin
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl git ca-certificates pkg-config \
     libssl-dev clang cmake python3-dev \
     libopenblas-dev liblapack-dev \
+    patchelf \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

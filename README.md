@@ -1,5 +1,6 @@
-```markdown
 # rust-hft-arbitrage-lab
+
+> **🚀 Quick Start**: Run `./setup_env.sh` for guided setup, or see [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for command cheatsheet
 
 A modular, Docker-ready research lab for high-frequency trading (HFT) and arbitrage research.
 This project combines Rust (for low-latency connectors and numeric kernels) and Python (for research, backtesting and visualization) to provide an end-to-end environment:
@@ -15,6 +16,238 @@ Quick summary
 - Rust connector skeleton (WebSocket example + orderbook parsing + compute primitives).
 - Streamlit app for visually running and inspecting strategies.
 - Dockerfile that builds Rust and Python inside a container for consistent builds across hosts.
+
+---
+
+## 🚀 Quick Environment Setup
+
+### System Requirements
+- **Python**: 3.11+ (3.11 recommended)
+- **Rust**: Latest stable (install via [rustup](https://rustup.rs/))
+- **Shell**: bash/zsh (macOS/Linux) or PowerShell (Windows)
+- **Docker** (optional): Latest Docker Desktop or Docker Engine
+
+### Choose Your Environment
+
+#### Option A: Docker (Recommended - Consistent Across All Systems)
+```bash
+# 1. Build and start all services
+docker compose build
+docker compose up
+
+# 2. Access Streamlit UI
+# Open: http://localhost:8501
+
+# 3. Stop services
+docker compose down
+```
+
+**Docker Environment Details:**
+- Base Image: `python:3.11-slim`
+- Rust: Latest stable toolchain
+- System Dependencies: Pre-installed (build-essential, patchelf, libssl-dev, etc.)
+- Python Dependencies: Auto-installed from `docker/requirements.txt`
+- Rust Connector: Auto-built with maturin during image build
+
+#### Option B: Local Development (macOS/Linux)
+
+**Step 1: Install System Dependencies**
+```bash
+# macOS (using Homebrew)
+brew install rust python@3.11
+
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y build-essential curl git pkg-config \
+    libssl-dev python3.11 python3.11-dev python3-pip
+
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+**Step 2: Setup Python Environment**
+```bash
+# Using venv (lightweight)
+python3.11 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# OR using conda (recommended for macOS)
+conda create -n rhftlab python=3.11 -y
+conda activate rhftlab
+```
+
+**Step 3: Install Python Dependencies**
+```bash
+pip install --upgrade pip setuptools wheel maturin
+pip install -r docker/requirements.txt
+```
+
+**Step 4: Build Rust Connector**
+```bash
+# Build and install Rust extension into current Python environment
+maturin develop --manifest-path rust_connector/Cargo.toml --release
+```
+
+**Step 5: Run Application**
+```bash
+# Start Streamlit app
+streamlit run app/streamlit_app.py
+
+# OR start Jupyter for notebooks
+jupyter notebook examples/notebooks/
+```
+
+### Configuration Files
+
+#### API Keys Setup
+Create `api_keys.properties` in project root:
+```properties
+# Exchange API Keys (optional - for live trading)
+binance.api_key=your_binance_key_here
+binance.api_secret=your_binance_secret_here
+
+coinbase.api_key=your_coinbase_key_here
+coinbase.api_secret=your_coinbase_secret_here
+
+kraken.api_key=your_kraken_key_here
+kraken.api_secret=your_kraken_secret_here
+
+# Market Data (optional - for real-time data)
+finnhub.api_key=your_finnhub_key_here
+```
+
+**Note**: See `api_keys.properties.example` for template. Never commit real keys to git!
+
+### Rebuild Commands
+
+#### Full Clean Rebuild (Docker)
+```bash
+# Remove old containers and rebuild from scratch
+docker compose down --volumes --remove-orphans
+docker compose build --no-cache
+docker compose up
+```
+
+#### Rebuild Rust Connector (Local)
+```bash
+# Quick rebuild (incremental)
+maturin develop --manifest-path rust_connector/Cargo.toml --release
+
+# Clean rebuild
+cargo clean
+maturin develop --manifest-path rust_connector/Cargo.toml --release
+```
+
+#### Reset Python Environment (Local)
+```bash
+# Deactivate and remove venv
+deactivate
+rm -rf .venv
+
+# Recreate from scratch
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip setuptools wheel maturin
+pip install -r docker/requirements.txt
+maturin develop --manifest-path rust_connector/Cargo.toml --release
+```
+
+### Environment Variables Reference
+
+```bash
+# Optional: Finnhub API key for real market data
+export FINNHUB_API_KEY=your_key_here
+
+# Optional: Docker compose performance tuning
+export COMPOSE_BAKE=true
+
+# Python version (for venv creation)
+export PYTHON_VERSION=3.11
+
+# Rust compilation flags (optional optimization)
+export RUSTFLAGS="-C target-cpu=native"
+```
+
+### Shell-Specific Commands
+
+**Zsh/Bash (macOS/Linux)**
+```bash
+source .venv/bin/activate           # Activate venv
+source $HOME/.cargo/env             # Load Rust environment
+conda activate rhftlab              # Activate conda env
+```
+
+**PowerShell (Windows)**
+```powershell
+.venv\Scripts\Activate.ps1          # Activate venv
+conda activate rhftlab              # Activate conda env
+```
+
+### Verification Commands
+
+```bash
+# Check Python version
+python --version  # Should show 3.11.x
+
+# Check Rust version
+rustc --version   # Should show 1.70.0 or newer
+
+# Check if Rust connector is installed
+python -c "import rust_connector; print(rust_connector.__version__)"
+
+# List available connectors
+python -c "from python.rust_bridge import list_connectors; print(list_connectors())"
+
+# Test WebSocket streaming
+python test_websocket.py
+```
+
+### Troubleshooting Quick Fixes
+
+**Problem**: `maturin: command not found`
+```bash
+pip install --upgrade maturin
+```
+
+**Problem**: `ModuleNotFoundError: No module named 'rust_connector'`
+```bash
+maturin develop --manifest-path rust_connector/Cargo.toml --release
+```
+
+**Problem**: Docker build fails with "patchelf not found"
+- Fixed in latest Dockerfile (patchelf added to dependencies)
+- Run: `docker compose build --no-cache`
+
+**Problem**: Python/Rust ABI mismatch on macOS
+- Use conda environment instead of system Python
+- OR use Docker for consistent Linux build environment
+
+**Problem**: WebSocket not receiving updates
+- Ensure you're using latest code (fixed in recent commits)
+- Check that connector is properly initialized: `python test_websocket.py`
+
+---
+
+---
+
+## 📚 Documentation Quick Links
+
+### Setup & Configuration
+- **[SETUP_PATHS.md](SETUP_PATHS.md)** - 🎯 Visual decision tree (start here!)
+- **[ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md)** - Complete environment setup guide
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - One-page command cheatsheet
+- **[QUICK_CONFIG.md](QUICK_CONFIG.md)** - API keys configuration
+
+### Feature-Specific Guides
+- **[KRAKEN_WEBSOCKET_GUIDE.md](KRAKEN_WEBSOCKET_GUIDE.md)** - Kraken connector details
+- **[FINNHUB_USAGE.md](FINNHUB_USAGE.md)** - Market data configuration
+
+### Quick Actions
+- **Interactive Setup**: Run `./setup_env.sh` for guided wizard
+- **Quick Commands**: Run `make help` for all available commands
+
+---
 
 Table of contents
 1. Features

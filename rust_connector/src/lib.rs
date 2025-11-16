@@ -23,6 +23,8 @@ use env_logger;
 use log::{info, warn};
 use fastrand;
 
+mod meanrev;
+
 /// OrderBook struct sent to Python
 #[pyclass]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -532,5 +534,19 @@ fn rust_connector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_dex_cex_arbitrage, m)?)?;
     m.add_function(wrap_pyfunction!(list_connectors, m)?)?;
     m.add_function(wrap_pyfunction!(get_connector, m)?)?;
+    
+    // Register mean-reversion functions
+    m.add_function(wrap_pyfunction!(meanrev::compute_pca_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::estimate_ou_process_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::cointegration_test_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::backtest_strategy_rust, m)?)?;
+    
+    // Register advanced mean-reversion functions
+    m.add_function(wrap_pyfunction!(meanrev::cara_optimal_weights_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::sharpe_optimal_weights_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::backtest_with_costs_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::optimal_thresholds_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(meanrev::multiperiod_optimize_rust, m)?)?;
+    
     Ok(())
 }

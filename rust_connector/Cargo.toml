@@ -33,3 +33,7 @@ ethers-providers = "2.0.14"
 ethers-contract = "2.0.14"
 ethers-signers = "2.0.14"
 ethers-middleware = "2.0.14"
+
+# Linear algebra for mean-reversion algorithms
+ndarray = { version = "0.15", features = ["serde"] }
+nalgebra = "0.32"

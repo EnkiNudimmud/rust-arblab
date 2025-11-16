@@ -271,14 +271,29 @@ Table of contents
   - ✅ Real-time quotes and WebSocket streaming
   - ✅ Automatic fallback to synthetic data
   - 📖 See `FINNHUB_USAGE.md` for details
-- Rust connector exported as a Python extension using PyO3 (fast orderbook parsing, example triangular compute).
+  
+- **⚡ Mean-Reversion Portfolio Discovery** (NEW - based on d'Aspremont 2011):
+  - ✅ High-performance Rust implementation (10-100x speedup)
+  - ✅ PCA-based portfolio construction
+  - ✅ Ornstein-Uhlenbeck parameter estimation
+  - ✅ CARA utility maximization (Appendix A)
+  - ✅ Risk-adjusted portfolio weights (Sharpe optimization)
+  - ✅ Transaction cost modeling
+  - ✅ Optimal stopping times
+  - ✅ Multi-period portfolio optimization
+  - ✅ Interactive Streamlit UI (`streamlit_meanrev.py`)
+  - 📖 See `ADVANCED_MEANREV_FEATURES.md` for complete guide
+  
+- Rust connector exported as a Python extension using PyO3 (fast orderbook parsing, mean-reversion compute, triangular arbitrage).
 - Python bridge (`python/rust_bridge.py`) that exposes the Rust functions to notebooks / Streamlit.
 - Backtesting core (`python/backtest/core.py`) with:
   - Trade execution simulation
   - Mark-to-market equity curve recording
   - Metrics: returns, Sharpe (annualized), max drawdown
   - Plotly visualizations
-- **11 Jupyter Notebooks** with real Finnhub data integration:
+  
+- **12 Jupyter Notebooks** with real Finnhub data integration:
+  - `mean_rev_vec.ipynb` - **NEW**: Mean-reverting portfolios with PCA
   - `triangular_arbitrage.ipynb` - Crypto cross-rate arbitrage
   - `stat_arb_pairs.ipynb` - Statistical arbitrage pairs trading
   - `market_making.ipynb` - Market making strategy
@@ -291,11 +306,14 @@ Table of contents
   - `triangular_signature_optimal_stopping.ipynb` - Combined approach
   - `ws_orderbook_client_demo.ipynb` - WebSocket demo
   Each notebook contains equations, inline commentary, fallback implementations and visualization cells.
-- **Two Streamlit Apps**:
+  
+- **Three Streamlit Apps**:
   - `streamlit_app.py` - Market data explorer with live connectors
   - `streamlit_strategies.py` - Strategy backtesting with real/synthetic data
+  - `streamlit_meanrev.py` - **NEW**: Interactive mean-reversion portfolio discovery
   - Attempts to start the Rust WebSocket connector if built
   - Displays equity, trades, orderbook snapshots and metrics
+  
 - Docker-based reproducible build (Rust + Python built inside container using maturin).
 
 ---

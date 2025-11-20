@@ -1,21 +1,27 @@
 # rust-hft-arbitrage-lab
 
-> **🚀 Quick Start**: Run `./setup_env.sh` for guided setup, or see [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for command cheatsheet
+> **🚀 Quick Start**: Run `./setup_env.sh` for guided setup, or see [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for command cheatsheet  
+> **🎯 NEW**: Multi-Strategy Dashboard! Run `streamlit run app/streamlit_all_strategies.py` - See [DASHBOARD_QUICKSTART.md](DASHBOARD_QUICKSTART.md)
 
 A modular, Docker-ready research lab for high-frequency trading (HFT) and arbitrage research.
 This project combines Rust (for low-latency connectors and numeric kernels) and Python (for research, backtesting and visualization) to provide an end-to-end environment:
 
-- Rust <-> Python bridge (PyO3 / maturin)
-- Research notebooks (Triangular Arbitrage, Market Making, Pair Trading)
-- Reusable Python backtester (PnL, Sharpe, drawdown)
-- Streamlit UI for interactive backtesting, simulation and connector-driven live/paper runs
+- **🆕 Multi-Strategy Trading Dashboard** with 4+ strategies, rich visualizations, and side-by-side comparison
+- Rust <-> Python bridge (PyO3 / maturin) for 10-100× performance gains
+- Research notebooks (Triangular Arbitrage, Market Making, Pair Trading, Mean Reversion, Statistical Arbitrage)
+- Reusable Python backtester (PnL, Sharpe, drawdown, transaction costs)
+- Advanced mean-reversion suite (CARA, Sharpe optimization, multi-period, optimal stopping)
+- Streamlit UIs for interactive backtesting, simulation and connector-driven live/paper runs
 - Docker recipes to build & run everything reproducibly
 
-Quick summary
-- Ready-to-run notebooks with fallback Python implementations (so you can run them even without the Rust extension).
-- Rust connector skeleton (WebSocket example + orderbook parsing + compute primitives).
-- Streamlit app for visually running and inspecting strategies.
-- Dockerfile that builds Rust and Python inside a container for consistent builds across hosts.
+**Key Features:**
+- ✅ **4+ Trading Strategies**: Mean Reversion, Pairs Trading, Triangular Arb, Market Making
+- ✅ **Mathematical Theory**: LaTeX equations and detailed explanations
+- ✅ **Rich Visualizations**: Interactive Plotly charts with hover/zoom/pan
+- ✅ **Multi-Strategy Backtesting**: Compare performance side-by-side
+- ✅ **Rust Acceleration**: High-performance computation for large datasets
+- ✅ **Real-World Data**: Finnhub integration + synthetic fallback
+- ✅ **Production-Ready**: Transaction costs, risk metrics, comprehensive testing
 
 ---
 
@@ -91,12 +97,54 @@ maturin develop --manifest-path rust_connector/Cargo.toml --release
 
 **Step 5: Run Application**
 ```bash
-# Start Streamlit app
+# 🆕 Multi-Strategy Dashboard (RECOMMENDED)
+streamlit run app/streamlit_all_strategies.py
+
+# OR Original Streamlit app
 streamlit run app/streamlit_app.py
+
+# OR Mean Reversion app
+streamlit run app/streamlit_meanrev.py
 
 # OR start Jupyter for notebooks
 jupyter notebook examples/notebooks/
 ```
+
+---
+
+## 🎯 Multi-Strategy Trading Dashboard
+
+**NEW**: A comprehensive trading system with 4+ strategies, rich visualizations, and side-by-side backtesting!
+
+### Quick Launch
+```bash
+streamlit run app/streamlit_all_strategies.py
+# Open browser to: http://localhost:8501
+```
+
+### Features
+- **4+ Strategies**: Mean Reversion (PC1/CARA/Sharpe), Pairs Trading, Triangular Arbitrage, Market Making
+- **Mathematical Theory**: LaTeX equations and detailed explanations for each strategy
+- **Rich Visualizations**: Interactive Plotly charts (hover, zoom, pan)
+- **Multi-Strategy Comparison**: Side-by-side performance analysis
+- **Real-Time Backtesting**: Instant parameter updates
+- **Performance Metrics**: Sharpe ratio, Max Drawdown, Total PnL, Volatility
+
+### Documentation
+- **Quick Start**: [DASHBOARD_QUICKSTART.md](DASHBOARD_QUICKSTART.md) - Get started in 5 minutes
+- **User Guide**: [MULTI_STRATEGY_GUIDE.md](MULTI_STRATEGY_GUIDE.md) - Comprehensive documentation
+- **Implementation**: [MULTI_STRATEGY_SUMMARY.md](MULTI_STRATEGY_SUMMARY.md) - Technical details
+
+### Screenshots
+The dashboard includes:
+- Interactive parameter controls (sidebar)
+- Strategy theory sections with equations
+- Individual strategy visualizations (PnL, spread, z-score, inventory)
+- Multi-strategy comparison chart
+- Performance metrics table
+- Portfolio weights heatmap
+
+---
 
 ### Configuration Files
 

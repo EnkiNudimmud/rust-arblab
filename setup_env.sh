@@ -295,7 +295,22 @@ install_python_deps() {
     print_info "Upgrading pip, setuptools, wheel, maturin..."
     $PYTHON_CMD -m pip install --upgrade pip setuptools wheel maturin
     
-    if [ -f "docker/requirements.txt" ]; then
+    # Detect Python version and choose appropriate requirements file
+    PY_MAJOR=$($PYTHON_CMD -c "import sys; print(sys.version_info.major)")
+    PY_MINOR=$($PYTHON_CMD -c "import sys; print(sys.version_info.minor)")
+    
+    if [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -ge 13 ]; then
+        # Python 3.13+ - use Python 3.13 compatible requirements
+        if [ -f "requirements-py313.txt" ]; then
+            print_info "Detected Python 3.$PY_MINOR - using requirements-py313.txt..."
+            $PYTHON_CMD -m pip install -r requirements-py313.txt
+        else
+            print_warning "requirements-py313.txt not found, falling back to app/requirements.txt"
+            if [ -f "app/requirements.txt" ]; then
+                $PYTHON_CMD -m pip install -r app/requirements.txt
+            fi
+        fi
+    elif [ -f "docker/requirements.txt" ]; then
         print_info "Installing from docker/requirements.txt..."
         $PYTHON_CMD -m pip install -r docker/requirements.txt
         print_success "Python dependencies installed"

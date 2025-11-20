@@ -6,6 +6,8 @@ use tokio::sync::{mpsc, broadcast, oneshot};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
+mod chiarella_bindings;
+
 type HandleId = u64;
 
 struct ConnectorHandle {
@@ -138,5 +140,11 @@ impl PyAggregator {
 #[pymodule]
 fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAggregator>()?;
+    
+    // Add Chiarella model submodule
+    Python::with_gil(|py| {
+        chiarella_bindings::register_chiarella_module(py, m)
+    })?;
+    
     Ok(())
 }

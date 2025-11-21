@@ -8,6 +8,8 @@ use std::collections::HashMap;
 
 // mod chiarella_bindings;  // Temporarily disabled - missing rust_core dependency
 mod analytics_bindings;
+mod options_bindings;
+mod rough_heston_bindings;
 
 type HandleId = u64;
 
@@ -146,6 +148,14 @@ fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let analytics = PyModule::new_bound(m.py(), "analytics")?;
     analytics_bindings::register_analytics(m.py(), &analytics)?;
     m.add_submodule(&analytics)?;
+    
+    // Add options submodule
+    let options = PyModule::new_bound(m.py(), "options")?;
+    options_bindings::register_options(m.py(), &options)?;
+    m.add_submodule(&options)?;
+    
+    // Add rough Heston submodule
+    rough_heston_bindings::register_rough_heston(m)?;
     
     Ok(())
 }

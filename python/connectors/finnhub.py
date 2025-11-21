@@ -49,12 +49,11 @@ class FinnhubConnector:
         self.ws = None
         self.ws_thread = None
         self.running = False
-        self.callback = None
         
-        # Maintain latest quote as synthetic orderbook
-        self.latest_bid = None
-        self.latest_ask = None
-        self.latest_symbol = None
+        # Support multiple symbols on single connection
+        self.callbacks = {}  # symbol -> callback
+        self.subscribed_symbols = set()
+        self.latest_prices = {}  # symbol -> {bid, ask}
         
         # Lock for thread-safe updates
         self._lock = threading.Lock()
@@ -74,10 +73,11 @@ class FinnhubConnector:
         """
         # If WebSocket stream is running, return cached data
         with self._lock:
-            if self.latest_bid is not None and self.latest_ask is not None:
+            if symbol in self.latest_prices:
+                prices = self.latest_prices[symbol]
                 return {
-                    "bids": [[self.latest_bid, 1.0]],
-                    "asks": [[self.latest_ask, 1.0]]
+                    "bids": [[prices['bid'], 1.0]],
+                    "asks": [[prices['ask'], 1.0]]
                 }
         
         # Otherwise, fetch via REST API
@@ -122,78 +122,134 @@ class FinnhubConnector:
     def start_stream(self, symbol: str, callback: Callable):
         """
         Start WebSocket stream for the given symbol.
+        Uses a single shared WebSocket connection for all symbols.
         Callback receives synthetic OrderBook objects.
         """
-        if self.running:
-            logger.warning("Stream already running, stopping first")
-            self.stop_stream()
+        with self._lock:
+            # Store callback for this symbol
+            self.callbacks[symbol] = callback
+            self.subscribed_symbols.add(symbol)
         
-        self.callback = callback
-        self.latest_symbol = symbol
-        self.running = True
-        
-        self.ws_thread = threading.Thread(
-            target=self._ws_run,
-            args=(symbol,),
-            daemon=True
-        )
-        self.ws_thread.start()
-        logger.info(f"Started Finnhub stream for {symbol}")
+        # If connection not running, start it
+        if not self.running:
+            self.running = True
+            self.ws_thread = threading.Thread(
+                target=self._ws_run,
+                daemon=True
+            )
+            self.ws_thread.start()
+            logger.info(f"Started Finnhub WebSocket connection")
+        else:
+            # Connection already running, just subscribe to new symbol
+            if self.ws:
+                try:
+                    subscribe_msg = json.dumps({"type": "subscribe", "symbol": symbol})
+                    self.ws.send(subscribe_msg)
+                    logger.info(f"Subscribed to {symbol} on existing connection")
+                except Exception as e:
+                    logger.error(f"Failed to subscribe to {symbol}: {e}")
     
     def stop_stream(self, symbol: Optional[str] = None):
-        """Stop the WebSocket stream."""
-        self.running = False
-        if self.ws:
-            try:
-                self.ws.close()
-            except Exception as e:
-                logger.debug(f"Error closing websocket (ignoring): {e}")
-        if self.ws_thread and self.ws_thread.is_alive():
-            self.ws_thread.join(timeout=2)
-        logger.info("Stopped Finnhub stream")
-    
-    def latest_snapshot(self):
-        """Return latest synthetic orderbook."""
-        with self._lock:
-            if self.latest_bid is None or self.latest_ask is None:
-                return None
+        """Stop the WebSocket stream for a symbol or all symbols."""
+        if symbol:
+            # Unsubscribe specific symbol
+            with self._lock:
+                if symbol in self.subscribed_symbols:
+                    self.subscribed_symbols.discard(symbol)
+                    self.callbacks.pop(symbol, None)
+                    self.latest_prices.pop(symbol, None)
             
-            # Return dict that mimics Rust OrderBook structure
-            return {
-                "bids": [[self.latest_bid, 1.0]],
-                "asks": [[self.latest_ask, 1.0]]
-            }
+            if self.ws:
+                try:
+                    unsubscribe_msg = json.dumps({"type": "unsubscribe", "symbol": symbol})
+                    self.ws.send(unsubscribe_msg)
+                    logger.info(f"Unsubscribed from {symbol}")
+                except Exception as e:
+                    logger.debug(f"Error unsubscribing (ignoring): {e}")
+        else:
+            # Stop entire connection
+            self.running = False
+            if self.ws:
+                try:
+                    self.ws.close()
+                except Exception as e:
+                    logger.debug(f"Error closing websocket (ignoring): {e}")
+            if self.ws_thread and self.ws_thread.is_alive():
+                self.ws_thread.join(timeout=2)
+            
+            with self._lock:
+                self.subscribed_symbols.clear()
+                self.callbacks.clear()
+                self.latest_prices.clear()
+            
+            logger.info("Stopped Finnhub WebSocket connection")
     
-    def _ws_run(self, symbol: str):
-        """WebSocket thread main loop."""
+    def latest_snapshot(self, symbol: Optional[str] = None):
+        """Return latest synthetic orderbook for a symbol."""
+        with self._lock:
+            if symbol and symbol in self.latest_prices:
+                prices = self.latest_prices[symbol]
+                return {
+                    "bids": [[prices['bid'], 1.0]],
+                    "asks": [[prices['ask'], 1.0]]
+                }
+            elif not symbol and self.latest_prices:
+                # Return first available symbol's data
+                first_symbol = next(iter(self.latest_prices))
+                prices = self.latest_prices[first_symbol]
+                return {
+                    "bids": [[prices['bid'], 1.0]],
+                    "asks": [[prices['ask'], 1.0]]
+                }
+            return None
+    
+    def _ws_run(self):
+        """WebSocket thread main loop - handles all subscribed symbols."""
         def on_message(ws, message):
             try:
                 data = json.loads(message)
-                if data.get("type") == "trade":
-                    # Trade update: {type: 'trade', data: [{p: price, s: symbol, t: time, v: volume}]}
-                    for trade in data.get("data", []):
-                        price = trade.get("p")
-                        if price:
-                            # Update both bid and ask with small spread
-                            spread = price * 0.0001  # 1 bps spread
-                            with self._lock:
-                                self.latest_bid = price - spread / 2
-                                self.latest_ask = price + spread / 2
-                            
-                            # Call callback with synthetic orderbook
-                            if self.callback:
-                                try:
-                                    ob = self._create_orderbook()
-                                    self.callback(ob)
-                                except Exception as e:
-                                    logger.error(f"Callback error: {e}")
+                msg_type = data.get("type")
                 
-                elif data.get("type") == "ping":
+                if msg_type == "trade":
+                    # Trade update: {type: 'trade', data: [{p: price, s: symbol, t: time, v: volume}]}
+                    trades = data.get("data", [])
+                    logger.info(f"Trade message with {len(trades)} trades")
+                    
+                    for trade in trades:
+                        trade_symbol = trade.get("s")  # Get symbol from trade data
+                        price = trade.get("p")
+                        
+                        if price and trade_symbol:
+                            # Update bid/ask with small spread
+                            spread = price * 0.0001  # 1 bps spread
+                            bid = price - spread / 2
+                            ask = price + spread / 2
+                            
+                            with self._lock:
+                                self.latest_prices[trade_symbol] = {'bid': bid, 'ask': ask}
+                                callback = self.callbacks.get(trade_symbol)
+                            
+                            logger.info(f"{trade_symbol}: Updated from trade - bid=${bid:.2f}, ask=${ask:.2f}")
+                            
+                            # Call callback if registered
+                            if callback:
+                                try:
+                                    ob = self._create_orderbook(bid, ask)
+                                    callback(ob)
+                                except Exception as e:
+                                    logger.error(f"{trade_symbol}: Callback error: {e}")
+                
+                elif msg_type == "ping":
                     # Respond to ping
                     ws.send(json.dumps({"type": "pong"}))
+                    logger.debug("Ping/pong")
+                
+                else:
+                    # Log first unknown message type, then debug level
+                    logger.info(f"Message type: {msg_type}, data: {data}")
                 
             except Exception as e:
-                logger.error(f"Message parsing error: {e}")
+                logger.error(f"Message parsing error: {e}, raw: {message[:200]}")
         
         def on_error(ws, error):
             logger.error(f"WebSocket error: {error}")
@@ -202,13 +258,19 @@ class FinnhubConnector:
             logger.info(f"WebSocket closed: {close_status_code} - {close_msg}")
         
         def on_open(ws):
-            logger.info(f"WebSocket opened, subscribing to {symbol}")
-            # Subscribe to trades
-            subscribe_msg = json.dumps({
-                "type": "subscribe",
-                "symbol": symbol
-            })
-            ws.send(subscribe_msg)
+            logger.info(f"WebSocket connection opened")
+            # Subscribe to all requested symbols
+            with self._lock:
+                symbols_to_subscribe = list(self.subscribed_symbols)
+            
+            for sym in symbols_to_subscribe:
+                try:
+                    subscribe_msg = json.dumps({"type": "subscribe", "symbol": sym})
+                    ws.send(subscribe_msg)
+                    logger.info(f"Subscribed to {sym}")
+                    time.sleep(0.1)  # Small delay between subscriptions
+                except Exception as e:
+                    logger.error(f"Failed to subscribe to {sym}: {e}")
         
         # Create WebSocket connection
         self.ws = websocket.WebSocketApp(
@@ -222,22 +284,21 @@ class FinnhubConnector:
         # Run WebSocket (blocks until closed)
         self.ws.run_forever()
     
-    def _create_orderbook(self):
-        """Create synthetic OrderBook-like object from latest quote."""
-        with self._lock:
-            # Try to import Rust OrderBook if available
-            try:
-                import rust_connector
-                return rust_connector.OrderBook(
-                    bids=[[self.latest_bid, 1.0]],
-                    asks=[[self.latest_ask, 1.0]]
-                )
-            except Exception:
-                # Return dict fallback
-                return {
-                    "bids": [[self.latest_bid, 1.0]],
-                    "asks": [[self.latest_ask, 1.0]]
-                }
+    def _create_orderbook(self, bid: float, ask: float):
+        """Create synthetic OrderBook-like object from bid/ask prices."""
+        # Try to import Rust OrderBook if available
+        try:
+            import rust_connector
+            return rust_connector.OrderBook(
+                bids=[[bid, 1.0]],
+                asks=[[ask, 1.0]]
+            )
+        except Exception:
+            # Return dict fallback
+            return {
+                "bids": [[bid, 1.0]],
+                "asks": [[ask, 1.0]]
+            }
     
     def set_api_credentials(self, api_key: str, api_secret: str):
         """Update API credentials (for compatibility with auth interface)."""

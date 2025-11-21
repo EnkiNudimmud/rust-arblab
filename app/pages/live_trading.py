@@ -86,6 +86,9 @@ def configure_live_trading():
     
     use_websocket = connection_mode == "Streaming (WebSocket)"
     
+    if use_websocket:
+        st.info("💡 **WebSocket Tips:**\n- Use crypto symbols: `BINANCE:BTCUSDT`, `BINANCE:ETHUSDT`\n- Stock symbols require Finnhub premium tier\n- Free tier: max 1 connection (shared across all symbols)")
+    
     if connection_mode == "Polling (REST)":
         update_interval = st.slider(
             "Update Interval (ms)",
@@ -211,6 +214,7 @@ def start_live_trading(connector_name: str, symbols: List[str], use_websocket: b
     st.session_state.live_update_interval = update_interval  # Store interval for polling
     st.session_state.live_start_time = datetime.now()
     st.session_state.live_ws_status = {}  # Track WebSocket status per symbol
+    st.session_state.live_ws_logs = []  # WebSocket debug logs
     
     # Initialize trade log if needed
     if 'trade_log' not in st.session_state:
@@ -232,29 +236,55 @@ def start_live_trading(connector_name: str, symbols: List[str], use_websocket: b
     
     st.rerun()
 
+def log_ws(message: str, level: str = "INFO"):
+    """Add log entry to WebSocket log buffer"""
+    if 'live_ws_logs' not in st.session_state:
+        st.session_state.live_ws_logs = []
+    
+    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    log_entry = f"[{timestamp}] {level}: {message}"
+    st.session_state.live_ws_logs.append(log_entry)
+    
+    # Keep last 100 logs
+    if len(st.session_state.live_ws_logs) > 100:
+        st.session_state.live_ws_logs = st.session_state.live_ws_logs[-100:]
+
 def start_websocket_streams(connector_name: str, symbols: List[str]):
     """Start WebSocket streams for specified symbols"""
     
+    log_ws(f"Starting WebSocket streams for {len(symbols)} symbols: {symbols}")
+    
     try:
+        log_ws(f"Getting connector: {connector_name}")
         connector = get_connector(connector_name)
+        log_ws(f"Connector obtained: {type(connector).__name__}")
         
         # Check if connector supports streaming
         if not hasattr(connector, 'start_stream'):
+            log_ws(f"ERROR: Connector {connector_name} does not support WebSocket streaming", "ERROR")
             st.error(f"{connector_name} connector does not support WebSocket streaming")
             st.session_state.live_use_websocket = False
             return
         
+        log_ws("Connector supports WebSocket streaming")
+        
         # Create a thread-safe queue for WebSocket data
         if 'ws_data_queue' not in st.session_state:
             st.session_state.ws_data_queue = queue.Queue()
+            log_ws("Created new WebSocket data queue")
         
         # Get the queue reference (DO NOT access session_state inside callbacks)
         data_queue = st.session_state.ws_data_queue
+        log_ws("Queue reference obtained")
         
         # Define callback for WebSocket updates
         def create_callback(symbol):
+            callback_count = [0]  # Mutable counter for closure
+            
             def callback(orderbook):
                 try:
+                    callback_count[0] += 1
+                    
                     # Extract top of book
                     bid, ask = extract_top_of_book(orderbook)
                     
@@ -270,7 +300,14 @@ def start_websocket_streams(connector_name: str, symbols: List[str]):
                         # Put data in thread-safe queue (using captured reference, NOT session_state)
                         data_queue.put(data_point)
                         
+                        # Log every 10th callback to avoid spam
+                        if callback_count[0] % 10 == 0:
+                            log_ws(f"{symbol}: Received update #{callback_count[0]} - bid=${bid:.2f}, ask=${ask:.2f}")
+                    else:
+                        log_ws(f"{symbol}: Invalid bid/ask - bid={bid}, ask={ask}", "WARN")
+                        
                 except Exception as e:
+                    log_ws(f"{symbol}: Callback error - {e}", "ERROR")
                     # Queue error status update
                     error_status = {
                         'type': 'error',
@@ -282,15 +319,21 @@ def start_websocket_streams(connector_name: str, symbols: List[str]):
             return callback
         
         # Start streams for each symbol
+        log_ws(f"Starting streams for {len(symbols)} symbols...")
+        
         for symbol in symbols:
             try:
+                log_ws(f"{symbol}: Calling connector.start_stream()")
                 connector.start_stream(symbol, create_callback(symbol))
+                log_ws(f"{symbol}: Stream started successfully")
+                
                 st.session_state.live_ws_status[symbol] = {
                     'connected': True,
                     'last_update': datetime.now(),
                     'update_count': 0
                 }
             except Exception as e:
+                log_ws(f"{symbol}: Failed to start stream - {e}", "ERROR")
                 st.session_state.live_ws_status[symbol] = {
                     'connected': False,
                     'error': str(e),
@@ -423,6 +466,14 @@ def display_live_feed():
     use_websocket = st.session_state.get('live_use_websocket', False)
     if use_websocket:
         display_websocket_status()
+        
+        # Show WebSocket logs for debugging
+        with st.expander("🔍 WebSocket Debug Logs", expanded=False):
+            logs = st.session_state.get('live_ws_logs', [])
+            if logs:
+                st.code("\n".join(logs[-30:]), language="log")  # Show last 30 logs
+            else:
+                st.info("No logs yet. Logs will appear here when WebSocket activity occurs.")
     
     # Fetch live data
     fetch_live_data()
@@ -609,6 +660,7 @@ def fetch_websocket_snapshots():
                     # Handle error status
                     symbol = data.get('symbol', 'unknown')
                     error = data.get('error', 'Unknown error')
+                    log_ws(f"{symbol}: Error received - {error}", "ERROR")
                     st.session_state.live_ws_status[symbol] = {
                         'connected': False,
                         'error': error,
@@ -631,6 +683,10 @@ def fetch_websocket_snapshots():
                         # Add to buffer
                         st.session_state.live_data_buffer.append(data)
                         st.session_state.ws_last_chart_update[symbol] = now
+                        
+                        # Log buffer growth
+                        if len(st.session_state.live_data_buffer) % 50 == 0:
+                            log_ws(f"Buffer size: {len(st.session_state.live_data_buffer)} data points")
                         
                         # Keep buffer size manageable
                         if len(st.session_state.live_data_buffer) > 1000:

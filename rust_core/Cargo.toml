@@ -14,3 +14,5 @@ reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 connectors_common = { path = "../common" }
 log = "0.4"
 env_logger = "0.10"
+libm = "0.2"
+rand = "0.8"

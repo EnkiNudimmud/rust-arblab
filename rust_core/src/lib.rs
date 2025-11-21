@@ -3,3 +3,5 @@ pub mod matching_engine;
 pub mod stream; 
 pub mod signature_optimal_stopping;
 pub mod chiarella;
+pub mod options;
+pub mod rough_heston;

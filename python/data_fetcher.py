@@ -14,8 +14,15 @@ import time
 
 try:
     from python.finnhub_helper import fetch_ohlcv as fh_fetch_ohlcv
+    FH_AVAILABLE = True
 except ImportError:
     fh_fetch_ohlcv = None
+    FH_AVAILABLE = False
+except Exception as e:
+    fh_fetch_ohlcv = None
+    FH_AVAILABLE = False
+    import logging
+    logging.getLogger(__name__).warning(f"Could not import Finnhub helper: {e}")
 
 try:
     import yfinance as yf
@@ -46,7 +53,7 @@ def fetch_intraday_data(
     
     if source == "auto":
         # Try sources in order of preference
-        if fh_fetch_ohlcv is not None and interval in ["1h", "1d"]:
+        if FH_AVAILABLE and fh_fetch_ohlcv is not None:
             source = "finnhub"
         elif YF_AVAILABLE:
             source = "yfinance"
@@ -99,8 +106,14 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
 
 def _fetch_finnhub(symbols: List[str], start: str, end: str, interval: str) -> pd.DataFrame:
     """Fetch data from Finnhub."""
-    if fh_fetch_ohlcv is None:
-        raise ImportError("Finnhub helper not available")
+    if not FH_AVAILABLE or fh_fetch_ohlcv is None:
+        raise ImportError(
+            "Finnhub helper not available. This could be due to:\n"
+            "1. Missing api_keys.properties file\n"
+            "2. Invalid FINNHUB_API_KEY in api_keys.properties\n"
+            "3. Missing python.connectors.finnhub module\n"
+            "Please check your configuration and try 'Yahoo Finance' instead."
+        )
     
     start_dt = pd.to_datetime(start)
     end_dt = pd.to_datetime(end)

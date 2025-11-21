@@ -714,3 +714,7 @@ def render_strategy_builder():
         render_cash_secured_put(spot_price, T, risk_free_rate, volatility)
     elif selected_strategy == "Ratio Spread":
         render_ratio_spread(spot_price, T, risk_free_rate, volatility)
+
+# Execute the render function when page is loaded
+if __name__ == "__main__":
+    render()

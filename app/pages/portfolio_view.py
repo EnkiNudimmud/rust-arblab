@@ -585,7 +585,7 @@ def manage_portfolio():
         quantity = st.number_input("Quantity", value=1.0, key="manual_qty")
         price = st.number_input("Price", value=100.0, key="manual_price")
         
-        if st.button("Add Position"):
+        if st.button("Add Position", key="add_position_btn"):
             if symbol:
                 st.session_state.portfolio['positions'][symbol] = {
                     'quantity': quantity,
@@ -604,3 +604,7 @@ def manage_portfolio():
             file_name=f"portfolio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )
+
+# Execute the render function when page is loaded
+if __name__ == "__main__":
+    render()

@@ -140,12 +140,15 @@ class FinnhubConnector:
         self.ws_thread.start()
         logger.info(f"Started Finnhub stream for {symbol}")
     
-    def stop_stream(self):
+    def stop_stream(self, symbol: Optional[str] = None):
         """Stop the WebSocket stream."""
         self.running = False
         if self.ws:
-            self.ws.close()
-        if self.ws_thread:
+            try:
+                self.ws.close()
+            except Exception as e:
+                logger.debug(f"Error closing websocket (ignoring): {e}")
+        if self.ws_thread and self.ws_thread.is_alive():
             self.ws_thread.join(timeout=2)
         logger.info("Stopped Finnhub stream")
     

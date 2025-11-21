@@ -137,6 +137,69 @@ def fetch_historical_simulation(symbols: List[str], periods: int = 1000, api_key
     return pd.DataFrame(data)
 
 
+def fetch_ohlcv(symbol: str, start: pd.Timestamp, end: pd.Timestamp, api_key: Optional[str] = None) -> pd.DataFrame:
+    """
+    Fetch OHLCV historical data from Finnhub.
+    
+    Args:
+        symbol: Symbol to fetch (e.g., "AAPL", "BINANCE:BTCUSDT")
+        start: Start timestamp
+        end: End timestamp
+        api_key: Finnhub API key (optional, auto-loaded if not provided)
+    
+    Returns:
+        DataFrame with columns: t (timestamp), o, h, l, c, v
+    """
+    if api_key is None:
+        api_key = get_finnhub_api_key()
+    
+    if not api_key:
+        logger.error("Finnhub API key not found")
+        raise ValueError("Finnhub API key required. Check api_keys.properties")
+    
+    try:
+        import requests
+        
+        # Convert timestamps to Unix time
+        start_unix = int(start.timestamp())
+        end_unix = int(end.timestamp())
+        
+        # Finnhub stock candles endpoint
+        url = "https://finnhub.io/api/v1/stock/candle"
+        params = {
+            "symbol": symbol,
+            "resolution": "60",  # 1 hour (options: 1, 5, 15, 30, 60, D, W, M)
+            "from": start_unix,
+            "to": end_unix,
+            "token": api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Check if we got valid data
+        if data.get('s') == 'no_data' or not data.get('t'):
+            logger.warning(f"No data returned from Finnhub for {symbol}")
+            return pd.DataFrame()
+        
+        # Create DataFrame from response
+        df = pd.DataFrame({
+            't': data['t'],
+            'o': data['o'],
+            'h': data['h'],
+            'l': data['l'],
+            'c': data['c'],
+            'v': data['v']
+        })
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch OHLCV for {symbol}: {e}")
+        return pd.DataFrame()
+
+
 def generate_synthetic_data(symbols: List[str], duration_seconds: int = 30) -> pd.DataFrame:
     """
     Generate synthetic market data when Finnhub is not available.

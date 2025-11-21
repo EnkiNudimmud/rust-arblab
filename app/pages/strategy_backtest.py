@@ -34,7 +34,7 @@ def render():
     # Check if data is loaded
     if st.session_state.historical_data is None:
         st.warning("⚠️ No historical data loaded. Please load data first from the Data Loading page.")
-        if st.button("Go to Data Loading"):
+        if st.button("Go to Data Loading", key="goto_data_loading_btn"):
             st.session_state.page = "📊 Data Loading"
             st.rerun()
         return
@@ -610,3 +610,7 @@ def compare_strategies(initial_capital: float, transaction_cost: float):
     - Visualize equity curves together
     - Identify best-performing strategies
     """)
+
+# Execute the render function when page is loaded
+if __name__ == "__main__":
+    render()

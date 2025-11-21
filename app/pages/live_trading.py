@@ -36,7 +36,7 @@ def render():
     # Safety warning
     if not st.session_state.get('live_trading_acknowledged', False):
         st.warning("⚠️ **Important:** This is for paper trading / simulation only. No real trades will be executed.")
-        if st.checkbox("I understand this is simulated trading"):
+        if st.checkbox("I understand this is simulated trading", key="live_trading_acknowledge"):
             st.session_state.live_trading_acknowledged = True
             st.rerun()
         return
@@ -53,6 +53,12 @@ def render():
     # Bottom section - trade log and analytics
     st.markdown("---")
     display_live_analytics()
+    
+    # Auto-refresh when trading is active
+    if st.session_state.get('live_trading_active', False):
+        update_interval = st.session_state.get('live_update_interval', 500)
+        time.sleep(update_interval / 1000)
+        st.rerun()
 
 def configure_live_trading():
     """Configure live trading parameters"""
@@ -83,11 +89,17 @@ def configure_live_trading():
     if connection_mode == "Polling (REST)":
         update_interval = st.slider(
             "Update Interval (ms)",
-            200, 5000, 500, step=100
+            200, 5000, 500, step=100,
+            help="How often to fetch new data"
         )
     else:
-        update_interval = 200  # UI update frequency
-        st.info("🔴 WebSocket provides real-time streaming updates")
+        # WebSocket UI refresh rate - slower to prevent chart instability
+        update_interval = st.slider(
+            "Chart Update Interval (ms)",
+            500, 2000, 1000, step=100,
+            help="How often to refresh charts (data streams in real-time)"
+        )
+        st.info("🔴 WebSocket streams data continuously, chart updates at selected interval")
     
     # Symbol selection
     try:
@@ -119,7 +131,8 @@ def configure_live_trading():
     enable_strategy = st.checkbox(
         "Enable Strategy Execution",
         value=False,
-        help="Execute strategy on live data"
+        help="Execute strategy on live data",
+        key="enable_strategy_live"
     )
     
     if enable_strategy:
@@ -185,10 +198,6 @@ def configure_live_trading():
             active_connections = sum(1 for s in ws_status.values() if s.get('connected'))
             total_updates = sum(s.get('update_count', 0) for s in ws_status.values())
             st.caption(f"🔌 {active_connections}/{len(ws_status)} connections active • {total_updates} total updates")
-        
-        # Auto-refresh
-        time.sleep(update_interval / 1000)
-        st.rerun()
 
 def start_live_trading(connector_name: str, symbols: List[str], use_websocket: bool, update_interval: int):
     """Start live trading session"""
@@ -199,6 +208,7 @@ def start_live_trading(connector_name: str, symbols: List[str], use_websocket: b
     st.session_state.live_connector_name = connector_name
     st.session_state.live_symbols = symbols
     st.session_state.live_use_websocket = use_websocket
+    st.session_state.live_update_interval = update_interval  # Store interval for polling
     st.session_state.live_start_time = datetime.now()
     st.session_state.live_ws_status = {}  # Track WebSocket status per symbol
     
@@ -324,6 +334,16 @@ def stop_live_trading():
             pass
         st.session_state.ws_data_queue = None
     
+    # Clear chart state to reset on next start
+    if 'live_chart_ranges' in st.session_state:
+        st.session_state.live_chart_ranges = {}
+    if 'live_chart_placeholders' in st.session_state:
+        st.session_state.live_chart_placeholders = {}
+    if 'live_chart_symbols' in st.session_state:
+        st.session_state.live_chart_symbols = []
+    if 'ws_last_chart_update' in st.session_state:
+        st.session_state.ws_last_chart_update = {}
+    
     st.rerun()
 
 def display_websocket_status():
@@ -419,69 +439,135 @@ def display_live_feed():
     # Convert to DataFrame
     df = pd.DataFrame(buffer)
     
-    # Show latest quotes
+    # Show latest quotes in a stable table
     st.markdown("#### Current Quotes")
     
-    latest = df.groupby('symbol').tail(1)
+    latest = df.groupby('symbol').tail(1).copy()
+    latest['mid'] = (latest['bid'] + latest['ask']) / 2
+    latest['spread_bps'] = ((latest['ask'] - latest['bid']) / latest['bid'] * 10000).round(1)
     
-    for _, row in latest.iterrows():
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Symbol", row['symbol'])
-        with col2:
-            st.metric("Bid", f"${row['bid']:.2f}")
-        with col3:
-            st.metric("Ask", f"${row['ask']:.2f}")
-        with col4:
-            spread = row['ask'] - row['bid']
-            spread_bps = (spread / row['bid']) * 10000 if row['bid'] > 0 else 0
-            st.metric("Spread", f"{spread_bps:.1f} bps")
+    # Display as a clean table instead of metrics to prevent jumping
+    quote_table = latest[['symbol', 'bid', 'ask', 'mid', 'spread_bps']].copy()
+    quote_table.columns = ['Symbol', 'Bid ($)', 'Ask ($)', 'Mid ($)', 'Spread (bps)']
+    quote_table = quote_table.round(2)
+    
+    st.dataframe(
+        quote_table,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Symbol": st.column_config.TextColumn("Symbol", width="small"),
+            "Bid ($)": st.column_config.NumberColumn("Bid ($)", format="%.2f"),
+            "Ask ($)": st.column_config.NumberColumn("Ask ($)", format="%.2f"),
+            "Mid ($)": st.column_config.NumberColumn("Mid ($)", format="%.2f"),
+            "Spread (bps)": st.column_config.NumberColumn("Spread (bps)", format="%.1f"),
+        }
+    )
     
     st.markdown("---")
+    st.markdown("#### Live Charts")
     
-    # Chart for each symbol
-    for symbol in df['symbol'].unique():
+    # Get current symbols (sorted for stable order)
+    symbols = sorted(df['symbol'].unique())
+    
+    # Initialize chart placeholders if this is the first time or symbols changed
+    if 'live_chart_placeholders' not in st.session_state:
+        st.session_state.live_chart_placeholders = {}
+        st.session_state.live_chart_symbols = []
+    
+    # Initialize axis ranges
+    if 'live_chart_ranges' not in st.session_state:
+        st.session_state.live_chart_ranges = {}
+    
+    # Check if symbols changed - if so, clear and recreate placeholders
+    if st.session_state.live_chart_symbols != symbols:
+        st.session_state.live_chart_placeholders = {}
+        st.session_state.live_chart_symbols = symbols
+        
+        # Create stable placeholders for each symbol
+        for symbol in symbols:
+            placeholder = st.empty()
+            st.session_state.live_chart_placeholders[symbol] = placeholder
+    
+    # Update each chart in its stable placeholder
+    for symbol in symbols:
         symbol_df = df[df['symbol'] == symbol].tail(100)
         
-        with st.expander(f"📈 {symbol} Chart", expanded=True):
-            fig = go.Figure()
-            
-            fig.add_trace(go.Scatter(
-                x=symbol_df['timestamp'],
-                y=symbol_df['bid'],
-                mode='lines',
-                name='Bid',
-                line={'color': 'green', 'width': 2}
-            ))
-            
-            fig.add_trace(go.Scatter(
-                x=symbol_df['timestamp'],
-                y=symbol_df['ask'],
-                mode='lines',
-                name='Ask',
-                line={'color': 'red', 'width': 2}
-            ))
-            
-            # Add mid price
-            mid = (symbol_df['bid'] + symbol_df['ask']) / 2
-            fig.add_trace(go.Scatter(
-                x=symbol_df['timestamp'],
-                y=mid,
-                mode='lines',
-                name='Mid',
-                line={'color': 'cyan', 'width': 1, 'dash': 'dash'}
-            ))
-            
-            fig.update_layout(
-                template="plotly_dark",
-                height=300,
-                showlegend=True,
-                hovermode='x unified',
-                xaxis_title="Time",
-                yaxis_title="Price ($)"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+        if len(symbol_df) == 0:
+            continue
+        
+        # Calculate price range with padding
+        all_prices = pd.concat([symbol_df['bid'], symbol_df['ask']])
+        price_min = all_prices.min()
+        price_max = all_prices.max()
+        price_range = price_max - price_min if price_max > price_min else 1.0
+        
+        # Store or update range (expand only, never shrink during session)
+        if symbol not in st.session_state.live_chart_ranges:
+            st.session_state.live_chart_ranges[symbol] = {
+                'min': price_min - price_range * 0.1,
+                'max': price_max + price_range * 0.1
+            }
+        else:
+            # Expand range if needed
+            current = st.session_state.live_chart_ranges[symbol]
+            st.session_state.live_chart_ranges[symbol] = {
+                'min': min(current['min'], price_min - price_range * 0.1),
+                'max': max(current['max'], price_max + price_range * 0.1)
+            }
+        
+        y_range = st.session_state.live_chart_ranges[symbol]
+        
+        # Create chart with fixed y-axis
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=symbol_df['timestamp'],
+            y=symbol_df['bid'],
+            mode='lines',
+            name='Bid',
+            line={'color': 'green', 'width': 2},
+            hovertemplate='Bid: $%{y:.2f}<extra></extra>'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=symbol_df['timestamp'],
+            y=symbol_df['ask'],
+            mode='lines',
+            name='Ask',
+            line={'color': 'red', 'width': 2},
+            hovertemplate='Ask: $%{y:.2f}<extra></extra>'
+        ))
+        
+        # Add mid price
+        mid = (symbol_df['bid'] + symbol_df['ask']) / 2
+        fig.add_trace(go.Scatter(
+            x=symbol_df['timestamp'],
+            y=mid,
+            mode='lines',
+            name='Mid',
+            line={'color': 'cyan', 'width': 1, 'dash': 'dash'},
+            hovertemplate='Mid: $%{y:.2f}<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title={'text': f"<b>{symbol}</b>", 'x': 0.5, 'xanchor': 'center'},
+            template="plotly_dark",
+            height=280,
+            margin={'l': 60, 'r': 20, 't': 40, 'b': 40},
+            showlegend=True,
+            legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.02, 'xanchor': 'right', 'x': 1},
+            hovermode='x unified',
+            xaxis_title="Time",
+            yaxis_title="Price ($)",
+            yaxis={'range': [y_range['min'], y_range['max']], 'fixedrange': False},
+            xaxis={'fixedrange': False},
+            uirevision=symbol  # Preserves zoom/pan state per symbol
+        )
+        
+        # Update the chart in its stable placeholder
+        with st.session_state.live_chart_placeholders[symbol]:
+            st.plotly_chart(fig, use_container_width=True, key=f"chart_{symbol}")
 
 def fetch_live_data():
     """Fetch live market data - handles both REST polling and WebSocket modes"""
@@ -495,12 +581,19 @@ def fetch_live_data():
         fetch_rest_polling()
 
 def fetch_websocket_snapshots():
-    """Process WebSocket data from the thread-safe queue"""
+    """Process WebSocket data from the thread-safe queue with throttling"""
     
     ws_queue = st.session_state.get('ws_data_queue')
     
     if not ws_queue:
         return
+    
+    # Initialize last update time per symbol for throttling
+    if 'ws_last_chart_update' not in st.session_state:
+        st.session_state.ws_last_chart_update = {}
+    
+    # Minimum time between chart updates per symbol (ms)
+    throttle_ms = st.session_state.get('live_update_interval', 1000) * 0.8  # 80% of UI refresh
     
     # Process all pending data from queue
     items_processed = 0
@@ -522,15 +615,28 @@ def fetch_websocket_snapshots():
                         'last_update': data.get('timestamp', datetime.now())
                     }
                 else:
-                    # Handle data point
-                    st.session_state.live_data_buffer.append(data)
-                    
-                    # Keep buffer size manageable
-                    if len(st.session_state.live_data_buffer) > 1000:
-                        st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
-                    
-                    # Update WebSocket status
+                    # Handle data point with throttling
                     symbol = data.get('symbol', 'unknown')
+                    now = datetime.now()
+                    
+                    # Check if enough time has passed since last update for this symbol
+                    last_update = st.session_state.ws_last_chart_update.get(symbol)
+                    should_add = True
+                    
+                    if last_update:
+                        time_diff_ms = (now - last_update).total_seconds() * 1000
+                        should_add = time_diff_ms >= throttle_ms
+                    
+                    if should_add:
+                        # Add to buffer
+                        st.session_state.live_data_buffer.append(data)
+                        st.session_state.ws_last_chart_update[symbol] = now
+                        
+                        # Keep buffer size manageable
+                        if len(st.session_state.live_data_buffer) > 1000:
+                            st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
+                    
+                    # Always update WebSocket status (even if data was throttled)
                     current_status = st.session_state.live_ws_status.get(symbol, {})
                     st.session_state.live_ws_status[symbol] = {
                         'connected': True,
@@ -557,42 +663,56 @@ def fetch_rest_polling():
     connector_name = st.session_state.get('live_connector_name')
     symbols = st.session_state.get('live_symbols', [])
     
+    if not connector_name or not symbols:
+        return
+    
     try:
         connector = get_connector(connector_name)
         
         for symbol in symbols:
-            # Fetch orderbook
-            if hasattr(connector, 'fetch_orderbook_sync'):
-                ob = connector.fetch_orderbook_sync(symbol)
-            elif hasattr(connector, 'fetch_orderbook'):
-                ob = connector.fetch_orderbook(symbol)
-            else:
-                continue
-            
-            # Extract top of book
-            bid, ask = extract_top_of_book(ob)
-            
-            if bid > 0 and ask > 0:
-                data_point = {
-                    'timestamp': datetime.now(),
-                    'symbol': symbol,
-                    'bid': bid,
-                    'ask': ask,
-                    'mid': (bid + ask) / 2
-                }
+            try:
+                # Fetch orderbook
+                if hasattr(connector, 'fetch_orderbook_sync'):
+                    ob = connector.fetch_orderbook_sync(symbol)
+                elif hasattr(connector, 'fetch_orderbook'):
+                    ob = connector.fetch_orderbook(symbol)
+                else:
+                    st.warning(f"Connector {connector_name} doesn't support orderbook fetching")
+                    continue
                 
-                st.session_state.live_data_buffer.append(data_point)
+                # Extract top of book
+                bid, ask = extract_top_of_book(ob)
                 
-                # Keep buffer size manageable
-                if len(st.session_state.live_data_buffer) > 1000:
-                    st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
-                
-                # Execute strategy if enabled
-                if st.session_state.get('live_executor'):
-                    execute_strategy_on_tick(data_point)
+                if bid > 0 and ask > 0:
+                    data_point = {
+                        'timestamp': datetime.now(),
+                        'symbol': symbol,
+                        'bid': bid,
+                        'ask': ask,
+                        'mid': (bid + ask) / 2
+                    }
+                    
+                    st.session_state.live_data_buffer.append(data_point)
+                    
+                    # Keep buffer size manageable
+                    if len(st.session_state.live_data_buffer) > 1000:
+                        st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
+                    
+                    # Execute strategy if enabled
+                    if st.session_state.get('live_executor'):
+                        execute_strategy_on_tick(data_point)
+                else:
+                    st.warning(f"No valid bid/ask for {symbol}: bid={bid}, ask={ask}")
+                    
+            except Exception as e:
+                st.error(f"Error fetching {symbol}: {e}")
+                import traceback
+                st.code(traceback.format_exc())
                 
     except Exception as e:
-        st.error(f"Error fetching live data: {e}")
+        st.error(f"Error getting connector {connector_name}: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
 def extract_top_of_book(ob) -> tuple:
     """Extract bid/ask from orderbook"""
@@ -989,3 +1109,7 @@ def display_live_signals():
             st.warning("⏸️ **NEUTRAL** - No strong signal. Consider waiting for better setup.")
         
         st.markdown("---")
+
+# Execute the render function when page is loaded
+if __name__ == "__main__":
+    render()

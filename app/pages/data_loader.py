@@ -332,3 +332,7 @@ def display_data_preview():
                 st.error(f"Parquet export not available: {e}")
         
         st.info("💡 Tip: Parquet format is more efficient for large datasets")
+
+# Execute the render function when page is loaded
+if __name__ == "__main__":
+    render()

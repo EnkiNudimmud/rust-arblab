@@ -6,7 +6,8 @@ use tokio::sync::{mpsc, broadcast, oneshot};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
-mod chiarella_bindings;
+// mod chiarella_bindings;  // Temporarily disabled - missing rust_core dependency
+mod analytics_bindings;
 
 type HandleId = u64;
 
@@ -141,10 +142,10 @@ impl PyAggregator {
 fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAggregator>()?;
     
-    // Add Chiarella model submodule
-    Python::with_gil(|py| {
-        chiarella_bindings::register_chiarella_module(py, m)
-    })?;
+    // Add analytics submodule
+    let analytics = PyModule::new_bound(m.py(), "analytics")?;
+    analytics_bindings::register_analytics(m.py(), &analytics)?;
+    m.add_submodule(&analytics)?;
     
     Ok(())
 }

@@ -23,8 +23,149 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from python.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
 from python.rust_bridge import list_connectors, get_connector
 
+# Predefined sectors, indexes, and ETF constituents
+SECTORS = {
+    "Technology": [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO",
+        "ORCL", "ADBE", "CRM", "ACN", "CSCO", "INTC", "AMD", "IBM",
+        "QCOM", "TXN", "INTU", "NOW", "AMAT", "MU", "LRCX", "KLAC",
+        "SNPS", "CDNS", "MCHP", "ADI", "NXPI", "MRVL"
+    ],
+    "Financials": [
+        "JPM", "BAC", "WFC", "GS", "MS", "C", "BLK", "SCHW",
+        "AXP", "USB", "PNC", "TFC", "CME", "BK", "COF", "AFL",
+        "MET", "PRU", "AIG", "ALL", "TRV", "PGR", "CB", "MMC"
+    ],
+    "Healthcare": [
+        "UNH", "JNJ", "LLY", "ABBV", "MRK", "PFE", "TMO", "ABT",
+        "DHR", "BMY", "AMGN", "CVS", "MDT", "GILD", "CI", "ISRG",
+        "REGN", "VRTX", "ZTS", "SYK", "HUM", "BSX", "ELV", "MCK"
+    ],
+    "Consumer Discretionary": [
+        "AMZN", "TSLA", "HD", "NKE", "MCD", "LOW", "SBUX", "TJX",
+        "BKNG", "CMG", "TGT", "MAR", "ABNB", "GM", "F", "ROST",
+        "YUM", "DHI", "ORLY", "AZO", "LEN", "BBY", "DG", "EBAY"
+    ],
+    "Consumer Staples": [
+        "WMT", "PG", "KO", "PEP", "COST", "PM", "MO", "MDLZ",
+        "CL", "KMB", "GIS", "KHC", "STZ", "SYY", "HSY", "K",
+        "CAG", "CPB", "TSN", "HRL", "MKC", "CHD", "CLX", "SJM"
+    ],
+    "Energy": [
+        "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO",
+        "OXY", "HES", "BKR", "HAL", "KMI", "WMB", "DVN", "FANG",
+        "MRO", "APA", "OKE", "TRGP", "EQT", "CTRA", "LNG", "EPD"
+    ],
+    "Industrials": [
+        "BA", "HON", "UNP", "RTX", "UPS", "CAT", "GE", "DE",
+        "LMT", "MMM", "GD", "NOC", "ETN", "CSX", "NSC", "FDX",
+        "EMR", "ITW", "CARR", "PCAR", "JCI", "WM", "RSG", "OTIS"
+    ],
+    "Materials": [
+        "LIN", "APD", "SHW", "ECL", "FCX", "NEM", "DOW", "DD",
+        "NUE", "PPG", "VMC", "MLM", "CTVA", "ALB", "BALL", "AVY",
+        "CF", "MOS", "PKG", "IP", "EMN", "FMC", "CE", "IFF"
+    ],
+    "Real Estate": [
+        "PLD", "AMT", "EQIX", "CCI", "PSA", "WELL", "DLR", "O",
+        "VICI", "AVB", "EQR", "SPG", "SBAC", "VTR", "EXR", "INVH",
+        "MAA", "ESS", "ARE", "KIM", "DOC", "UDR", "CPT", "BXP"
+    ],
+    "Utilities": [
+        "NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL",
+        "WEC", "ED", "ES", "PEG", "AWK", "DTE", "PPL", "AEE",
+        "ATO", "CMS", "FE", "ETR", "EIX", "CNP", "NI", "LNT"
+    ],
+    "Communication Services": [
+        "GOOGL", "META", "NFLX", "DIS", "CMCSA", "VZ", "T", "TMUS",
+        "CHTR", "EA", "TTWO", "WBD", "OMC", "IPG", "NWSA", "FOXA",
+        "DISH", "PARA", "LUMN", "CABO", "MTCH", "IAC", "ZI", "PINS"
+    ]
+}
+
+INDEXES = {
+    "S&P 500 Top 30": [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B",
+        "UNH", "JNJ", "XOM", "JPM", "V", "PG", "MA", "LLY",
+        "HD", "CVX", "ABBV", "MRK", "AVGO", "COST", "PEP", "KO",
+        "WMT", "TMO", "BAC", "MCD", "CSCO", "ACN"
+    ],
+    "Dow Jones 30": [
+        "AAPL", "MSFT", "UNH", "GS", "HD", "MCD", "AMGN", "V",
+        "BA", "CAT", "HON", "IBM", "JPM", "AMZN", "CRM", "JNJ",
+        "CVX", "WMT", "PG", "TRV", "NKE", "AXP", "MMM", "DIS",
+        "CSCO", "MRK", "KO", "INTC", "DOW", "VZ"
+    ],
+    "NASDAQ 100 Top 30": [
+        "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO",
+        "COST", "NFLX", "ADBE", "PEP", "AMD", "CSCO", "TMUS", "CMCSA",
+        "INTC", "TXN", "QCOM", "INTU", "AMGN", "AMAT", "HON", "SBUX",
+        "BKNG", "ISRG", "ADP", "GILD", "ADI", "VRTX"
+    ],
+    "Russell 2000 Sample": [
+        "SIRI", "PLUG", "AMC", "SAVA", "JBLU", "AAL", "FCEL", "DKNG",
+        "RIG", "TELL", "LCID", "WKHS", "MULN", "GEVO", "SOLO", "WIMI",
+        "MARA", "RIOT", "BTBT", "CAN", "EBON", "GREE", "SOS", "IDEX"
+    ]
+}
+
+ETFS = {
+    "SPY (S&P 500)": ["SPY"],
+    "QQQ (NASDAQ 100)": ["QQQ"],
+    "DIA (Dow Jones)": ["DIA"],
+    "IWM (Russell 2000)": ["IWM"],
+    "Sector ETFs": ["XLK", "XLF", "XLV", "XLE", "XLI", "XLP", "XLY", "XLB", "XLRE", "XLU", "XLC"],
+    "Tech Giants (FANG+)": ["AAPL", "AMZN", "GOOGL", "META", "NFLX", "NVDA", "TSLA", "MSFT", "BABA", "BIDU"],
+    "Crypto ETFs": ["BITO", "GBTC", "ETHE", "BITQ", "BLOK"],
+    "Gold & Precious Metals": ["GLD", "SLV", "GDX", "GDXJ", "IAU", "PSLV"],
+    "Bond ETFs": ["AGG", "TLT", "IEF", "BND", "LQD", "HYG", "MUB"],
+    "Commodity ETFs": ["DBC", "USO", "UNG", "CORN", "WEAT", "DBA"],
+    "International ETFs": ["EFA", "EEM", "VEA", "VWO", "IEFA", "IEMG"],
+    "Volatility ETFs": ["VXX", "UVXY", "SVXY", "VIXY"],
+    "Leveraged ETFs": ["TQQQ", "SQQQ", "UPRO", "SPXU", "TNA", "TZA"],
+    "ARK Innovation ETFs": ["ARKK", "ARKQ", "ARKW", "ARKG", "ARKF", "ARKX"]
+}
+
+CRYPTO_UNIVERSES = {
+    "Top 10 Crypto": [
+        "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:BNBUSDT", "BINANCE:XRPUSDT",
+        "BINANCE:ADAUSDT", "BINANCE:DOGEUSDT", "BINANCE:SOLUSDT", "BINANCE:MATICUSDT",
+        "BINANCE:DOTUSDT", "BINANCE:AVAXUSDT"
+    ],
+    "DeFi Tokens": [
+        "BINANCE:UNIUSDT", "BINANCE:AAVEUSDT", "BINANCE:LINKUSDT", "BINANCE:MKRUSDT",
+        "BINANCE:CRVUSDT", "BINANCE:COMPUSDT", "BINANCE:SNXUSDT", "BINANCE:SUSHIUSDT"
+    ],
+    "Layer 1 Blockchains": [
+        "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:AVAXUSDT", "BINANCE:DOTUSDT",
+        "BINANCE:ADAUSDT", "BINANCE:ATOMUSDT", "BINANCE:NEARUSDT", "BINANCE:ALGOUSDT"
+    ],
+    "Meme Coins": [
+        "BINANCE:DOGEUSDT", "BINANCE:SHIBUSDT", "BINANCE:PEPEUSDT", "BINANCE:FLOKIUSDT",
+        "BINANCE:BONKUSDT", "BINANCE:WIFUSDT"
+    ]
+}
+
+def get_preset_symbols(category: str, name: str) -> List[str]:
+    """Get symbols for a preset category"""
+    if category == "Sector":
+        return SECTORS.get(name, [])
+    elif category == "Index":
+        return INDEXES.get(name, [])
+    elif category == "ETF":
+        return ETFS.get(name, [])
+    elif category == "Crypto":
+        return CRYPTO_UNIVERSES.get(name, [])
+    return []
+
 def render():
     """Render the data loading page"""
+    # Initialize session state
+    if 'historical_data' not in st.session_state:
+        st.session_state.historical_data = None
+    if 'symbols' not in st.session_state:
+        st.session_state.symbols = ["AAPL", "MSFT", "GOOGL"]  # Default symbols
+    
     st.title("📊 Historical Data Loading")
     st.markdown("Load and preview market data for backtesting strategies")
     
@@ -57,6 +198,46 @@ def render():
                 except Exception as e:
                     st.error(f"Failed to load CSV: {e}")
         else:
+            # Preset selector
+            st.markdown("#### 📋 Quick Select")
+            
+            preset_col1, preset_col2 = st.columns(2)
+            
+            with preset_col1:
+                preset_category = st.selectbox(
+                    "Category",
+                    ["None", "Sector", "Index", "ETF", "Crypto"],
+                    help="Select a predefined category"
+                )
+            
+            with preset_col2:
+                if preset_category == "Sector":
+                    preset_options = list(SECTORS.keys())
+                elif preset_category == "Index":
+                    preset_options = list(INDEXES.keys())
+                elif preset_category == "ETF":
+                    preset_options = list(ETFS.keys())
+                elif preset_category == "Crypto":
+                    preset_options = list(CRYPTO_UNIVERSES.keys())
+                else:
+                    preset_options = []
+                
+                if preset_options:
+                    preset_name = st.selectbox(
+                        "Select Preset",
+                        preset_options,
+                        help="Choose from predefined lists"
+                    )
+                    
+                    if st.button("📥 Load Preset", use_container_width=True):
+                        preset_symbols = get_preset_symbols(preset_category, preset_name)
+                        st.session_state.symbols = preset_symbols
+                        st.success(f"✅ Loaded {len(preset_symbols)} symbols from {preset_name}")
+                        st.rerun()
+            
+            st.markdown("---")
+            st.markdown("#### ✏️ Manual Entry")
+            
             # Symbol input
             symbols_input = st.text_area(
                 "Symbols (one per line or comma-separated)",

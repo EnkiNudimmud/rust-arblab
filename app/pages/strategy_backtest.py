@@ -28,6 +28,14 @@ from python.strategies.executor import StrategyExecutor, StrategyConfig
 
 def render():
     """Render the strategy backtesting page"""
+    # Initialize session state
+    if 'historical_data' not in st.session_state:
+        st.session_state.historical_data = None
+    if 'backtest_results' not in st.session_state:
+        st.session_state.backtest_results = None
+    if 'selected_strategy' not in st.session_state:
+        st.session_state.selected_strategy = None
+    
     st.title("⚡ Strategy Backtesting")
     st.markdown("Select and backtest trading strategies on historical data")
     

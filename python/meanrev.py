@@ -25,9 +25,16 @@ Notes:
 from typing import List, Tuple, Dict, Optional
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
 from sklearn.decomposition import PCA
 from datetime import datetime, timedelta
+
+# Make statsmodels optional (only needed for Engle-Granger test)
+try:
+    import statsmodels.api as sm
+    STATSMODELS_AVAILABLE = True
+except ImportError:
+    STATSMODELS_AVAILABLE = False
+    print("⚠️  statsmodels not available - Engle-Granger test will be disabled")
 
 try:
     # helper exists in repo
@@ -139,6 +146,9 @@ def engle_granger_test(y: pd.Series, x: pd.Series) -> Dict:
 
     Returns dictionary with residual series, ADF pvalue and regression params.
     """
+    if not STATSMODELS_AVAILABLE:
+        raise ImportError("Engle-Granger test requires statsmodels. Install with: pip install statsmodels")
+    
     X = sm.add_constant(x)
     res = sm.OLS(y, X).fit()
     resid = res.resid
@@ -166,6 +176,23 @@ def estimate_ou_params(ts: pd.Series) -> Dict:
             print(f"Rust OU estimation failed: {e}, falling back to Python")
     
     # Python fallback
+    if not STATSMODELS_AVAILABLE:
+        # Simple estimation without statsmodels
+        x_lag = x.shift(1).dropna()
+        x_curr = x.loc[x_lag.index]
+        # Simple linear regression: x_t = a + b*x_{t-1}
+        # Estimate b using covariance
+        cov = np.cov(x_lag, x_curr)
+        b = cov[0, 1] / cov[0, 0] if cov[0, 0] != 0 else 1.0
+        a = np.mean(x_curr) - b * np.mean(x_lag)
+        
+        theta = -np.log(b) if b > 0 and b < 1 else 0.01
+        mu = a / (1 - b) if b != 1 else np.mean(x)
+        resid = x_curr - (a + b * x_lag)
+        sigma = np.std(resid)
+        
+        return {"theta": theta, "mu": mu, "sigma": sigma}
+    
     x_lag = x.shift(1).dropna()
     x_curr = x.loc[x_lag.index]
     # regress x_curr on x_lag

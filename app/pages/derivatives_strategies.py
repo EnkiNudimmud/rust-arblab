@@ -712,3 +712,111 @@ def render_cash_secured_put(spot, T, r, sigma):
 
 def render_ratio_spread(spot, T, r, sigma):
     st.info("Ratio Spread implementation")
+
+
+# ============================================================================
+# MAIN PAGE RENDERING
+# ============================================================================
+
+st.title("📊 Options Strategies")
+st.markdown("""
+Explore various options strategies with interactive payoff diagrams, Greeks analysis, 
+and risk/reward metrics. Each strategy includes detailed explanations and examples.
+""")
+
+# Sidebar configuration
+st.sidebar.header("Strategy Parameters")
+
+# Common parameters
+spot_price = st.sidebar.number_input("Spot Price ($)", min_value=1.0, value=100.0, step=1.0)
+time_to_expiry = st.sidebar.slider("Time to Expiry (days)", min_value=1, max_value=365, value=30) / 365
+risk_free_rate = st.sidebar.slider("Risk-Free Rate (%)", min_value=0.0, max_value=10.0, value=5.0, step=0.1) / 100
+volatility = st.sidebar.slider("Implied Volatility (%)", min_value=5.0, max_value=100.0, value=20.0, step=1.0) / 100
+
+st.sidebar.markdown("---")
+
+# Strategy selection
+strategy = st.sidebar.selectbox(
+    "Select Strategy",
+    [
+        "Long Straddle",
+        "Short Straddle",
+        "Long Strangle",
+        "Short Strangle",
+        "Long Butterfly",
+        "Short Butterfly",
+        "Iron Condor",
+        "Iron Butterfly",
+        "Long Call",
+        "Short Call",
+        "Long Put",
+        "Short Put",
+        "Bull Call Spread",
+        "Bear Call Spread",
+        "Bull Put Spread",
+        "Bear Put Spread",
+        "Calendar Spread",
+        "Covered Call",
+        "Cash-Secured Put",
+        "Ratio Spread"
+    ]
+)
+
+# Render selected strategy
+st.markdown("---")
+
+try:
+    if strategy == "Long Straddle":
+        render_straddle(spot_price, time_to_expiry, risk_free_rate, volatility, is_long=True)
+    elif strategy == "Short Straddle":
+        render_straddle(spot_price, time_to_expiry, risk_free_rate, volatility, is_long=False)
+    elif strategy == "Long Strangle":
+        render_strangle(spot_price, time_to_expiry, risk_free_rate, volatility, is_long=True)
+    elif strategy == "Short Strangle":
+        render_strangle(spot_price, time_to_expiry, risk_free_rate, volatility, is_long=False)
+    elif strategy == "Long Butterfly":
+        render_butterfly(spot_price, time_to_expiry, risk_free_rate, volatility, is_long=True)
+    elif strategy == "Short Butterfly":
+        render_butterfly(spot_price, time_to_expiry, risk_free_rate, volatility, is_long=False)
+    elif strategy == "Iron Condor":
+        render_iron_condor(spot_price, time_to_expiry, risk_free_rate, volatility)
+    elif strategy == "Iron Butterfly":
+        render_iron_butterfly(spot_price, time_to_expiry, risk_free_rate, volatility)
+    elif strategy == "Long Call":
+        render_single_option(spot_price, time_to_expiry, risk_free_rate, volatility, "call", True)
+    elif strategy == "Short Call":
+        render_single_option(spot_price, time_to_expiry, risk_free_rate, volatility, "call", False)
+    elif strategy == "Long Put":
+        render_single_option(spot_price, time_to_expiry, risk_free_rate, volatility, "put", True)
+    elif strategy == "Short Put":
+        render_single_option(spot_price, time_to_expiry, risk_free_rate, volatility, "put", False)
+    elif strategy == "Bull Call Spread":
+        render_vertical_spread(spot_price, time_to_expiry, risk_free_rate, volatility, "call", True)
+    elif strategy == "Bear Call Spread":
+        render_vertical_spread(spot_price, time_to_expiry, risk_free_rate, volatility, "call", False)
+    elif strategy == "Bull Put Spread":
+        render_vertical_spread(spot_price, time_to_expiry, risk_free_rate, volatility, "put", True)
+    elif strategy == "Bear Put Spread":
+        render_vertical_spread(spot_price, time_to_expiry, risk_free_rate, volatility, "put", False)
+    elif strategy == "Calendar Spread":
+        render_calendar_spread(spot_price, risk_free_rate, volatility)
+    elif strategy == "Covered Call":
+        render_covered_call(spot_price, time_to_expiry, risk_free_rate, volatility)
+    elif strategy == "Cash-Secured Put":
+        render_cash_secured_put(spot_price, time_to_expiry, risk_free_rate, volatility)
+    elif strategy == "Ratio Spread":
+        render_ratio_spread(spot_price, time_to_expiry, risk_free_rate, volatility)
+        
+except Exception as e:
+    st.error(f"Error rendering strategy: {str(e)}")
+    st.exception(e)
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: #666; font-size: 0.9em;'>
+    <p>⚠️ <strong>Educational Purpose Only</strong></p>
+    <p>These visualizations are for educational purposes. Options trading involves significant risk 
+    and may not be suitable for all investors. Past performance does not guarantee future results.</p>
+</div>
+""", unsafe_allow_html=True)

@@ -459,7 +459,7 @@ def display_live_feed():
             xaxis_title="Time",
             yaxis_title="Price"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="empty_live_chart")
         return
     
     # Show WebSocket connection status if using WebSocket
@@ -1078,7 +1078,7 @@ def display_live_signals():
                     showlegend=False
                 )
                 
-                st.plotly_chart(fig_components, use_container_width=True)
+                st.plotly_chart(fig_components, use_container_width=True, key=f"components_{symbol}")
                 
                 # Regime weights
                 st.markdown("**Regime Weights:**")
@@ -1138,7 +1138,7 @@ def display_live_signals():
                     height=300
                 )
                 
-                st.plotly_chart(fig_price, use_container_width=True)
+                st.plotly_chart(fig_price, use_container_width=True, key=f"price_vs_fundamental_{symbol}")
         
         # Trading recommendation
         st.markdown("#### 💡 Trading Recommendation")

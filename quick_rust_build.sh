@@ -22,4 +22,4 @@ cd rust_connector
 maturin develop --release
 
 echo -e "${GREEN}✓ Build complete!${NC}"
-python -c "import rust_connector; print(f'✓ rust_connector v{rust_connector.__version__}')"
+python -c "import rust_connector; print('✓ rust_connector loaded successfully')"

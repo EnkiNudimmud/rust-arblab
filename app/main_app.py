@@ -103,7 +103,7 @@ st.markdown("### Advanced Trading Strategy Development & Backtesting Platform")
 col1, col2, col3, col4 = st.columns(4)
 
 try:
-    import hft_py
+    import rust_connector
     rust_status = "🟢 Online"
     rust_class = "status-online"
 except:

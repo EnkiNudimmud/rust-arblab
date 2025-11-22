@@ -52,7 +52,7 @@ st.markdown("""
 
 # Check modules
 try:
-    import hft_py
+    import rust_connector
     RUST_ANALYTICS = True
     backend_status = "⚡ Rust Analytics Enabled"
 except ImportError:

@@ -132,10 +132,12 @@ if [ "$SKIP_RUST" = false ]; then
     
     # Verify Rust connector
     echo -e "${CYAN}Verifying installation...${NC}"
-    if python -c "import rust_connector; print(f'✓ rust_connector v{rust_connector.__version__} loaded')" 2>/dev/null; then
+    if python -c "import rust_connector; print('✓ rust_connector loaded successfully')" 2>/dev/null; then
         echo -e "${GREEN}✓ Rust connector verified and ready${NC}"
     else
-        echo -e "${YELLOW}⚠ Rust connector import check inconclusive${NC}"
+        echo -e "${RED}✗ Rust connector import failed${NC}"
+        python -c "import rust_connector" 2>&1 | head -5
+        exit 1
     fi
 else
     echo ""

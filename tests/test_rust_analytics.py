@@ -10,12 +10,12 @@ import time
 sys.path.insert(0, '/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/release')
 
 try:
-    import hft_py
-    print("✓ Successfully imported hft_py module")
-    print(f"  Module location: {hft_py.__file__}")
-    print(f"  Available submodules: {dir(hft_py)}")
+    import rust_connector
+    print("✓ Successfully imported rust_connector module")
+    print(f"  Module location: {rust_connector.__file__}")
+    print(f"  Available functions: {[x for x in dir(rust_connector) if not x.startswith('_')]}")
 except ImportError as e:
-    print(f"✗ Failed to import hft_py: {e}")
+    print(f"✗ Failed to import rust_connector: {e}")
     sys.exit(1)
 
 # Test data generation

@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'python')
 
 # Try to import Rust bindings, fall back to pure Python if not available
 try:
-    import hft_py
+    import rust_connector
     RUST_AVAILABLE = True
 except ImportError:
     RUST_AVAILABLE = False

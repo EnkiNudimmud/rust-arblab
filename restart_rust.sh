@@ -57,10 +57,12 @@ cd ..
 
 # Verify installation
 echo -e "${YELLOW}🔍 Verifying Rust connector...${NC}"
-if python -c "import rust_connector; print(f'✓ rust_connector v{rust_connector.__version__} loaded')" 2>/dev/null; then
+if python -c "import rust_connector; print('✓ rust_connector loaded successfully')" 2>/dev/null; then
     echo -e "${GREEN}✓ Rust connector verified${NC}"
 else
     echo -e "${RED}✗ Rust connector import failed${NC}"
+    echo -e "${YELLOW}Detailed error:${NC}"
+    python -c "import rust_connector" 2>&1 | head -10
     exit 1
 fi
 

@@ -13,6 +13,8 @@ seaborn>=0.13.0
 # Data Sources
 requests>=2.31.0
 websocket-client>=1.7.0
+yfinance>=0.2.40
+ccxt>=4.2.0  # Crypto exchange data - FREE, no API key required!
 
 # Scientific Computing
 scikit-learn>=1.4.0

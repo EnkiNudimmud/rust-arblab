@@ -89,7 +89,7 @@ nano api_keys.properties
 ./run_app.sh
 
 # OR manually start Streamlit dashboard
-streamlit run app/streamlit_all_strategies.py
+streamlit run app/HFT_Arbitrage_Lab.py
 
 # OR start Jupyter for notebooks
 jupyter notebook examples/notebooks/
@@ -101,29 +101,29 @@ jupyter notebook examples/notebooks/
 
 | Script | Purpose | Use Case |
 |--------|---------|----------|
-| `./restart_all.sh` | **Everything** (Rust + Streamlit + Jupyter) | After any code changes |
-| `./restart_all.sh --quick` | Quick incremental Rust + all services | Fast iteration on Rust code |
-| `./restart_all.sh --skip-rust` | Python services only | After Python-only changes |
-| `./restart_rust.sh` | Full Rust rebuild with verification | Major Rust changes |
-| `./quick_rust_build.sh` | Fast incremental Rust build | Minor Rust tweaks |
-| `./clean_restart_streamlit.sh` | Streamlit only with cache clear | UI/Python changes |
+| `./scripts/restart_all.sh` | **Everything** (Rust + Streamlit + Jupyter) | After any code changes |
+| `./scripts/restart_all.sh --quick` | Quick incremental Rust + all services | Fast iteration on Rust code |
+| `./scripts/restart_all.sh --skip-rust` | Python services only | After Python-only changes |
+| `./scripts/restart_rust.sh` | Full Rust rebuild with verification | Major Rust changes |
+| `./scripts/quick_rust_build.sh` | Fast incremental Rust build | Minor Rust tweaks |
+| `./scripts/clean_restart_streamlit.sh` | Streamlit only with cache clear | UI/Python changes |
 
 #### Usage Examples
 
 ```bash
 # Scenario 1: Modified Rust strategy implementation
-./restart_all.sh                    # Rebuilds Rust + restarts all services
+./scripts/restart_all.sh                    # Rebuilds Rust + restarts all services
 
 # Scenario 2: Quick fix in Rust code
-./restart_all.sh --quick            # Incremental build (30s-2min) + restart
+./scripts/restart_all.sh --quick            # Incremental build (30s-2min) + restart
 
 # Scenario 3: Modified Python strategy or Streamlit UI
-./restart_all.sh --skip-rust        # No Rust rebuild, just restart services
+./scripts/restart_all.sh --skip-rust        # No Rust rebuild, just restart services
 # OR
-./clean_restart_streamlit.sh        # Even faster, Streamlit only
+./scripts/clean_restart_streamlit.sh        # Even faster, Streamlit only
 
 # Scenario 4: Added new Rust connector
-./restart_rust.sh                   # Full Rust rebuild with verification
+./scripts/restart_rust.sh                   # Full Rust rebuild with verification
 # Then manually restart Streamlit when ready
 
 # Scenario 5: Jupyter notebook work only
@@ -132,7 +132,7 @@ jupyter notebook examples/notebooks/
 
 #### What You Get
 
-When running `./restart_all.sh`, the script:
+When running `./scripts/restart_all.sh`, the script:
 
 1. **🐍 Activates virtual environment** - Ensures correct Python/dependencies
 2. **🦀 Rebuilds Rust engine** - Compiles optimized performance code
@@ -153,10 +153,10 @@ When running `./restart_all.sh`, the script:
 
 ```bash
 # Show help and all options
-./restart_all.sh --help
+./scripts/restart_all.sh --help
 
 # Combine flags
-./restart_all.sh --quick --skip-jupyter    # Quick Rust + Streamlit only
+./scripts/restart_all.sh --quick --skip-jupyter    # Quick Rust + Streamlit only
 ```
 
 ## 📊 Dashboard

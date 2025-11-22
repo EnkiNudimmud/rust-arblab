@@ -168,6 +168,7 @@ def render():
     
     st.title("📊 Historical Data Loading")
     st.markdown("Load and preview market data for backtesting strategies")
+    st.markdown("---")
     
     # Two column layout
     col1, col2 = st.columns([2, 1])
@@ -177,10 +178,35 @@ def render():
         
         # Data source selection
         data_source = st.selectbox(
-            "Data Source",
-            ["Finnhub (API)", "Yahoo Finance", "Upload CSV", "Mock/Synthetic"],
-            help="Choose where to fetch market data from"
+            "🔌 Data Source",
+            [
+                "CCXT - Crypto Exchanges (FREE! ⭐)", 
+                "Yahoo Finance", 
+                "Finnhub (API)", 
+                "Upload CSV", 
+                "Mock/Synthetic"
+            ],
+            help="💡 CCXT is recommended for crypto - it's FREE with no API key required!"
         )
+        
+        # Exchange selection for CCXT
+        exchange_id = 'binance'  # default
+        if data_source.startswith("CCXT"):
+            exchange_id = st.selectbox(
+                "📊 Exchange",
+                ["binance", "kraken", "coinbase", "bybit", "okx"],
+                help=(
+                    "• Binance: Most liquid, best for most pairs\\n"
+                    "• Kraken: Reliable, regulated\\n"
+                    "• Coinbase: US-based, highly regulated\\n"
+                    "• Bybit: Good for perpetuals\\n"
+                    "• OKX: Wide variety of altcoins"
+                )
+            )
+            st.info(
+                f"✅ Using {exchange_id.title()} - FREE public data, no API key needed!\\n"
+                f"Supports second-level historical data for crypto pairs."
+            )
         
         # Symbol selection
         if data_source == "Upload CSV":
@@ -280,12 +306,24 @@ def render():
                 if not symbols:
                     st.error("Please enter at least one symbol")
                 else:
+                    # Map UI source names to internal source names
+                    source_map = {
+                        'ccxt': 'ccxt',
+                        'yahoo': 'yfinance',
+                        'finnhub': 'finnhub',
+                        'mock': 'synthetic',
+                        'upload': 'synthetic'
+                    }
+                    source_key = data_source.lower().split()[0]
+                    internal_source = source_map.get(source_key, 'auto')
+                    
                     fetch_data(
                         symbols=symbols,
                         start=start_date.isoformat(),
                         end=end_date.isoformat(),
                         interval=interval,
-                        source=data_source.lower().split()[0]  # Extract first word
+                        source=internal_source,
+                        exchange_id=exchange_id if data_source.startswith("CCXT") else None
                     )
     
     with col2:
@@ -314,8 +352,13 @@ def render():
             st.info("No data loaded yet")
             st.markdown("""
             **Data sources:**
-            - **Finnhub**: Real-time & historical market data via API
-            - **Yahoo Finance**: Free historical data (limited intraday)
+            - **⭐ CCXT (Recommended)**: FREE access to 100+ crypto exchanges
+              - Binance, Kraken, Coinbase, Bybit, OKX and more
+              - No API key required for public data
+              - Second-level historical data
+              - Best for crypto trading strategies
+            - **Yahoo Finance**: Free historical data (stocks & major crypto)
+            - **Finnhub**: Real-time & historical via API (requires key)
             - **CSV Upload**: Custom data files
             - **Mock**: Synthetic data for testing
             """)
@@ -327,17 +370,23 @@ def render():
         display_data_preview()
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: str) -> pd.DataFrame:
+def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: str, exchange_id: Optional[str] = None) -> pd.DataFrame:
     """Fetch data with caching"""
-    with st.spinner(f"Fetching data for {len(symbols)} symbols from {source}..."):
+    display_source = f"{source} ({exchange_id})" if exchange_id else source
+    with st.spinner(f"Fetching data for {len(symbols)} symbols from {display_source}..."):
         try:
-            df = fetch_intraday_data(
-                symbols=symbols,
-                start=start,
-                end=end,
-                interval=interval,
-                source=source
-            )
+            # For CCXT, pass exchange_id through params
+            if source == 'ccxt' and exchange_id:
+                from python.data_fetcher import _fetch_ccxt
+                df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
+            else:
+                df = fetch_intraday_data(
+                    symbols=symbols,
+                    start=start,
+                    end=end,
+                    interval=interval,
+                    source=source
+                )
             
             # Reset index to make it easier to work with
             if isinstance(df.index, pd.MultiIndex):

@@ -272,11 +272,23 @@ def render():
                 help="Enter stock/crypto symbols to fetch data for"
             )
             
-            # Parse symbols
+            # Parse and clean symbols
             symbols = []
             for line in symbols_input.split('\n'):
-                symbols.extend([s.strip().upper() for s in line.split(',') if s.strip()])
+                for s in line.split(','):
+                    s = s.strip().upper()
+                    # Remove extra spaces within symbol (e.g., "DO GE" -> "DOGE")
+                    s = s.replace(' ', '')
+                    if s:
+                        symbols.append(s)
             symbols = list(set(symbols))  # Remove duplicates
+            
+            # Show cleaned symbols if any were modified
+            original_symbols = []
+            for line in symbols_input.split('\n'):
+                original_symbols.extend([s.strip().upper() for s in line.split(',') if s.strip()])
+            if any(' ' in s for s in original_symbols):
+                st.info(f"ℹ️  Cleaned symbols: removed spaces from {len([s for s in original_symbols if ' ' in s])} symbol(s)")
             
             # Date range
             col_date1, col_date2 = st.columns(2)

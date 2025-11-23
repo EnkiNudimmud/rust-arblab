@@ -90,13 +90,16 @@ def fetch_intraday_data(
 
 
 def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchange_id: str = 'binance') -> pd.DataFrame:
-    """Fetch data from crypto exchanges using CCXT."""
+    """Fetch data from crypto exchanges using CCXT with parallel processing and progress tracking."""
     if not CCXT_AVAILABLE:
         raise ImportError(
             "❌ CCXT library not installed!\\n"
             "Install it with: pip install ccxt\\n"
             "CCXT provides FREE access to 100+ crypto exchanges with no API key required."
         )
+    
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import streamlit as st
     
     start_dt = pd.to_datetime(start)
     end_dt = pd.to_datetime(end)
@@ -109,11 +112,20 @@ def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchang
     timeframe = interval_map.get(interval, '1h')
     
     all_data = []
+    errors = []
     
-    exchange = create_exchange(exchange_id)
+    # Create progress bar and status immediately
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    status_text.text(f"🚀 Starting to fetch {len(symbols)} symbols from {exchange_id}...")
     
-    for symbol in symbols:
+    # Track timing for ETA
+    start_time = time.time()
+    
+    def fetch_single_symbol(symbol):
+        """Fetch data for a single symbol"""
         try:
+            exchange = create_exchange(exchange_id)
             # CCXT uses format like 'BTC/USDT', convert if needed
             ccxt_symbol = symbol if '/' in symbol else f"{symbol}/USDT"
             
@@ -122,11 +134,60 @@ def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchang
             if not df.empty:
                 df['symbol'] = symbol
                 df = df.rename(columns={'timestamp': 'timestamp'})
-                all_data.append(df[['timestamp', 'symbol', 'open', 'high', 'low', 'close', 'volume']])
-            
-            time.sleep(0.1)  # Rate limiting
+                return df[['timestamp', 'symbol', 'open', 'high', 'low', 'close', 'volume']], None
+            return None, f"No data returned for {symbol}"
         except Exception as e:
-            print(f"⚠️  Failed to fetch {symbol} from {exchange_id}: {e}")
+            return None, f"{symbol}: {str(e)}"
+    
+    # Use ThreadPoolExecutor for parallel fetching (4 concurrent requests)
+    completed = 0
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # Submit all tasks immediately so progress bar shows right away
+        futures = {executor.submit(fetch_single_symbol, symbol): symbol for symbol in symbols}
+        
+        # Show initial progress immediately after submitting
+        status_text.text(f"⏳ Fetching 0/{len(symbols)} symbols from {exchange_id}... (0%) - Estimating...")
+        
+        for future in as_completed(futures):
+            completed += 1
+            progress = completed / len(symbols)
+            progress_bar.progress(progress)
+            
+            # Calculate ETA
+            elapsed = time.time() - start_time
+            if completed > 0:
+                avg_time_per_symbol = elapsed / completed
+                remaining = len(symbols) - completed
+                eta_seconds = avg_time_per_symbol * remaining
+                
+                if eta_seconds < 60:
+                    eta_str = f"~{int(eta_seconds)}s remaining"
+                else:
+                    eta_str = f"~{int(eta_seconds/60)}m {int(eta_seconds%60)}s remaining"
+            else:
+                eta_str = "Calculating..."
+            
+            status_text.text(
+                f"⏳ Fetching {completed}/{len(symbols)} symbols from {exchange_id}... "
+                f"({progress*100:.0f}%) - {eta_str}"
+            )
+            
+            result, error = future.result()
+            if result is not None:
+                all_data.append(result)
+            if error:
+                errors.append(error)
+    
+    progress_bar.empty()
+    
+    # Show detailed error and success information
+    if errors:
+        error_summary = "\\n  • ".join(errors[:10])  # Show first 10 errors
+        if len(errors) > 10:
+            error_summary += f"\\n  • ... and {len(errors) - 10} more"
+        
+        # Show warning in Streamlit
+        st.warning(f"⚠️  {len(errors)} symbol(s) failed to fetch:\\n{error_summary}")
     
     if not all_data:
         raise ValueError(
@@ -137,6 +198,14 @@ def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchang
             f"  • Network issues\\n\\n"
             f"💡 Tip: Binance has the most symbols. Try: 'BTC/USDT', 'ETH/USDT', 'SOL/USDT'"
         )
+    
+    # Show success summary
+    success_msg = f"✅ Successfully fetched {len(all_data)}/{len(symbols)} symbols"
+    if len(all_data) < len(symbols):
+        success_msg += f" ({len(symbols) - len(all_data)} failed)"
+    status_text.success(success_msg)
+    time.sleep(2)  # Show success message a bit longer
+    status_text.empty()
     
     combined = pd.concat(all_data, ignore_index=True)
     combined = combined.set_index(['timestamp', 'symbol']).sort_index()

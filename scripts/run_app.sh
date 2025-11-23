@@ -68,5 +68,5 @@ echo -e "Press ${YELLOW}Ctrl+C${NC} to stop"
 echo ""
 
 # Run Streamlit
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 streamlit run app/HFT_Arbitrage_Lab.py

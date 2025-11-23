@@ -25,17 +25,6 @@ from python.rust_bridge import get_connector
 
 def render():
     """Render the portfolio view page"""
-    # Initialize session state
-    if 'portfolio' not in st.session_state:
-        st.session_state.portfolio = {
-            'positions': {},
-            'cash': 100000.0,
-            'initial_capital': 100000.0,
-            'history': []
-        }
-    if 'historical_data' not in st.session_state:
-        st.session_state.historical_data = None
-    
     st.title("💼 Portfolio View")
     st.markdown("Monitor your virtual portfolio and track performance")
     

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -e
-cd /app
-jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+cd "$(dirname "$0")/.."
+jupyter notebook --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password=''

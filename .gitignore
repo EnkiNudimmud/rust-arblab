@@ -48,7 +48,10 @@ source/
 
 # Environment variables and secrets
 .env
+.env.*
 .env.local
+.env.production
+.env.development
 api_keys.properties
 *.key
 *.pem
@@ -56,6 +59,7 @@ api_keys.properties
 *.cert
 secrets/
 credentials/
+.streamlit/secrets.toml
 
 # Logs
 *.log
@@ -100,7 +104,21 @@ htmlcov/
 .DS_Store
 .AppleDouble
 .LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
 
 # Python version files
 .python-version
 .venv*/
+
+# Editor and IDE cache
+.*.swp
+.*.swo
+*.sublime-project
+*.sublime-workspace

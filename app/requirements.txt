@@ -17,6 +17,8 @@ scipy>=1.7.0
 # Data Sources
 requests>=2.25.0
 websocket-client>=1.0.0
+yfinance>=0.2.0
+ccxt>=4.0.0
 
 # Python version check
 # This ensures compatibility across versions

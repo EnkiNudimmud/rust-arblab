@@ -142,14 +142,21 @@ with tab2:
                     st.error("Unsupported data format")
                     st.stop()
                 
-                if 'Close' not in df.columns:
-                    st.error("Close price column not found")
+                # Find close price column (case-insensitive)
+                close_col = None
+                for col in df.columns:
+                    if col.lower() == 'close':
+                        close_col = col
+                        break
+                
+                if close_col is None:
+                    st.error(f"Close price column not found. Available columns: {', '.join(df.columns)}")
                     st.stop()
                 
                 # Compute signatures
                 if st.button("🔬 Compute Signatures", type="primary"):
                     with st.spinner("Computing path signatures..."):
-                        prices = df['Close'].values
+                        prices = df[close_col].values
                         
                         # Normalize prices (required for signature computation)
                         prices_norm = (prices - np.mean(prices)) / (np.std(prices) + 1e-8)
@@ -307,7 +314,18 @@ with tab3:
             st.error("Unsupported data format")
             st.stop()
         
-        prices = df['Close'].values
+        # Find close price column (case-insensitive)
+        close_col = None
+        for col in df.columns:
+            if col.lower() == 'close':
+                close_col = col
+                break
+        
+        if close_col is None:
+            st.error(f"Close price column not found. Available columns: {', '.join(df.columns)}")
+            st.stop()
+        
+        prices = df[close_col].values
         sig_values = sig_data['values']
         sig_times = sig_data['times']
         

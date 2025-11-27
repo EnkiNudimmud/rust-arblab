@@ -20,11 +20,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from python.rust_bridge import get_connector
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 def render():
     """Render the portfolio view page"""
+    # Render sidebar navigation and apply CSS
+    render_sidebar_navigation(current_page="Portfolio View")
+    apply_custom_css()
+    
     st.title("💼 Portfolio View")
     st.markdown("Monitor your virtual portfolio and track performance")
     

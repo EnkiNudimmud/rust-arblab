@@ -1,0 +1,28 @@
+{
+  "include": [
+    "app",
+    "python",
+    "tests"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/target",
+    "**/.venv",
+    "**/venv"
+  ],
+  "extraPaths": [
+    "./app",
+    "./python"
+  ],
+  "pythonVersion": "3.11",
+  "pythonPlatform": "All",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUnknownMemberType": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownVariableType": false,
+  "reportUnknownArgumentType": false,
+  "stubPath": ""
+}

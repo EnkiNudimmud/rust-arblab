@@ -121,9 +121,11 @@ def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchang
     
     # Track timing for ETA
     start_time = time.time()
+    completion_times = []
     
     def fetch_single_symbol(symbol):
         """Fetch data for a single symbol"""
+        symbol_start = time.time()
         try:
             exchange = create_exchange(exchange_id)
             # CCXT uses format like 'BTC/USDT', convert if needed
@@ -131,37 +133,45 @@ def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchang
             
             df = fetch_ohlcv_range(exchange, ccxt_symbol, timeframe, start_dt, end_dt)
             
+            symbol_time = time.time() - symbol_start
+            
             if not df.empty:
                 df['symbol'] = symbol
                 df = df.rename(columns={'timestamp': 'timestamp'})
-                return df[['timestamp', 'symbol', 'open', 'high', 'low', 'close', 'volume']], None
-            return None, f"No data returned for {symbol}"
+                return df[['timestamp', 'symbol', 'open', 'high', 'low', 'close', 'volume']], None, symbol_time
+            return None, f"No data returned for {symbol}", symbol_time
         except Exception as e:
-            return None, f"{symbol}: {str(e)}"
+            symbol_time = time.time() - symbol_start
+            return None, f"{symbol}: {str(e)}", symbol_time
     
-    # Use ThreadPoolExecutor for parallel fetching (4 concurrent requests)
+    # Use ThreadPoolExecutor for parallel fetching (6 concurrent requests for better speed)
     completed = 0
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         # Submit all tasks immediately so progress bar shows right away
         futures = {executor.submit(fetch_single_symbol, symbol): symbol for symbol in symbols}
         
         # Show initial progress immediately after submitting
-        status_text.text(f"⏳ Fetching 0/{len(symbols)} symbols from {exchange_id}... (0%) - Estimating...")
+        status_text.text(f"⏳ Fetching 0/{len(symbols)} symbols from {exchange_id}... (0%) - Starting...")
         
         for future in as_completed(futures):
+            result, error, symbol_time = future.result()
             completed += 1
             progress = completed / len(symbols)
             progress_bar.progress(progress)
             
-            # Calculate ETA
-            elapsed = time.time() - start_time
-            if completed > 0:
-                avg_time_per_symbol = elapsed / completed
+            # Track completion times for better ETA
+            completion_times.append(symbol_time)
+            
+            # Calculate ETA based on recent completion times
+            if len(completion_times) >= 2:
+                # Use average of recent completions for more accurate ETA
+                recent_avg = sum(completion_times[-3:]) / len(completion_times[-3:])
                 remaining = len(symbols) - completed
-                eta_seconds = avg_time_per_symbol * remaining
+                # Account for parallel execution (divide by workers)
+                eta_seconds = (remaining / 6) * recent_avg
                 
                 if eta_seconds < 60:
-                    eta_str = f"~{int(eta_seconds)}s remaining"
+                    eta_str = f"~{max(1, int(eta_seconds))}s remaining"
                 else:
                     eta_str = f"~{int(eta_seconds/60)}m {int(eta_seconds%60)}s remaining"
             else:
@@ -172,7 +182,6 @@ def _fetch_ccxt(symbols: List[str], start: str, end: str, interval: str, exchang
                 f"({progress*100:.0f}%) - {eta_str}"
             )
             
-            result, error = future.result()
             if result is not None:
                 all_data.append(result)
             if error:

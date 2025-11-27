@@ -1,6 +1,10 @@
 #!/bin/bash
 # Run the Multi-Strategy HFT Trading Platform
 
+# Navigate to project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'

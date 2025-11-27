@@ -30,6 +30,10 @@ st.set_page_config(
     layout="wide"
 )
 
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
+render_sidebar_navigation(current_page="Options Strategies")
+apply_custom_css()
+
 # ==================== Black-Scholes Functions ====================
 
 def norm_cdf(x):

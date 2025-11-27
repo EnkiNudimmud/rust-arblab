@@ -29,6 +29,10 @@ from rough_heston import (
 
 st.set_page_config(page_title="Affine Volatility Models", layout="wide")
 
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
+render_sidebar_navigation(current_page="Affine Models")
+apply_custom_css()
+
 # Title and citation
 st.title("🌊 Affine Volatility Models: Rough Heston")
 

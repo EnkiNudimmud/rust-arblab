@@ -22,9 +22,44 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from python import meanrev
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
+
+
+def convert_to_dict_format(data) -> Dict:
+    """Convert DataFrame format to dictionary format {symbol: DataFrame}"""
+    if data is None:
+        return {}
+    
+    # If already in dictionary format, return as is
+    if isinstance(data, dict):
+        return data
+    
+    # Convert DataFrame with 'symbol' column to dictionary
+    if isinstance(data, pd.DataFrame):
+        if 'symbol' not in data.columns:
+            # Single symbol data, return as dict with "Unknown" key
+            return {"Unknown": data}
+        
+        result = {}
+        for symbol in data['symbol'].unique():
+            symbol_data = data[data['symbol'] == symbol].copy()
+            
+            # Set timestamp as index if available
+            if 'timestamp' in symbol_data.columns:
+                symbol_data = symbol_data.set_index('timestamp')
+                symbol_data = symbol_data.drop('symbol', axis=1, errors='ignore')
+            
+            result[symbol] = symbol_data
+        
+        return result
+    
+    return {}
+
 
 def render():
     """Render the arbitrage analysis page"""
+    render_sidebar_navigation(current_page="Arbitrage Analysis")
+    apply_custom_css()
     st.title("🔺 Arbitrage Analysis")
     st.markdown("Apply arbitrage strategies directly on your loaded historical data")
     
@@ -39,9 +74,22 @@ def render():
     
     # Get loaded data
     data = st.session_state.historical_data
-    symbols = list(data.keys())
+    
+    # Extract symbols based on data format
+    if isinstance(data, pd.DataFrame):
+        if 'symbol' in data.columns:
+            symbols = data['symbol'].unique().tolist()
+        else:
+            symbols = ["Unknown"]
+    elif isinstance(data, dict):
+        symbols = list(data.keys())
+    else:
+        symbols = []
     
     st.success(f"✅ Data loaded: {len(symbols)} symbols | Date range: {get_date_range_str(data)}")
+    
+    # Convert DataFrame format to dictionary format if needed
+    data_dict = convert_to_dict_format(data)
     
     # Strategy selection
     st.markdown("---")
@@ -63,13 +111,13 @@ def render():
     
     with col2:
         if strategy == "📉 Mean Reversion Arbitrage":
-            render_mean_reversion_arb(data, symbols)
+            render_mean_reversion_arb(data_dict, symbols)
         elif strategy == "🔄 Statistical Arbitrage (Pairs)":
-            render_pairs_trading_arb(data, symbols)
+            render_pairs_trading_arb(data_dict, symbols)
         elif strategy == "🔺 Triangular Arbitrage":
-            render_triangular_arb(data, symbols)
+            render_triangular_arb(data_dict, symbols)
         elif strategy == "📊 Multi-Strategy Comparison":
-            render_multi_strategy(data, symbols)
+            render_multi_strategy(data_dict, symbols)
 
 
 def render_mean_reversion_arb(data: Dict, symbols: List[str]):
@@ -576,7 +624,14 @@ def display_mean_reversion_results(results: Dict, symbols: List[str]):
     for i, method in enumerate(methods):
         with cols[i]:
             backtest = results[method]['backtest']
-            pnl = backtest['pnl']
+            pnl_data = backtest['pnl']
+            
+            # Convert to Series if it's a list
+            if isinstance(pnl_data, list):
+                series_obj = results[method]['series']
+                pnl = pd.Series(pnl_data, index=series_obj.index[-len(pnl_data):])
+            else:
+                pnl = pnl_data
             
             st.metric(
                 f"{method} Method",
@@ -594,7 +649,15 @@ def display_mean_reversion_results(results: Dict, symbols: List[str]):
     fig = go.Figure()
     
     for method in methods:
-        pnl = results[method]['backtest']['pnl']
+        pnl_data = results[method]['backtest']['pnl']
+        
+        # Convert to Series if it's a list
+        if isinstance(pnl_data, list):
+            series_obj = results[method]['series']
+            pnl = pd.Series(pnl_data, index=series_obj.index[-len(pnl_data):])
+        else:
+            pnl = pnl_data
+        
         fig.add_trace(go.Scatter(
             x=pnl.index,
             y=pnl.values,
@@ -644,7 +707,14 @@ def display_mean_reversion_results(results: Dict, symbols: List[str]):
         metrics_data = []
         for method in methods:
             backtest = results[method]['backtest']
-            pnl = backtest['pnl']
+            pnl_data = backtest['pnl']
+            
+            # Convert to Series if it's a list
+            if isinstance(pnl_data, list):
+                series_obj = results[method]['series']
+                pnl = pd.Series(pnl_data, index=series_obj.index[-len(pnl_data):])
+            else:
+                pnl = pnl_data
             
             metrics_data.append({
                 'Method': method,
@@ -841,13 +911,22 @@ def display_multi_strategy_results(all_results: Dict):
     st.markdown("---")
     st.markdown("### 📊 Multi-Strategy Comparison")
     
-    # Collect all PnL series
+    # Collect all PnL series and convert lists to Series
     pnl_series = {}
     
     # Mean reversion
     if 'Mean Reversion' in all_results:
         for method, data in all_results['Mean Reversion'].items():
-            pnl_series[f"MR_{method}"] = data['backtest']['pnl']
+            pnl_data = data['backtest']['pnl']
+            
+            # Convert to Series if it's a list
+            if isinstance(pnl_data, list):
+                series_obj = data['series']
+                pnl = pd.Series(pnl_data, index=series_obj.index[-len(pnl_data):])
+            else:
+                pnl = pnl_data
+            
+            pnl_series[f"MR_{method}"] = pnl
     
     # Pairs trading
     if 'Pairs Trading' in all_results:
@@ -858,75 +937,281 @@ def display_multi_strategy_results(all_results: Dict):
     if 'Triangular' in all_results:
         pnl_series['Triangular'] = all_results['Triangular']['cumulative_pnl']
     
-    # Performance metrics
-    st.markdown("#### Performance Metrics")
+    # Summary metrics at top
+    st.markdown("#### 📈 Summary Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        best_return = max([(k, v.iloc[-1]) for k, v in pnl_series.items()], key=lambda x: x[1])
+        st.metric("🏆 Best Return", best_return[0], f"${best_return[1]:,.2f}")
+    
+    with col2:
+        sharpes = {k: compute_sharpe(v) for k, v in pnl_series.items()}
+        best_sharpe = max(sharpes.items(), key=lambda x: x[1])
+        st.metric("⭐ Best Sharpe", best_sharpe[0], f"{best_sharpe[1]:.2f}")
+    
+    with col3:
+        drawdowns = {k: compute_max_drawdown(v) for k, v in pnl_series.items()}
+        best_dd = min(drawdowns.items(), key=lambda x: x[1])
+        st.metric("🛡️ Lowest Drawdown", best_dd[0], f"{best_dd[1]:.2%}")
+    
+    with col4:
+        total_strategies = len(pnl_series)
+        profitable = sum(1 for v in pnl_series.values() if v.iloc[-1] > 0)
+        st.metric("✅ Profitable", f"{profitable}/{total_strategies}", 
+                 f"{(profitable/total_strategies*100):.0f}%")
+    
+    # Performance metrics table
+    st.markdown("#### 📊 Detailed Performance Metrics")
     
     metrics_data = []
     for strategy, pnl in pnl_series.items():
+        final_pnl = pnl.iloc[-1]
+        return_pct = (final_pnl / 100000) * 100
+        sharpe = compute_sharpe(pnl)
+        max_dd = compute_max_drawdown(pnl)
+        vol = compute_volatility(pnl)
+        
         metrics_data.append({
             'Strategy': strategy,
-            'Total Return': f"${pnl.iloc[-1]:,.2f}",
-            'Return %': f"{(pnl.iloc[-1] / 100000 * 100):.2f}%",
-            'Sharpe Ratio': f"{compute_sharpe(pnl):.2f}",
-            'Max Drawdown': f"{compute_max_drawdown(pnl):.2%}",
-            'Volatility': f"{compute_volatility(pnl):.2%}"
+            'Total Return': f"${final_pnl:,.2f}",
+            'Return %': f"{return_pct:.2f}%",
+            'Sharpe Ratio': f"{sharpe:.2f}",
+            'Max Drawdown': f"{max_dd:.2%}",
+            'Volatility': f"{vol:.2%}",
+            'Risk-Adj Return': f"{(return_pct / (vol * 100) if vol > 0 else 0):.2f}"
         })
     
-    st.dataframe(pd.DataFrame(metrics_data), use_container_width=True)
+    # Sort by return % descending
+    metrics_df = pd.DataFrame(metrics_data)
+    metrics_df['_sort_key'] = [float(r.strip('%').replace(',', '')) for r in metrics_df['Return %']]
+    metrics_df = metrics_df.sort_values('_sort_key', ascending=False).drop('_sort_key', axis=1)
     
-    # Comparison chart
-    fig = go.Figure()
+    st.dataframe(metrics_df, use_container_width=True, hide_index=True)
     
-    for strategy, pnl in pnl_series.items():
-        fig.add_trace(go.Scatter(
-            x=pnl.index,
-            y=pnl.values,
-            name=strategy,
-            mode='lines'
-        ))
+    # Equity curves comparison with tabs
+    st.markdown("#### 📈 Equity Curves Comparison")
     
-    fig.update_layout(
-        title="Strategy Performance Comparison",
-        xaxis_title="Date",
-        yaxis_title="Cumulative PnL ($)",
-        hovermode='x unified',
-        height=500
-    )
+    tab1, tab2, tab3 = st.tabs(["Absolute PnL", "Normalized Returns", "Rolling Sharpe"])
     
-    st.plotly_chart(fig, use_container_width=True)
+    with tab1:
+        fig = go.Figure()
+        
+        for strategy, pnl in pnl_series.items():
+            fig.add_trace(go.Scatter(
+                x=pnl.index,
+                y=pnl.values,
+                name=strategy,
+                mode='lines',
+                hovertemplate='%{y:$,.2f}<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            title="Absolute PnL Over Time",
+            xaxis_title="Date",
+            yaxis_title="Cumulative PnL ($)",
+            hovermode='x unified',
+            height=500,
+            showlegend=True,
+            legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        fig = go.Figure()
+        
+        for strategy, pnl in pnl_series.items():
+            # Normalize to percentage returns starting at 0
+            normalized = (pnl / 100000) * 100
+            
+            fig.add_trace(go.Scatter(
+                x=normalized.index,
+                y=normalized.values,
+                name=strategy,
+                mode='lines',
+                hovertemplate='%{y:.2f}%<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            title="Normalized Returns (%)",
+            xaxis_title="Date",
+            yaxis_title="Return (%)",
+            hovermode='x unified',
+            height=500,
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab3:
+        fig = go.Figure()
+        
+        for strategy, pnl in pnl_series.items():
+            # Calculate rolling Sharpe (20-day window)
+            returns = pnl.diff()
+            rolling_sharpe = (returns.rolling(20).mean() / returns.rolling(20).std()) * np.sqrt(252)
+            
+            fig.add_trace(go.Scatter(
+                x=rolling_sharpe.index,
+                y=rolling_sharpe.values,
+                name=strategy,
+                mode='lines',
+                hovertemplate='%{y:.2f}<extra></extra>'
+            ))
+        
+        # Add zero line
+        fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+        
+        fig.update_layout(
+            title="Rolling Sharpe Ratio (20-day)",
+            xaxis_title="Date",
+            yaxis_title="Sharpe Ratio",
+            hovermode='x unified',
+            height=500,
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
     
     # Risk-return scatter
-    st.markdown("#### Risk-Return Profile")
+    st.markdown("#### 🎯 Risk-Return Profile")
     
-    returns = []
-    volatilities = []
-    strategy_names = []
+    col1, col2 = st.columns([2, 1])
     
-    for strategy, pnl in pnl_series.items():
-        returns.append((pnl.iloc[-1] / 100000) * 100)  # Return %
-        volatilities.append(compute_volatility(pnl) * 100)  # Volatility %
-        strategy_names.append(strategy)
+    with col1:
+        returns = []
+        volatilities = []
+        sharpes = []
+        strategy_names = []
+        
+        for strategy, pnl in pnl_series.items():
+            ret = (pnl.iloc[-1] / 100000) * 100  # Return %
+            vol = compute_volatility(pnl) * 100  # Volatility %
+            sharpe = compute_sharpe(pnl)
+            
+            returns.append(ret)
+            volatilities.append(vol)
+            sharpes.append(sharpe)
+            strategy_names.append(strategy)
+        
+        fig = go.Figure()
+        
+        # Add scatter points with size based on Sharpe ratio
+        fig.add_trace(go.Scatter(
+            x=volatilities,
+            y=returns,
+            mode='markers+text',
+            text=strategy_names,
+            textposition='top center',
+            marker=dict(
+                size=[max(10, min(30, abs(s) * 10)) for s in sharpes],
+                color=returns,
+                colorscale='RdYlGn',
+                showscale=True,
+                colorbar=dict(title="Return %"),
+                line=dict(width=1, color='white')
+            ),
+            hovertemplate='<b>%{text}</b><br>' +
+                         'Return: %{y:.2f}%<br>' +
+                         'Volatility: %{x:.2f}%<br>' +
+                         '<extra></extra>'
+        ))
+        
+        # Add efficient frontier guide line (if multiple strategies)
+        if len(returns) > 1:
+            # Add quadrant lines
+            avg_ret = np.mean(returns)
+            avg_vol = np.mean(volatilities)
+            
+            fig.add_hline(y=avg_ret, line_dash="dash", line_color="gray", 
+                         opacity=0.3, annotation_text="Avg Return")
+            fig.add_vline(x=avg_vol, line_dash="dash", line_color="gray", 
+                         opacity=0.3, annotation_text="Avg Vol")
+        
+        fig.update_layout(
+            title="Risk-Return Profile (Marker size = Sharpe Ratio)",
+            xaxis_title="Volatility (%)",
+            yaxis_title="Return (%)",
+            height=500,
+            hovermode='closest'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
     
-    fig = go.Figure()
+    with col2:
+        st.markdown("##### 🏆 Strategy Rankings")
+        
+        # Rank by different metrics
+        rankings = pd.DataFrame({
+            'Strategy': strategy_names,
+            'Return': returns,
+            'Sharpe': sharpes,
+            'Volatility': volatilities
+        })
+        
+        st.markdown("**By Return:**")
+        top_return = rankings.nlargest(3, 'Return')
+        for idx, row in top_return.iterrows():
+            medal = ["🥇", "🥈", "🥉"][list(top_return.index).index(idx)]
+            st.caption(f"{medal} {row['Strategy']}: {row['Return']:.2f}%")
+        
+        st.markdown("**By Sharpe Ratio:**")
+        top_sharpe = rankings.nlargest(3, 'Sharpe')
+        for idx, row in top_sharpe.iterrows():
+            medal = ["🥇", "🥈", "🥉"][list(top_sharpe.index).index(idx)]
+            st.caption(f"{medal} {row['Strategy']}: {row['Sharpe']:.2f}")
+        
+        st.markdown("**Most Stable (Lowest Vol):**")
+        top_stable = rankings.nsmallest(3, 'Volatility')
+        for idx, row in top_stable.iterrows():
+            medal = ["🥇", "🥈", "🥉"][list(top_stable.index).index(idx)]
+            st.caption(f"{medal} {row['Strategy']}: {row['Volatility']:.2f}%")
     
-    fig.add_trace(go.Scatter(
-        x=volatilities,
-        y=returns,
-        mode='markers+text',
-        text=strategy_names,
-        textposition='top center',
-        marker=dict(size=12, color=returns, colorscale='RdYlGn', showscale=True,
-                   colorbar=dict(title="Return %"))
+    # Correlation matrix
+    st.markdown("#### 🔗 Strategy Correlation Matrix")
+    
+    # Align all PnL series to common index
+    aligned_pnl = pd.DataFrame({k: v for k, v in pnl_series.items()})
+    correlation_matrix = aligned_pnl.corr()
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=correlation_matrix.values,
+        x=correlation_matrix.columns,
+        y=correlation_matrix.index,
+        colorscale='RdBu',
+        zmid=0,
+        text=correlation_matrix.values,
+        texttemplate='%{text:.2f}',
+        textfont={"size": 10},
+        colorbar=dict(title="Correlation")
     ))
     
     fig.update_layout(
-        title="Risk-Return Profile",
-        xaxis_title="Volatility (%)",
-        yaxis_title="Return (%)",
-        height=400
+        title="Strategy Return Correlations",
+        height=400,
+        xaxis={'side': 'bottom'},
     )
     
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Diversification insights
+    with st.expander("💡 Diversification Insights"):
+        avg_corr = correlation_matrix.values[np.triu_indices_from(correlation_matrix.values, k=1)].mean()
+        
+        st.markdown(f"""
+        **Average Cross-Strategy Correlation:** {avg_corr:.2f}
+        
+        {'✅ **Low correlation detected** - Good diversification potential!' if avg_corr < 0.5 else 
+         '⚠️ **Moderate correlation** - Some diversification benefit.' if avg_corr < 0.7 else 
+         '❌ **High correlation** - Limited diversification benefit.'}
+        
+        **Portfolio Recommendations:**
+        - Combine strategies with low correlation (< 0.3) for best diversification
+        - Consider equal-weight or risk-parity allocation
+        - Monitor for correlation breakdown during market stress
+        """)
 
 
 # ============================================================================
@@ -948,21 +1233,48 @@ def extract_prices(data: Dict, symbols: List[str]) -> pd.DataFrame:
     return pd.DataFrame(prices)
 
 
-def get_date_range_str(data: Dict) -> str:
+def get_date_range_str(data) -> str:
     """Get date range string from loaded data"""
-    if not data:
+    if data is None:
         return "N/A"
     
-    first_symbol = list(data.keys())[0]
-    df = data[first_symbol]
-    
-    if len(df) == 0:
+    # Handle DataFrame format (multi-index or regular)
+    if isinstance(data, pd.DataFrame):
+        if data.empty:
+            return "N/A"
+        
+        # Check if there's a timestamp column
+        if 'timestamp' in data.columns:
+            timestamps = pd.to_datetime(data['timestamp'])
+            start = timestamps.min().strftime("%Y-%m-%d")
+            end = timestamps.max().strftime("%Y-%m-%d")
+            return f"{start} to {end}"
+        
+        # Check if index is datetime
+        if isinstance(data.index, pd.DatetimeIndex):
+            start = data.index[0].strftime("%Y-%m-%d")
+            end = data.index[-1].strftime("%Y-%m-%d")
+            return f"{start} to {end}"
+        
         return "N/A"
     
-    start = df.index[0].strftime("%Y-%m-%d")
-    end = df.index[-1].strftime("%Y-%m-%d")
+    # Handle dictionary format {symbol: DataFrame}
+    if isinstance(data, dict):
+        if not data:
+            return "N/A"
+        
+        first_symbol = list(data.keys())[0]
+        df = data[first_symbol]
+        
+        if len(df) == 0:
+            return "N/A"
+        
+        start = df.index[0].strftime("%Y-%m-%d")
+        end = df.index[-1].strftime("%Y-%m-%d")
+        
+        return f"{start} to {end}"
     
-    return f"{start} to {end}"
+    return "N/A"
 
 
 def compute_sharpe(pnl: pd.Series, periods_per_year: int = 252) -> float:

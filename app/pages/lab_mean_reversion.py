@@ -51,14 +51,28 @@ if st.session_state.historical_data is None or st.session_state.historical_data.
 # Main content
 data = st.session_state.historical_data
 
-st.success(f"✅ Data loaded: {len(data)} records, {len(data.columns)} assets")
+# Handle multi-index data structure from data loader
+if isinstance(data.index, pd.MultiIndex):
+    # Reset index to get symbol and timestamp as columns
+    data = data.reset_index()
+
+# Get list of unique symbols
+if 'symbol' in data.columns:
+    available_symbols = data['symbol'].unique().tolist()
+    st.success(f"✅ Data loaded: {len(data)} records, {len(available_symbols)} symbols")
+else:
+    available_symbols = [col for col in data.columns if col not in ['Date', 'date', 'timestamp', 'open', 'high', 'low', 'close', 'volume']]
+    st.success(f"✅ Data loaded: {len(data)} records, {len(available_symbols)} assets")
 
 # Sidebar parameters
 with st.sidebar:
     st.markdown("### 🎛️ Analysis Parameters")
     
     # Symbol selection
-    available_symbols = [col for col in data.columns if col not in ['Date', 'date', 'timestamp']]
+    if not available_symbols:
+        st.error("No symbols found in data")
+        st.stop()
+    
     selected_symbol = st.selectbox("Select Asset", available_symbols)
     
     st.markdown("---")
@@ -80,76 +94,98 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Z-Score Analysis", "🔄 Pairs Trading",
 with tab1:
     st.markdown("### Z-Score Mean Reversion Analysis")
     
-    if selected_symbol in data.columns:
+    # Extract price data for selected symbol
+    if 'symbol' in data.columns:
+        # Multi-symbol data structure
+        symbol_data = data[data['symbol'] == selected_symbol].copy()
+        if 'timestamp' in symbol_data.columns:
+            symbol_data = symbol_data.set_index('timestamp').sort_index()
+        prices = symbol_data['close'].dropna()
+    elif selected_symbol in data.columns:
+        # Single-column data structure
         prices = data[selected_symbol].dropna()
-        
-        # Calculate statistics
-        rolling_mean = prices.rolling(window=window).mean()
-        rolling_std = prices.rolling(window=window).std()
-        z_score = (prices - rolling_mean) / rolling_std
-        
-        # Create visualization
-        fig = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=('Price & Moving Average', 'Z-Score'),
-            row_heights=[0.6, 0.4],
-            vertical_spacing=0.1
-        )
-        
-        # Price chart
-        fig.add_trace(
-            go.Scatter(x=data.index, y=prices, name='Price', line=dict(color='blue', width=2)),
-            row=1, col=1
-        )
-        fig.add_trace(
-            go.Scatter(x=data.index, y=rolling_mean, name=f'MA({window})', line=dict(color='orange', width=2, dash='dash')),
-            row=1, col=1
-        )
-        
-        # Z-score chart
-        fig.add_trace(
-            go.Scatter(x=data.index, y=z_score, name='Z-Score', line=dict(color='purple', width=2)),
-            row=2, col=1
-        )
-        
-        # Add threshold lines
-        fig.add_hline(y=entry_threshold, line_dash="dash", line_color="red", row=2, col=1, annotation_text="Entry Long")
-        fig.add_hline(y=-entry_threshold, line_dash="dash", line_color="green", row=2, col=1, annotation_text="Entry Short")
-        fig.add_hline(y=exit_threshold, line_dash="dot", line_color="gray", row=2, col=1, annotation_text="Exit")
-        fig.add_hline(y=-exit_threshold, line_dash="dot", line_color="gray", row=2, col=1)
-        
-        fig.update_layout(height=800, showlegend=True, hovermode='x unified')
-        fig.update_xaxes(title_text="Date", row=2, col=1)
-        fig.update_yaxes(title_text="Price", row=1, col=1)
-        fig.update_yaxes(title_text="Z-Score", row=2, col=1)
-        
-        st.plotly_chart(fig, use_container_width=True, key="zscore_chart")
-        
-        # Statistics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Current Z-Score", f"{z_score.iloc[-1]:.2f}")
-        with col2:
-            st.metric("Mean", f"{prices.mean():.2f}")
-        with col3:
-            st.metric("Std Dev", f"{prices.std():.2f}")
-        with col4:
-            st.metric("Current Price", f"{prices.iloc[-1]:.2f}")
-        
-        # Trading signals
-        st.markdown("#### 📊 Recent Trading Signals")
-        signals = []
-        for i in range(len(z_score)-1, max(0, len(z_score)-20), -1):
-            if not np.isnan(z_score.iloc[i]):
-                if z_score.iloc[i] > entry_threshold:
-                    signals.append({'Date': data.index[i], 'Signal': 'SELL (Overbought)', 'Z-Score': f"{z_score.iloc[i]:.2f}", 'Price': f"{prices.iloc[i]:.2f}"})
-                elif z_score.iloc[i] < -entry_threshold:
-                    signals.append({'Date': data.index[i], 'Signal': 'BUY (Oversold)', 'Z-Score': f"{z_score.iloc[i]:.2f}", 'Price': f"{prices.iloc[i]:.2f}"})
-        
-        if signals:
-            st.dataframe(pd.DataFrame(signals), use_container_width=True, hide_index=True)
-        else:
-            st.info("No recent signals in the last 20 periods")
+    else:
+        st.error(f"Symbol {selected_symbol} not found in data")
+        st.stop()
+    
+    if len(prices) == 0:
+        st.error(f"No price data available for {selected_symbol}")
+        st.stop()
+    
+    # Ensure prices are numeric
+    prices = pd.to_numeric(prices, errors='coerce').dropna()
+    
+    if len(prices) < window:
+        st.error(f"Not enough data points. Need at least {window} points, got {len(prices)}")
+        st.stop()
+    
+    # Calculate statistics
+    rolling_mean = prices.rolling(window=window).mean()
+    rolling_std = prices.rolling(window=window).std()
+    z_score = (prices - rolling_mean) / rolling_std
+    
+    # Create visualization
+    fig = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=('Price & Moving Average', 'Z-Score'),
+        row_heights=[0.6, 0.4],
+        vertical_spacing=0.1
+    )
+    
+    # Price chart
+    fig.add_trace(
+        go.Scatter(x=prices.index, y=prices, name='Price', line={'color': 'blue', 'width': 2}),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=rolling_mean.index, y=rolling_mean, name=f'MA({window})', line={'color': 'orange', 'width': 2, 'dash': 'dash'}),
+        row=1, col=1
+    )
+    
+    # Z-score chart
+    fig.add_trace(
+        go.Scatter(x=z_score.index, y=z_score, name='Z-Score', line={'color': 'purple', 'width': 2}),
+        row=2, col=1
+    )
+    
+    # Add threshold lines
+    fig.add_hline(y=entry_threshold, line_dash="dash", line_color="red", row=2, col=1, annotation_text="Entry Long")
+    fig.add_hline(y=-entry_threshold, line_dash="dash", line_color="green", row=2, col=1, annotation_text="Entry Short")
+    fig.add_hline(y=exit_threshold, line_dash="dot", line_color="gray", row=2, col=1, annotation_text="Exit")
+    fig.add_hline(y=-exit_threshold, line_dash="dot", line_color="gray", row=2, col=1)
+    
+    fig.update_layout(height=800, showlegend=True, hovermode='x unified')
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="Z-Score", row=2, col=1)
+    
+    st.plotly_chart(fig, use_container_width=True, key="zscore_chart")
+    
+    # Statistics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Current Z-Score", f"{z_score.iloc[-1]:.2f}")
+    with col2:
+        st.metric("Mean", f"{prices.mean():.2f}")
+    with col3:
+        st.metric("Std Dev", f"{prices.std():.2f}")
+    with col4:
+        st.metric("Current Price", f"{prices.iloc[-1]:.2f}")
+    
+    # Trading signals
+    st.markdown("#### 📊 Recent Trading Signals")
+    signals = []
+    for i in range(len(z_score)-1, max(0, len(z_score)-20), -1):
+        if not np.isnan(z_score.iloc[i]):
+            if z_score.iloc[i] > entry_threshold:
+                signals.append({'Date': prices.index[i], 'Signal': 'SELL (Overbought)', 'Z-Score': f"{z_score.iloc[i]:.2f}", 'Price': f"{prices.iloc[i]:.2f}"})
+            elif z_score.iloc[i] < -entry_threshold:
+                signals.append({'Date': prices.index[i], 'Signal': 'BUY (Oversold)', 'Z-Score': f"{z_score.iloc[i]:.2f}", 'Price': f"{prices.iloc[i]:.2f}"})
+    
+    if signals:
+        st.dataframe(pd.DataFrame(signals), use_container_width=True, hide_index=True)
+    else:
+        st.info("No recent signals in the last 20 periods")
 
 with tab2:
     st.markdown("### Pairs Trading & Cointegration")

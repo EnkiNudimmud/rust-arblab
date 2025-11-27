@@ -19,9 +19,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from python.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
 from python.rust_bridge import list_connectors, get_connector
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 # Predefined sectors, indexes, and ETF constituents
 SECTORS = {
@@ -158,6 +160,13 @@ def get_preset_symbols(category: str, name: str) -> List[str]:
         return CRYPTO_UNIVERSES.get(name, [])
     return []
 
+# Set page config
+st.set_page_config(page_title="Data Loader", page_icon="💾", layout="wide")
+
+# Render sidebar navigation and apply CSS
+render_sidebar_navigation(current_page="Data Loader")
+apply_custom_css()
+
 def render():
     """Render the data loading page"""
     # Initialize session state
@@ -168,6 +177,27 @@ def render():
     
     st.title("📊 Historical Data Loading")
     st.markdown("Load and preview market data for backtesting strategies")
+    
+    # Quick guide
+    with st.expander("💡 Quick Start Guide", expanded=False):
+        col_guide1, col_guide2 = st.columns(2)
+        
+        with col_guide1:
+            st.markdown("""
+            **📈 For Stocks (US Equities):**
+            - ✅ Use **Yahoo Finance**
+            - Examples: AAPL, GOOGL, MSFT
+            - Use **Sector** or **Index** presets
+            """)
+        
+        with col_guide2:
+            st.markdown("""
+            **₿ For Cryptocurrencies:**
+            - ✅ Use **CCXT - Crypto Exchanges**
+            - Examples: BTC/USDT, ETH/USDT, SOL/USDT
+            - Use **Crypto** presets
+            """)
+    
     st.markdown("---")
     
     # Two column layout
@@ -227,12 +257,20 @@ def render():
             # Preset selector
             st.markdown("#### 📋 Quick Select")
             
+            # Show recommended categories based on data source
+            if data_source.startswith("CCXT"):
+                st.info("💡 **Recommended:** Use 'Crypto' category for crypto exchanges")
+                recommended_categories = ["None", "Crypto", "Sector", "Index", "ETF"]
+            else:
+                st.info("💡 **Recommended:** Use 'Sector' or 'Index' for stocks")
+                recommended_categories = ["None", "Sector", "Index", "ETF", "Crypto"]
+            
             preset_col1, preset_col2 = st.columns(2)
             
             with preset_col1:
                 preset_category = st.selectbox(
                     "Category",
-                    ["None", "Sector", "Index", "ETF", "Crypto"],
+                    recommended_categories,
                     help="Select a predefined category"
                 )
             
@@ -255,22 +293,58 @@ def render():
                         help="Choose from predefined lists"
                     )
                     
-                    if st.button("📥 Load Preset", use_container_width=True):
-                        preset_symbols = get_preset_symbols(preset_category, preset_name)
-                        st.session_state.symbols = preset_symbols
-                        st.success(f"✅ Loaded {len(preset_symbols)} symbols from {preset_name}")
-                        st.rerun()
+                    preset_col_btn1, preset_col_btn2 = st.columns(2)
+                    
+                    with preset_col_btn1:
+                        if st.button("➕ Append", use_container_width=True, help="Add to existing symbols"):
+                            preset_symbols = get_preset_symbols(preset_category, preset_name)
+                            # Append and remove duplicates
+                            current_symbols = st.session_state.symbols if st.session_state.symbols else []
+                            combined = list(set(current_symbols + preset_symbols))
+                            st.session_state.symbols = combined
+                            new_count = len(combined) - len(current_symbols)
+                            st.success(f"✅ Added {new_count} new symbols (Total: {len(combined)})")
+                            st.rerun()
+                    
+                    with preset_col_btn2:
+                        if st.button("🔄 Replace", use_container_width=True, help="Replace all symbols"):
+                            preset_symbols = get_preset_symbols(preset_category, preset_name)
+                            st.session_state.symbols = preset_symbols
+                            st.success(f"✅ Replaced with {len(preset_symbols)} symbols from {preset_name}")
+                            st.rerun()
             
             st.markdown("---")
             st.markdown("#### ✏️ Manual Entry")
             
+            # Dynamic help text based on data source
+            if data_source.startswith("CCXT"):
+                symbol_help = (
+                    "Enter crypto pairs (e.g., BTC/USDT, ETH/USDT)\\n"
+                    "Format: BASE/QUOTE (e.g., BTC/USDT, ETH/BTC)"
+                )
+                placeholder_text = "BTC/USDT\nETH/USDT\nSOL/USDT"
+            else:
+                symbol_help = "Enter stock symbols (e.g., AAPL, GOOGL, MSFT)"
+                placeholder_text = "AAPL\nMSFT\nGOOGL"
+            
+            # Symbol management buttons
+            symbol_btn_col1, symbol_btn_col2 = st.columns([3, 1])
+            
+            with symbol_btn_col2:
+                if st.button("🗑️ Clear All", use_container_width=True, help="Clear all symbols"):
+                    st.session_state.symbols = []
+                    st.rerun()
+            
             # Symbol input
-            symbols_input = st.text_area(
-                "Symbols (one per line or comma-separated)",
-                value="\n".join(st.session_state.symbols),
-                height=100,
-                help="Enter stock/crypto symbols to fetch data for"
-            )
+            with symbol_btn_col1:
+                symbols_input = st.text_area(
+                    "Symbols (one per line or comma-separated)",
+                    value="\n".join(st.session_state.symbols) if st.session_state.symbols else "",
+                    placeholder=placeholder_text,
+                    height=100,
+                    help=symbol_help,
+                    label_visibility="visible"
+                )
             
             # Parse and clean symbols
             symbols = []
@@ -290,12 +364,41 @@ def render():
             if any(' ' in s for s in original_symbols):
                 st.info(f"ℹ️  Cleaned symbols: removed spaces from {len([s for s in original_symbols if ' ' in s])} symbol(s)")
             
+            # Interval selection (moved before date range for smart defaults)
+            interval = st.selectbox(
+                "Data Interval",
+                ["1m", "5m", "15m", "30m", "1h", "1d"],
+                index=4,  # Default to 1h
+                help="Time interval for OHLCV data"
+            )
+            
+            # Smart default date range based on interval and data source
+            if data_source == "Yahoo Finance":
+                if interval == "1m":
+                    default_days = 5  # Yahoo Finance limit: 7 days
+                    st.caption("⚠️ Yahoo Finance: 1m data limited to last 7 days")
+                elif interval in ["5m", "15m", "30m"]:
+                    default_days = 30  # Yahoo Finance limit: 60 days
+                    st.caption("ℹ️ Yahoo Finance: Intraday data limited to last 60 days")
+                elif interval == "1h":
+                    default_days = 90
+                else:  # 1d
+                    default_days = 365
+            else:
+                # CCXT and other sources have more flexible limits
+                if interval in ["1m", "5m"]:
+                    default_days = 30
+                elif interval in ["15m", "30m", "1h"]:
+                    default_days = 90
+                else:
+                    default_days = 365
+            
             # Date range
             col_date1, col_date2 = st.columns(2)
             with col_date1:
                 start_date = st.date_input(
                     "Start Date",
-                    value=datetime.now() - timedelta(days=365),
+                    value=datetime.now() - timedelta(days=default_days),
                     max_value=datetime.now()
                 )
             with col_date2:
@@ -305,13 +408,65 @@ def render():
                     max_value=datetime.now()
                 )
             
-            # Interval selection
-            interval = st.selectbox(
-                "Data Interval",
-                ["1m", "5m", "15m", "30m", "1h", "1d"],
-                index=4,  # Default to 1h
-                help="Time interval for OHLCV data"
-            )
+            # Validation warning for CCXT with stock symbols
+            if data_source.startswith("CCXT"):
+                # Check if symbols look like stock tickers (common patterns)
+                stock_like_symbols = [s for s in symbols if len(s) <= 5 and s.isalpha() and '/' not in s]
+                crypto_like_symbols = [s for s in symbols if '/' in s or s in ['BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'ADA', 'DOT', 'MATIC', 'AVAX', 'LINK']]
+                
+                if stock_like_symbols and not crypto_like_symbols:
+                    st.warning(
+                        f"⚠️ **Warning:** You selected CCXT (crypto exchange) but your symbols look like stocks: {', '.join(stock_like_symbols[:5])}{'...' if len(stock_like_symbols) > 5 else ''}\\n\\n"
+                        f"**Crypto exchanges don't have stock data!**\\n\\n"
+                        f"**Options:**\\n"
+                        f"1. Use **Yahoo Finance** source for stocks (AAPL, GOOGL, etc.)\\n"
+                        f"2. Or use crypto pairs like: BTC/USDT, ETH/USDT, SOL/USDT\\n"
+                        f"3. Or switch to 'Crypto' category in Quick Select"
+                    )
+            
+            # Validation warning for Yahoo Finance with crypto pairs
+            if data_source == "Yahoo Finance":
+                crypto_pairs = [s for s in symbols if '/' in s]
+                if crypto_pairs:
+                    st.warning(
+                        f"⚠️ **Warning:** You selected Yahoo Finance but have crypto pair format: {', '.join(crypto_pairs[:3])}\\n\\n"
+                        f"**Yahoo Finance uses different format for crypto:**\\n"
+                        f"• Use 'BTC-USD' instead of 'BTC/USDT'\\n"
+                        f"• Or switch to 'CCXT - Crypto Exchanges' for crypto pairs"
+                    )
+                
+                # Check date range for intraday data
+                days_diff = (end_date - start_date).days
+                
+                if interval == "1m" and days_diff > 7:
+                    st.error(
+                        f"❌ **Invalid Date Range for 1m interval**\\n\\n"
+                        f"Yahoo Finance **1-minute data** is limited to the **last 7 days only**.\\n"
+                        f"Your range: {days_diff} days\\n\\n"
+                        f"**Solutions:**\\n"
+                        f"1. Reduce date range to last 7 days\\n"
+                        f"2. Use **5m** or higher interval for longer history\\n"
+                        f"3. Use **CCXT** for crypto (supports longer 1m history)"
+                    )
+                elif interval in ["5m", "15m", "30m"] and days_diff > 60:
+                    st.error(
+                        f"❌ **Invalid Date Range for {interval} interval**\\n\\n"
+                        f"Yahoo Finance **{interval} data** is limited to the **last 60 days only**.\\n"
+                        f"Your range: {days_diff} days\\n\\n"
+                        f"**Solutions:**\\n"
+                        f"1. Reduce date range to last 60 days\\n"
+                        f"2. Use **1h** or **1d** interval for longer history\\n"
+                        f"3. Use **CCXT** for crypto (supports longer history)"
+                    )
+                elif interval in ["1m", "5m", "15m", "30m"]:
+                    # Show helpful info for valid ranges
+                    max_days = 7 if interval == "1m" else 60
+                    if days_diff > max_days * 0.8:  # Warn if approaching limit
+                        st.info(
+                            f"ℹ️  **Note:** You're requesting {days_diff} days of {interval} data.\\n"
+                            f"Yahoo Finance limit is {max_days} days for this interval.\\n"
+                            f"Consider using **1h** or **1d** for longer historical analysis."
+                        )
             
             # Fetch button
             if st.button("🔄 Fetch Data", type="primary", use_container_width=True):

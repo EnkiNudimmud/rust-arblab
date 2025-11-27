@@ -30,9 +30,12 @@ from app.pages.derivatives_strategies import (
     render_calendar_spread, render_covered_call,
     render_cash_secured_put, render_ratio_spread
 )
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 def render():
     """Render the derivatives page"""
+    render_sidebar_navigation(current_page="Live Derivatives")
+    apply_custom_css()
     st.title("📈 Options & Futures")
     st.markdown("Derivatives data, Greeks calculation, and strategy analysis")
     

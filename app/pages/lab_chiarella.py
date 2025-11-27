@@ -171,27 +171,589 @@ with tab1:
 
 with tab2:
     st.markdown("### Bifurcation Analysis")
-    st.info("🚧 Coming soon: Parameter sensitivity and stability analysis")
     
     st.markdown("""
-    This section will show:
-    - Stability regions in parameter space
-    - Bifurcation diagrams
-    - Phase portraits
-    - Lyapunov exponents
+    Analyze how model dynamics change with parameters. The **bifurcation parameter** 
+    $\\Lambda = \\frac{\\alpha \\cdot \\gamma}{\\beta \\cdot \\delta}$ determines market behavior:
+    
+    - $\\Lambda < 0.67$: **Stable** (mean-reverting)
+    - $0.67 \\leq \\Lambda \\leq 1.5$: **Mixed** (complex dynamics)
+    - $\\Lambda > 1.5$: **Unstable** (trending, bubbles possible)
     """)
+    
+    analysis_type = st.radio(
+        "Analysis Type",
+        ["Bifurcation Diagram", "Phase Portrait", "Stability Map"],
+        horizontal=True
+    )
+    
+    if analysis_type == "Bifurcation Diagram":
+        st.markdown("#### Bifurcation Diagram: Price vs Parameter")
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            param_to_vary = st.selectbox("Vary Parameter", ["alpha", "beta", "gamma", "delta"])
+            param_min = st.number_input("Min Value", value=0.1, step=0.1, format="%.2f")
+            param_max = st.number_input("Max Value", value=2.0, step=0.1, format="%.2f")
+            n_steps_param = st.slider("Number of Steps", 20, 100, 50)
+            simulation_length = st.slider("Simulation Length", 500, 5000, 2000, 100)
+        
+        with col1:
+            if st.button("🔬 Generate Bifurcation Diagram", type="primary"):
+                with st.spinner("Computing bifurcation diagram..."):
+                    param_values = np.linspace(param_min, param_max, n_steps_param)
+                    
+                    # Store steady-state prices for each parameter value
+                    steady_states = {p: [] for p in param_values}
+                    lambda_values = []
+                    
+                    for param_val in param_values:
+                        # Set up parameters
+                        params = {
+                            'alpha': beta_c,
+                            'beta': beta_f,
+                            'gamma': gamma,
+                            'delta': 0.2
+                        }
+                        params[param_to_vary] = param_val
+                        
+                        # Calculate Lambda
+                        Lambda = (params['alpha'] * params['gamma']) / (params['beta'] * params['delta']) if params['delta'] > 0 else 1.0
+                        lambda_values.append(Lambda)
+                        
+                        # Simulate
+                        dt = 0.1
+                        n_sim = int(simulation_length / dt)
+                        prices = np.zeros(n_sim)
+                        trend = 0.0
+                        prices[0] = P0
+                        
+                        for t in range(1, n_sim):
+                            # Chiarella dynamics
+                            mispricing = prices[t-1] - P_fundamental
+                            d_price = params['alpha'] * trend - params['beta'] * mispricing
+                            d_trend = params['gamma'] * (prices[t-1] - prices[max(0, t-10)]) - params['delta'] * trend
+                            
+                            prices[t] = prices[t-1] + dt * d_price + np.random.normal(0, volatility)
+                            trend = trend + dt * d_trend + np.random.normal(0, volatility * 0.5)
+                        
+                        # Take steady-state prices (last 20% of simulation)
+                        steady_start = int(0.8 * n_sim)
+                        steady_states[param_val] = prices[steady_start:]
+                    
+                    # Plot bifurcation diagram
+                    fig = make_subplots(
+                        rows=2, cols=1,
+                        subplot_titles=(f'Bifurcation Diagram: Price vs {param_to_vary}', 'Bifurcation Parameter Λ'),
+                        vertical_spacing=0.12,
+                        row_heights=[0.6, 0.4]
+                    )
+                    
+                    # Scatter plot of steady-state prices
+                    for i, param_val in enumerate(param_values):
+                        prices_sample = steady_states[param_val][::10]  # Sample every 10th point
+                        fig.add_trace(
+                            go.Scatter(
+                                x=[param_val] * len(prices_sample),
+                                y=prices_sample,
+                                mode='markers',
+                                marker={'size': 2, 'color': 'blue', 'opacity': 0.3},
+                                showlegend=False,
+                                hovertemplate=f'{param_to_vary}={param_val:.2f}<br>Price=%{{y:.2f}}<extra></extra>'
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    # Add fundamental price line
+                    fig.add_hline(y=P_fundamental, line_dash="dash", line_color="red", 
+                                row=1, col=1, annotation_text="Fundamental")
+                    
+                    # Plot Lambda values
+                    fig.add_trace(
+                        go.Scatter(
+                            x=param_values,
+                            y=lambda_values,
+                            mode='lines+markers',
+                            name='Λ',
+                            line={'color': 'purple', 'width': 2}
+                        ),
+                        row=2, col=1
+                    )
+                    
+                    # Add regime boundaries
+                    fig.add_hline(y=0.67, line_dash="dash", line_color="green", 
+                                row=2, col=1, annotation_text="Λ=0.67 (stable)")
+                    fig.add_hline(y=1.5, line_dash="dash", line_color="orange", 
+                                row=2, col=1, annotation_text="Λ=1.5 (unstable)")
+                    
+                    fig.update_xaxes(title_text=param_to_vary, row=1, col=1)
+                    fig.update_xaxes(title_text=param_to_vary, row=2, col=1)
+                    fig.update_yaxes(title_text="Price", row=1, col=1)
+                    fig.update_yaxes(title_text="Λ", row=2, col=1)
+                    fig.update_layout(height=800, hovermode='closest')
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.markdown("#### 💡 Interpretation")
+                    st.info("""
+                    - **Single cluster**: System converges to stable equilibrium
+                    - **Multiple clusters**: System has multiple attractors (bimodal)
+                    - **Spread increases**: Higher volatility and potential for bubbles/crashes
+                    - **Λ crossing 1.5**: Transition from stable to chaotic dynamics
+                    """)
+    
+    elif analysis_type == "Phase Portrait":
+        st.markdown("#### Phase Portrait: Price vs Trend")
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            n_trajectories = st.slider("Number of Trajectories", 1, 10, 5)
+            traj_length = st.slider("Trajectory Length", 100, 1000, 500, 50)
+        
+        with col1:
+            if st.button("📊 Generate Phase Portrait", type="primary"):
+                with st.spinner("Computing phase portrait..."):
+                    fig = go.Figure()
+                    
+                    # Plot nullclines
+                    price_range = np.linspace(P_fundamental * 0.8, P_fundamental * 1.2, 100)
+                    
+                    # dp/dt = 0 => trend = β·(p - p_f) / α
+                    trend_nullcline = beta_f * (price_range - P_fundamental) / beta_c if beta_c > 0 else np.zeros_like(price_range)
+                    
+                    fig.add_trace(go.Scatter(
+                        x=price_range,
+                        y=trend_nullcline,
+                        mode='lines',
+                        name='dp/dt = 0',
+                        line={'color': 'red', 'dash': 'dash', 'width': 2}
+                    ))
+                    
+                    # dtrend/dt = 0 => trend ≈ 0 (assuming steady state)
+                    fig.add_hline(y=0, line_dash="dash", line_color="blue", 
+                                annotation_text="dtrend/dt = 0")
+                    
+                    # Simulate multiple trajectories
+                    for traj_id in range(n_trajectories):
+                        dt = 0.1
+                        n_sim = int(traj_length / dt)
+                        
+                        # Random initial conditions
+                        prices = np.zeros(n_sim)
+                        trends = np.zeros(n_sim)
+                        prices[0] = P_fundamental * (0.9 + 0.2 * np.random.random())
+                        trends[0] = (-5 + 10 * np.random.random())
+                        
+                        for t in range(1, n_sim):
+                            mispricing = prices[t-1] - P_fundamental
+                            d_price = beta_c * trends[t-1] - beta_f * mispricing
+                            d_trend = gamma * (prices[t-1] - prices[max(0, t-10)]) - 0.2 * trends[t-1]
+                            
+                            prices[t] = prices[t-1] + dt * d_price + np.random.normal(0, volatility * 0.5)
+                            trends[t] = trends[t-1] + dt * d_trend + np.random.normal(0, volatility * 0.3)
+                        
+                        # Plot trajectory
+                        fig.add_trace(go.Scatter(
+                            x=prices,
+                            y=trends,
+                            mode='lines',
+                            name=f'Trajectory {traj_id+1}',
+                            line={'width': 1.5},
+                            opacity=0.7
+                        ))
+                        
+                        # Mark start and end
+                        fig.add_trace(go.Scatter(
+                            x=[prices[0]],
+                            y=[trends[0]],
+                            mode='markers',
+                            marker={'symbol': 'circle', 'size': 8, 'color': 'green'},
+                            showlegend=False,
+                            hovertext='Start'
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=[prices[-1]],
+                            y=[trends[-1]],
+                            mode='markers',
+                            marker={'symbol': 'square', 'size': 8, 'color': 'red'},
+                            showlegend=False,
+                            hovertext='End'
+                        ))
+                    
+                    # Mark equilibrium
+                    fig.add_trace(go.Scatter(
+                        x=[P_fundamental],
+                        y=[0],
+                        mode='markers',
+                        marker={'symbol': 'star', 'size': 15, 'color': 'gold'},
+                        name='Equilibrium'
+                    ))
+                    
+                    fig.update_layout(
+                        title="Phase Portrait: Price vs Trend Dynamics",
+                        xaxis_title="Price",
+                        yaxis_title="Trend",
+                        height=600,
+                        hovermode='closest'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.markdown("#### 💡 Interpretation")
+                    st.info("""
+                    - **Spiral**: Oscillatory convergence to equilibrium
+                    - **Direct convergence**: Fast mean-reversion
+                    - **Divergence**: Unstable system (chartists dominate)
+                    - **Limit cycle**: Sustained oscillations
+                    """)
+    
+    else:  # Stability Map
+        st.markdown("#### Stability Map: Parameter Space")
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            param_x = st.selectbox("X-axis", ["alpha", "beta", "gamma", "delta"], index=0)
+            param_y = st.selectbox("Y-axis", ["alpha", "beta", "gamma", "delta"], index=1)
+            resolution = st.slider("Resolution", 10, 50, 25)
+        
+        with col1:
+            if st.button("🗺️ Generate Stability Map", type="primary"):
+                with st.spinner("Computing stability map..."):
+                    # Create parameter grid
+                    x_range = np.linspace(0.1, 2.0, resolution)
+                    y_range = np.linspace(0.1, 2.0, resolution)
+                    
+                    lambda_grid = np.zeros((resolution, resolution))
+                    
+                    for i, x_val in enumerate(x_range):
+                        for j, y_val in enumerate(y_range):
+                            params = {
+                                'alpha': beta_c,
+                                'beta': beta_f,
+                                'gamma': gamma,
+                                'delta': 0.2
+                            }
+                            params[param_x] = x_val
+                            params[param_y] = y_val
+                            
+                            # Calculate Lambda
+                            Lambda = (params['alpha'] * params['gamma']) / (params['beta'] * params['delta'])
+                            lambda_grid[j, i] = Lambda  # Note: j for y, i for x
+                    
+                    # Create heatmap
+                    fig = go.Figure(data=go.Heatmap(
+                        x=x_range,
+                        y=y_range,
+                        z=lambda_grid,
+                        colorscale=[
+                            [0, 'green'],      # Λ < 0.67: stable
+                            [0.67/3, 'green'],
+                            [0.67/3, 'yellow'], # 0.67 ≤ Λ ≤ 1.5: mixed
+                            [1.5/3, 'yellow'],
+                            [1.5/3, 'red'],     # Λ > 1.5: unstable
+                            [1, 'red']
+                        ],
+                        colorbar={'title': 'Λ'},
+                        hovertemplate=f'{param_x}=%{{x:.2f}}<br>{param_y}=%{{y:.2f}}<br>Λ=%{{z:.2f}}<extra></extra>'
+                    ))
+                    
+                    # Add contour lines
+                    fig.add_trace(go.Contour(
+                        x=x_range,
+                        y=y_range,
+                        z=lambda_grid,
+                        contours={'start': 0.67, 'end': 1.5, 'size': 0.83},
+                        line={'color': 'black', 'width': 2},
+                        showscale=False,
+                        hoverinfo='skip'
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"Stability Map: Λ in ({param_x}, {param_y}) space",
+                        xaxis_title=param_x,
+                        yaxis_title=param_y,
+                        height=600
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.markdown("#### 💡 Interpretation")
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
+                        st.success("**🟢 Green: Stable**\nΛ < 0.67\nMean-reversion dominates")
+                    with col_b:
+                        st.warning("**🟡 Yellow: Mixed**\n0.67 ≤ Λ ≤ 1.5\nComplex dynamics")
+                    with col_c:
+                        st.error("**🔴 Red: Unstable**\nΛ > 1.5\nTrending, bubbles")
 
 with tab3:
     st.markdown("### Trading Signals from Agent Dynamics")
-    st.info("🚧 Coming soon: Regime-based trading strategies")
     
-    st.markdown("""
-    Generate trading signals based on:
-    - Agent fraction transitions
-    - Price-fundamental gaps during fundamentalist dominance
-    - Momentum signals during chartist dominance
-    - Regime switching indicators
-    """)
+    if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
+        st.warning("⚠️ Please load data first from the Data Loader page")
+        if st.button("💾 Go to Data Loader"):
+            st.switch_page("pages/data_loader.py")
+    else:
+        import pandas as pd
+        data = st.session_state.historical_data
+        
+        # Get available symbols
+        if isinstance(data, dict):
+            symbols = list(data.keys())
+        elif isinstance(data, pd.DataFrame):
+            if 'symbol' in data.columns:
+                symbols = data['symbol'].unique().tolist()
+            else:
+                symbols = ['Data']
+        else:
+            symbols = []
+        
+        if not symbols:
+            st.warning("No data available")
+        else:
+            selected_symbol = st.selectbox("Select Symbol", symbols, key="chiarella_symbol")
+            
+            # Extract price data
+            if isinstance(data, dict):
+                df = data[selected_symbol]
+            elif isinstance(data, pd.DataFrame):
+                if 'symbol' in data.columns:
+                    df = data[data['symbol'] == selected_symbol].copy()
+                else:
+                    df = data.copy()
+            else:
+                st.error("Unsupported data format")
+                st.stop()
+            
+            if 'Close' not in df.columns:
+                st.error("Close price column not found")
+                st.stop()
+            
+            prices = df['Close'].values
+            
+            # Estimate fundamental price
+            st.markdown("#### ⚙️ Signal Parameters")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fund_method = st.selectbox("Fundamental Price", ["EMA", "SMA", "Median"], 
+                                           help="Method to estimate fundamental value")
+                fund_window = st.slider("Fundamental Window", 20, 200, 100,
+                                       help="Lookback period for fundamental estimate")
+            
+            with col2:
+                signal_sensitivity = st.slider("Signal Sensitivity", 0.5, 2.0, 1.0, 0.1,
+                                              help="Multiplier for signal strength")
+                min_regime_duration = st.slider("Min Regime Duration", 5, 50, 20,
+                                               help="Minimum bars to confirm regime")
+            
+            if st.button("⚡ Generate Chiarella Signals", type="primary"):
+                with st.spinner("Computing agent-based signals..."):
+                    # Estimate fundamental price
+                    if fund_method == "EMA":
+                        fundamental = pd.Series(prices).ewm(span=fund_window).mean().values
+                    elif fund_method == "SMA":
+                        fundamental = pd.Series(prices).rolling(fund_window).mean().values
+                    else:  # Median
+                        fundamental = pd.Series(prices).rolling(fund_window).median().values
+                    
+                    # Fill NaN with first valid value
+                    fundamental = pd.Series(fundamental).fillna(method='bfill').values
+                    
+                    # Compute mispricing and trend
+                    mispricing = prices - fundamental
+                    mispricing_pct = mispricing / fundamental
+                    
+                    # Estimate trend (moving average of returns)
+                    returns = np.diff(prices, prepend=prices[0])
+                    trend = pd.Series(returns).rolling(20).mean().fillna(0).values
+                    
+                    # Compute Lambda (bifurcation parameter) over time
+                    Lambda = (beta_c * gamma) / (beta_f * 0.2) if beta_f > 0 else 1.0
+                    
+                    # Regime detection
+                    regimes = []
+                    for i in range(len(prices)):
+                        if Lambda < 0.67:
+                            regimes.append('mean_reverting')
+                        elif Lambda > 1.5:
+                            regimes.append('trending')
+                        else:
+                            regimes.append('mixed')
+                    
+                    # Generate signals based on regime
+                    signals = []
+                    for i in range(max(fund_window, min_regime_duration), len(prices)):
+                        regime = regimes[i]
+                        
+                        if regime == 'mean_reverting':
+                            # Fundamentalist strategy: fade mispricings
+                            if mispricing_pct[i] < -0.02 * signal_sensitivity:
+                                signals.append({'time': df.index[i], 'signal': 'LONG_FUND', 
+                                              'strength': abs(mispricing_pct[i]), 'regime': regime})
+                            elif mispricing_pct[i] > 0.02 * signal_sensitivity:
+                                signals.append({'time': df.index[i], 'signal': 'SHORT_FUND',
+                                              'strength': abs(mispricing_pct[i]), 'regime': regime})
+                        
+                        elif regime == 'trending':
+                            # Chartist strategy: follow momentum
+                            if trend[i] > 0.001 * signal_sensitivity:
+                                signals.append({'time': df.index[i], 'signal': 'LONG_CHART',
+                                              'strength': abs(trend[i]), 'regime': regime})
+                            elif trend[i] < -0.001 * signal_sensitivity:
+                                signals.append({'time': df.index[i], 'signal': 'SHORT_CHART',
+                                              'strength': abs(trend[i]), 'regime': regime})
+                        
+                        else:  # mixed
+                            # Balanced strategy: combine both
+                            fund_signal = -mispricing_pct[i]  # Buy when undervalued
+                            chart_signal = trend[i]  # Follow trend
+                            combined = 0.5 * fund_signal + 0.5 * chart_signal
+                            
+                            if combined > 0.01 * signal_sensitivity:
+                                signals.append({'time': df.index[i], 'signal': 'LONG_MIXED',
+                                              'strength': abs(combined), 'regime': regime})
+                            elif combined < -0.01 * signal_sensitivity:
+                                signals.append({'time': df.index[i], 'signal': 'SHORT_MIXED',
+                                              'strength': abs(combined), 'regime': regime})
+                    
+                    # Display metrics
+                    col_a, col_b, col_c, col_d = st.columns(4)
+                    
+                    with col_a:
+                        st.metric("Λ (Bifurcation)", f"{Lambda:.2f}")
+                    with col_b:
+                        current_regime = regimes[-1]
+                        st.metric("Current Regime", current_regime.title())
+                    with col_c:
+                        st.metric("Total Signals", len(signals))
+                    with col_d:
+                        current_mispricing = mispricing_pct[-1]
+                        st.metric("Mispricing", f"{current_mispricing:.2%}")
+                    
+                    # Plot signals
+                    fig = make_subplots(
+                        rows=3, cols=1,
+                        subplot_titles=('Price & Fundamental Value', 'Mispricing %', 'Trend'),
+                        vertical_spacing=0.1,
+                        row_heights=[0.4, 0.3, 0.3]
+                    )
+                    
+                    # Price and fundamental
+                    fig.add_trace(
+                        go.Scatter(x=df.index, y=prices, name='Price',
+                                 line={'color': 'blue', 'width': 2}),
+                        row=1, col=1
+                    )
+                    fig.add_trace(
+                        go.Scatter(x=df.index, y=fundamental, name='Fundamental',
+                                 line={'color': 'red', 'dash': 'dash', 'width': 2}),
+                        row=1, col=1
+                    )
+                    
+                    # Add signals on price chart
+                    long_signals = [s for s in signals if 'LONG' in s['signal']]
+                    short_signals = [s for s in signals if 'SHORT' in s['signal']]
+                    
+                    if long_signals:
+                        long_prices = [prices[df.index.get_loc(s['time'])] for s in long_signals]
+                        fig.add_trace(
+                            go.Scatter(
+                                x=[s['time'] for s in long_signals],
+                                y=long_prices,
+                                mode='markers',
+                                name='Long',
+                                marker={'symbol': 'triangle-up', 'size': 8, 'color': 'green'}
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    if short_signals:
+                        short_prices = [prices[df.index.get_loc(s['time'])] for s in short_signals]
+                        fig.add_trace(
+                            go.Scatter(
+                                x=[s['time'] for s in short_signals],
+                                y=short_prices,
+                                mode='markers',
+                                name='Short',
+                                marker={'symbol': 'triangle-down', 'size': 8, 'color': 'red'}
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    # Mispricing
+                    fig.add_trace(
+                        go.Scatter(x=df.index, y=mispricing_pct * 100, name='Mispricing %',
+                                 line={'color': 'purple', 'width': 2}),
+                        row=2, col=1
+                    )
+                    fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+                    
+                    # Trend
+                    fig.add_trace(
+                        go.Scatter(x=df.index, y=trend * 100, name='Trend',
+                                 line={'color': 'orange', 'width': 2}),
+                        row=3, col=1
+                    )
+                    fig.add_hline(y=0, line_dash="dash", line_color="gray", row=3, col=1)
+                    
+                    fig.update_xaxes(title_text="Date", row=3, col=1)
+                    fig.update_yaxes(title_text="Price", row=1, col=1)
+                    fig.update_yaxes(title_text="%", row=2, col=1)
+                    fig.update_yaxes(title_text="%", row=3, col=1)
+                    fig.update_layout(height=900, showlegend=True, hovermode='x unified')
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Signal breakdown
+                    st.markdown("#### 📊 Signal Breakdown by Type")
+                    if signals:
+                        signal_types = {}
+                        for s in signals:
+                            sig_type = s['signal']
+                            signal_types[sig_type] = signal_types.get(sig_type, 0) + 1
+                        
+                        breakdown_df = pd.DataFrame([
+                            {'Signal Type': k, 'Count': v, 'Percentage': f"{v/len(signals)*100:.1f}%"}
+                            for k, v in signal_types.items()
+                        ])
+                        st.dataframe(breakdown_df, use_container_width=True)
+                    else:
+                        st.info("No signals generated with current parameters")
+        
+        # Strategy explanation
+        with st.expander("📚 Regime-Based Trading Logic"):
+            st.markdown("""
+            ### Agent-Based Signal Generation
+            
+            The Chiarella model adapts trading strategy based on market regime (determined by Λ):
+            
+            #### 🟢 Mean-Reverting Regime (Λ < 0.67)
+            **Fundamentalist Strategy Dominant**
+            - **Long**: Price < Fundamental (undervalued)
+            - **Short**: Price > Fundamental (overvalued)
+            - **Logic**: Fundamentalists dominate → prices revert to fair value
+            
+            #### 🔴 Trending Regime (Λ > 1.5)
+            **Chartist Strategy Dominant**
+            - **Long**: Positive trend/momentum
+            - **Short**: Negative trend/momentum
+            - **Logic**: Chartists dominate → follow the trend
+            
+            #### 🟡 Mixed Regime (0.67 ≤ Λ ≤ 1.5)
+            **Balanced Strategy**
+            - **Combined Signal**: 50% fundamental + 50% chartist
+            - **Logic**: Neither force dominates → use both signals
+            
+            ### Advantages
+            ✅ **Adaptive**: Automatically switches strategy based on market conditions  
+            ✅ **Theory-driven**: Based on mathematical model of agent interactions  
+            ✅ **Regime-aware**: Recognizes when mean-reversion vs momentum works  
+            ✅ **Risk-conscious**: Avoids fighting dominant market forces
+            """)
 
 st.markdown("---")
 st.markdown("""

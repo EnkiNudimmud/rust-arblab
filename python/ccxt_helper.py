@@ -259,7 +259,11 @@ def fetch_ohlcv_range(
     
     logger.info(f"Fetching data from {start_date} to {end_date} in chunks of {max_per_request}")
     
-    while current_since < end_ms:
+    max_iterations = 100  # Safety limit to prevent infinite loops
+    iteration = 0
+    
+    while current_since < end_ms and iteration < max_iterations:
+        iteration += 1
         try:
             df_chunk = fetch_ohlcv_data(exchange, symbol, timeframe, current_since, max_per_request)
             
@@ -273,8 +277,8 @@ def fetch_ohlcv_range(
             last_timestamp_ms = int(df_chunk['timestamp'].iloc[-1].timestamp() * 1000)
             current_since = last_timestamp_ms + timeframe_duration_ms
             
-            # Respect rate limits
-            time.sleep(exchange.rateLimit / 1000)
+            # Respect rate limits - reduced sleep time for faster fetching
+            time.sleep(min(0.5, exchange.rateLimit / 2000))  # Faster but still respectful
             
             # Log progress
             progress_pct = min(100, ((current_since - since_ms) / (end_ms - since_ms)) * 100)

@@ -27,9 +27,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from python.rust_bridge import list_connectors, get_connector
 from python.strategies.definitions import AVAILABLE_STRATEGIES
 from python.strategies.executor import StrategyExecutor, StrategyConfig
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 def render():
     """Render the live trading page"""
+    render_sidebar_navigation(current_page="Live Trading")
+    apply_custom_css()
     st.title("🔴 Live Trading")
     st.markdown("Execute strategies on real-time market data via WebSocket")
     

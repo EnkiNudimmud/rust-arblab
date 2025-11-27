@@ -8,6 +8,9 @@ Backtest multiple trading strategies on historical data:
 - Triangular Arbitrage
 - Market Making
 - Statistical Arbitrage
+
+
+
 """
 
 import streamlit as st
@@ -21,13 +24,18 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from python import meanrev
 from python.strategies.definitions import AVAILABLE_STRATEGIES
 from python.strategies.executor import StrategyExecutor, StrategyConfig
+from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 def render():
     """Render the strategy backtesting page"""
+    # Render sidebar navigation and apply CSS
+    render_sidebar_navigation(current_page="Strategy Backtest")
+    apply_custom_css()
     # Initialize session state
     if 'historical_data' not in st.session_state:
         st.session_state.historical_data = None
@@ -337,14 +345,38 @@ def backtest_meanrev(strategy_name: str, price_df: pd.DataFrame, params: Dict, t
         results['weights'] = weights
         results['method'] = 'Sharpe'
     
-    # Extract backtest results
-    results['equity'] = backtest['equity']
+    # Extract backtest results and convert to proper format
+    pnl_data = backtest['pnl']
+    
+    # Convert pnl list to Series if needed
+    if isinstance(pnl_data, list):
+        pnl_series = pd.Series(pnl_data, index=portfolio_series.index[-len(pnl_data):])
+    else:
+        pnl_series = pnl_data
+    
+    # Calculate equity curve (starting capital + pnl)
+    initial_capital = 100000.0
+    results['equity'] = initial_capital + pnl_series
+    results['pnl'] = pnl_series
     results['sharpe'] = backtest['sharpe']
     results['max_drawdown'] = backtest.get('max_drawdown', 0.0)
-    results['total_return'] = backtest.get('total_return', 0.0)
-    results['trades'] = backtest.get('trades', [])
-    results['z_score'] = backtest.get('z', pd.Series())
-    results['positions'] = backtest.get('position', pd.Series())
+    results['total_return'] = pnl_series.iloc[-1] if len(pnl_series) > 0 else 0.0
+    results['total_costs'] = backtest.get('total_costs', 0.0)
+    
+    # Convert positions list to Series if needed
+    positions_data = backtest.get('positions', [])
+    if isinstance(positions_data, list):
+        results['positions'] = pd.Series(positions_data, index=portfolio_series.index[-len(positions_data):])
+    else:
+        results['positions'] = positions_data
+    
+    # Calculate z-score for the portfolio series (for display purposes)
+    window = 20
+    rolling_mean = portfolio_series.rolling(window).mean()
+    rolling_std = portfolio_series.rolling(window).std()
+    results['z_score'] = (portfolio_series - rolling_mean) / (rolling_std + 1e-10)
+    
+    results['returns'] = backtest.get('returns', [])
     results['symbols'] = price_df.columns.tolist()
     
     return results
@@ -610,14 +642,386 @@ def display_analysis(results: Dict):
 def compare_strategies(initial_capital: float, transaction_cost: float):
     """Compare multiple strategies"""
     
-    st.info("🚧 Multi-strategy comparison coming soon!")
-    st.markdown("""
-    This feature will allow you to:
-    - Run multiple strategies simultaneously
-    - Compare performance metrics side-by-side
-    - Visualize equity curves together
-    - Identify best-performing strategies
-    """)
+    st.markdown("---")
+    st.markdown("### 🔥 Multi-Strategy Comparison")
+    
+    # Strategy selection for comparison
+    all_strategies = ["Mean Reversion (PCA)", "Mean Reversion (CARA)", "Mean Reversion (Sharpe)"]
+    
+    selected_strategies = st.multiselect(
+        "Select Strategies to Compare",
+        all_strategies,
+        default=all_strategies,
+        help="Choose 2 or more strategies to compare"
+    )
+    
+    if len(selected_strategies) < 2:
+        st.warning("⚠️ Please select at least 2 strategies to compare")
+        return
+    
+    # Global parameters
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        entry_z = st.number_input("Entry Z-Score", 0.5, 5.0, 2.0, 0.1, key="comp_entry_z")
+    with col2:
+        exit_z = st.number_input("Exit Z-Score", 0.0, 2.0, 0.5, 0.1, key="comp_exit_z")
+    with col3:
+        gamma = st.number_input("CARA γ", 0.1, 10.0, 2.0, 0.1, key="comp_gamma")
+    
+    if st.button("🚀 Run Comparison", type="primary", use_container_width=True):
+        with st.spinner("Running all strategies..."):
+            # Prepare data
+            data = st.session_state.historical_data
+            
+            # Convert DataFrame to dict format if needed
+            if isinstance(data, pd.DataFrame):
+                if 'symbol' in data.columns:
+                    symbols = data['symbol'].unique()[:10]  # Limit to 10 symbols
+                    price_dict = {}
+                    for symbol in symbols:
+                        symbol_data = data[data['symbol'] == symbol].copy()
+                        if 'timestamp' in symbol_data.columns:
+                            symbol_data = symbol_data.set_index('timestamp')
+                        if 'close' in symbol_data.columns:
+                            price_dict[symbol] = symbol_data['close']
+                    
+                    price_df = pd.DataFrame(price_dict)
+                else:
+                    st.error("Data format not supported for multi-strategy comparison")
+                    return
+            else:
+                st.error("Please load data in the correct format")
+                return
+            
+            if price_df.empty or len(price_df.columns) < 3:
+                st.error("Need at least 3 symbols for strategy comparison")
+                return
+            
+            # Run all selected strategies
+            results_dict = {}
+            params = {
+                'entry_z': entry_z,
+                'exit_z': exit_z,
+                'gamma': gamma,
+                'risk_free': 0.02,
+                'lookback': 60
+            }
+            
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for idx, strategy_name in enumerate(selected_strategies):
+                status_text.text(f"Running {strategy_name}...")
+                
+                try:
+                    if "Mean Reversion" in strategy_name:
+                        result = backtest_meanrev(strategy_name, price_df, params, transaction_cost)
+                        results_dict[strategy_name] = result
+                except Exception as e:
+                    st.error(f"Failed to run {strategy_name}: {str(e)}")
+                
+                progress_bar.progress((idx + 1) / len(selected_strategies))
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+            if results_dict:
+                display_multi_strategy_comparison(results_dict, initial_capital)
+            else:
+                st.error("No strategies completed successfully")
+
+
+def display_multi_strategy_comparison(results_dict: Dict, initial_capital: float):
+    """Display comprehensive multi-strategy comparison"""
+    
+    st.markdown("---")
+    st.markdown("### 📊 Strategy Performance Comparison")
+    
+    # Extract equity curves
+    equity_curves = {}
+    for name, result in results_dict.items():
+        equity_curves[name] = result.get('equity', pd.Series())
+    
+    # Summary metrics at top
+    st.markdown("#### 📈 Summary Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # Calculate metrics for each strategy
+    metrics = {}
+    for name, equity in equity_curves.items():
+        if len(equity) > 0:
+            final_value = equity.iloc[-1]
+            total_return = ((final_value - initial_capital) / initial_capital) * 100
+            
+            returns = equity.pct_change().dropna()
+            sharpe = np.sqrt(252) * returns.mean() / (returns.std() + 1e-10)
+            
+            running_max = equity.expanding().max()
+            drawdown = ((equity - running_max) / running_max).min()
+            
+            metrics[name] = {
+                'final_value': final_value,
+                'total_return': total_return,
+                'sharpe': sharpe,
+                'max_drawdown': drawdown
+            }
+    
+    with col1:
+        best_return = max(metrics.items(), key=lambda x: x[1]['total_return'])
+        st.metric("🏆 Best Return", best_return[0].split('(')[1].strip(')'), 
+                 f"{best_return[1]['total_return']:.2f}%")
+    
+    with col2:
+        best_sharpe = max(metrics.items(), key=lambda x: x[1]['sharpe'])
+        st.metric("⭐ Best Sharpe", best_sharpe[0].split('(')[1].strip(')'),
+                 f"{best_sharpe[1]['sharpe']:.2f}")
+    
+    with col3:
+        best_dd = max(metrics.items(), key=lambda x: x[1]['max_drawdown'])  # Least negative
+        st.metric("🛡️ Lowest Drawdown", best_dd[0].split('(')[1].strip(')'),
+                 f"{best_dd[1]['max_drawdown']:.2%}")
+    
+    with col4:
+        avg_return = np.mean([m['total_return'] for m in metrics.values()])
+        st.metric("📊 Avg Return", "All Strategies", f"{avg_return:.2f}%")
+    
+    # Detailed metrics table
+    st.markdown("#### 📋 Performance Metrics")
+    
+    metrics_data = []
+    for name, m in metrics.items():
+        method = name.split('(')[1].strip(')')
+        metrics_data.append({
+            'Strategy': method,
+            'Final Value': f"${m['final_value']:,.2f}",
+            'Total Return': f"{m['total_return']:.2f}%",
+            'Sharpe Ratio': f"{m['sharpe']:.2f}",
+            'Max Drawdown': f"{m['max_drawdown']:.2%}",
+            'Risk-Adj Return': f"{(m['total_return'] / abs(m['max_drawdown'] * 100) if m['max_drawdown'] != 0 else 0):.2f}"
+        })
+    
+    # Sort by total return
+    metrics_df = pd.DataFrame(metrics_data)
+    metrics_df['_sort'] = [float(r.strip('%')) for r in metrics_df['Total Return']]
+    metrics_df = metrics_df.sort_values('_sort', ascending=False).drop('_sort', axis=1)
+    
+    st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+    
+    # Equity curves comparison
+    st.markdown("#### 📈 Equity Curves")
+    
+    tab1, tab2, tab3 = st.tabs(["Absolute Value", "Normalized Returns", "Drawdowns"])
+    
+    with tab1:
+        fig = go.Figure()
+        
+        colors = ['#00ff00', '#00ffff', '#ff00ff', '#ffff00', '#ff8800']
+        for idx, (name, equity) in enumerate(equity_curves.items()):
+            method = name.split('(')[1].strip(')')
+            fig.add_trace(go.Scatter(
+                x=equity.index,
+                y=equity.values,
+                name=method,
+                mode='lines',
+                line=dict(width=2, color=colors[idx % len(colors)]),
+                hovertemplate='%{y:$,.2f}<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            title="Equity Curves Comparison",
+            xaxis_title="Time",
+            yaxis_title="Portfolio Value ($)",
+            hovermode='x unified',
+            height=500,
+            template="plotly_dark",
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        fig = go.Figure()
+        
+        for idx, (name, equity) in enumerate(equity_curves.items()):
+            method = name.split('(')[1].strip(')')
+            # Normalize to percentage returns
+            normalized = ((equity - initial_capital) / initial_capital) * 100
+            
+            fig.add_trace(go.Scatter(
+                x=normalized.index,
+                y=normalized.values,
+                name=method,
+                mode='lines',
+                line=dict(width=2, color=colors[idx % len(colors)]),
+                hovertemplate='%{y:.2f}%<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            title="Normalized Returns (%)",
+            xaxis_title="Time",
+            yaxis_title="Return (%)",
+            hovermode='x unified',
+            height=500,
+            template="plotly_dark"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab3:
+        fig = go.Figure()
+        
+        for idx, (name, equity) in enumerate(equity_curves.items()):
+            method = name.split('(')[1].strip(')')
+            # Calculate drawdown
+            running_max = equity.expanding().max()
+            drawdown = ((equity - running_max) / running_max) * 100
+            
+            fig.add_trace(go.Scatter(
+                x=drawdown.index,
+                y=drawdown.values,
+                name=method,
+                mode='lines',
+                fill='tozeroy',
+                line=dict(width=1, color=colors[idx % len(colors)]),
+                hovertemplate='%{y:.2f}%<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            title="Drawdown Comparison",
+            xaxis_title="Time",
+            yaxis_title="Drawdown (%)",
+            hovermode='x unified',
+            height=500,
+            template="plotly_dark"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Risk-Return scatter
+    st.markdown("#### 🎯 Risk-Return Profile")
+    
+    col_scatter, col_rankings = st.columns([2, 1])
+    
+    with col_scatter:
+        returns_list = [m['total_return'] for m in metrics.values()]
+        drawdowns_list = [abs(m['max_drawdown']) * 100 for m in metrics.values()]
+        sharpes_list = [m['sharpe'] for m in metrics.values()]
+        names_list = [n.split('(')[1].strip(')') for n in metrics.keys()]
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=drawdowns_list,
+            y=returns_list,
+            mode='markers+text',
+            text=names_list,
+            textposition='top center',
+            marker=dict(
+                size=[max(10, min(30, abs(s) * 8)) for s in sharpes_list],
+                color=returns_list,
+                colorscale='RdYlGn',
+                showscale=True,
+                colorbar=dict(title="Return %"),
+                line=dict(width=2, color='white')
+            ),
+            hovertemplate='<b>%{text}</b><br>Return: %{y:.2f}%<br>Max DD: %{x:.2f}%<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title="Risk-Return Profile (Size = Sharpe Ratio)",
+            xaxis_title="Max Drawdown (%)",
+            yaxis_title="Total Return (%)",
+            height=400,
+            template="plotly_dark"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col_rankings:
+        st.markdown("##### 🏆 Rankings")
+        
+        st.markdown("**By Total Return:**")
+        sorted_by_return = sorted(metrics.items(), key=lambda x: x[1]['total_return'], reverse=True)
+        for idx, (name, m) in enumerate(sorted_by_return[:3]):
+            medal = ["🥇", "🥈", "🥉"][idx]
+            method = name.split('(')[1].strip(')')
+            st.caption(f"{medal} {method}: {m['total_return']:.2f}%")
+        
+        st.markdown("**By Sharpe Ratio:**")
+        sorted_by_sharpe = sorted(metrics.items(), key=lambda x: x[1]['sharpe'], reverse=True)
+        for idx, (name, m) in enumerate(sorted_by_sharpe[:3]):
+            medal = ["🥇", "🥈", "🥉"][idx]
+            method = name.split('(')[1].strip(')')
+            st.caption(f"{medal} {method}: {m['sharpe']:.2f}")
+        
+        st.markdown("**By Risk-Adjusted Return:**")
+        sorted_by_risk_adj = sorted(
+            metrics.items(), 
+            key=lambda x: x[1]['total_return'] / abs(x[1]['max_drawdown'] * 100) if x[1]['max_drawdown'] != 0 else 0,
+            reverse=True
+        )
+        for idx, (name, m) in enumerate(sorted_by_risk_adj[:3]):
+            medal = ["🥇", "🥈", "🥉"][idx]
+            method = name.split('(')[1].strip(')')
+            risk_adj = m['total_return'] / abs(m['max_drawdown'] * 100) if m['max_drawdown'] != 0 else 0
+            st.caption(f"{medal} {method}: {risk_adj:.2f}")
+    
+    # Portfolio weights comparison
+    st.markdown("#### ⚖️ Portfolio Weights Comparison")
+    
+    weights_data = {}
+    symbols = None
+    
+    for name, result in results_dict.items():
+        if 'weights' in result and 'symbols' in result:
+            method = name.split('(')[1].strip(')')
+            weights_data[method] = result['weights']
+            if symbols is None:
+                symbols = result['symbols']
+    
+    if weights_data and symbols:
+        weights_df = pd.DataFrame(weights_data, index=symbols)
+        
+        fig = go.Figure()
+        
+        for method in weights_df.columns:
+            fig.add_trace(go.Bar(
+                name=method,
+                x=symbols,
+                y=weights_df[method],
+                text=[f"{w:.3f}" for w in weights_df[method]],
+                textposition='outside'
+            ))
+        
+        fig.update_layout(
+            title="Portfolio Weights by Strategy",
+            xaxis_title="Symbol",
+            yaxis_title="Weight",
+            barmode='group',
+            height=400,
+            template="plotly_dark"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Recommendations
+    with st.expander("💡 Strategy Recommendations"):
+        best_overall = max(metrics.items(), key=lambda x: x[1]['sharpe'])
+        best_name = best_overall[0].split('(')[1].strip(')')
+        
+        st.markdown(f"""
+        **Best Overall Strategy:** {best_name}
+        - Highest Sharpe Ratio: {best_overall[1]['sharpe']:.2f}
+        - Total Return: {best_overall[1]['total_return']:.2f}%
+        - Max Drawdown: {best_overall[1]['max_drawdown']:.2%}
+        
+        **Key Insights:**
+        - Use **{sorted_by_return[0][0].split('(')[1].strip(')')}** for maximum absolute returns
+        - Use **{sorted_by_sharpe[0][0].split('(')[1].strip(')')}** for best risk-adjusted performance
+        - Consider combining multiple strategies for better diversification
+        """)
 
 # Execute the render function when page is loaded
 if __name__ == "__main__":

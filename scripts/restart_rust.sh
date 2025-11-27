@@ -85,7 +85,7 @@ else
     read -p "Start Streamlit now? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        ./run_app.sh &
+        "$SCRIPT_DIR/run_app.sh" &
         echo -e "${GREEN}✓ Streamlit started${NC}"
     fi
 fi

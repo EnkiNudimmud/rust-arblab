@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Navigate to project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
 ROOT_DIR="$(pwd)/rust-hft-arbitrage-lab"
 echo "Création de l'arborescence dans ${ROOT_DIR}"
 rm -rf "${ROOT_DIR}"

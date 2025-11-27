@@ -528,14 +528,31 @@ with tab3:
                 st.error("Unsupported data format")
                 st.stop()
             
-            if 'Close' not in df.columns:
-                st.error("Close price column not found")
+            # Find close price column (case-insensitive)
+            close_col = None
+            for col in df.columns:
+                if col.lower() == 'close':
+                    close_col = col
+                    break
+            
+            if close_col is None:
+                st.error(f"Close price column not found. Available columns: {', '.join(df.columns)}")
                 st.stop()
             
-            prices = df['Close'].values
+            prices = df[close_col].values
+            
+            # Mode selection
+            st.markdown("#### 🎯 Analysis Mode")
+            analysis_mode = st.radio(
+                "Select Mode",
+                ["📊 Trading Signals", "🫧 Bubble Detection", "⚙️ Calibrate Parameters"],
+                horizontal=True
+            )
+            
+            st.markdown("---")
             
             # Estimate fundamental price
-            st.markdown("#### ⚙️ Signal Parameters")
+            st.markdown("#### ⚙️ Configuration")
             col1, col2 = st.columns(2)
             
             with col1:
@@ -550,8 +567,119 @@ with tab3:
                 min_regime_duration = st.slider("Min Regime Duration", 5, 50, 20,
                                                help="Minimum bars to confirm regime")
             
-            if st.button("⚡ Generate Chiarella Signals", type="primary"):
+            # Calibration option
+            if analysis_mode == "⚙️ Calibrate Parameters":
+                st.markdown("#### 🔧 Auto-Calibrate from Data")
+                calibrate_col1, calibrate_col2 = st.columns([2, 1])
+                
+                with calibrate_col2:
+                    calibration_window = st.slider("Calibration Window", 50, 500, 200,
+                                                   help="Number of recent bars to use")
+                
+                with calibrate_col1:
+                    if st.button("🔬 Calibrate Model", type="primary"):
+                        with st.spinner("Calibrating Chiarella model from data..."):
+                            # Use recent data for calibration
+                            cal_prices = prices[-calibration_window:]
+                            cal_returns = np.diff(cal_prices) / cal_prices[:-1]
+                            
+                            # Estimate fundamental
+                            if fund_method == "EMA":
+                                cal_fundamental = pd.Series(cal_prices).ewm(span=fund_window).mean().values
+                            elif fund_method == "SMA":
+                                cal_fundamental = pd.Series(cal_prices).rolling(fund_window).mean().values
+                            else:
+                                cal_fundamental = pd.Series(cal_prices).rolling(fund_window).median().values
+                            
+                            cal_fundamental = pd.Series(cal_fundamental).bfill().values
+                            cal_mispricing = cal_prices - cal_fundamental
+                            
+                            # Estimate volatility
+                            returns_vol = np.std(cal_returns)
+                            
+                            # Estimate mean reversion speed (beta_f)
+                            # Higher autocorrelation → lower beta_f (slower reversion)
+                            autocorr = np.corrcoef(cal_mispricing[:-1], cal_mispricing[1:])[0, 1]
+                            estimated_beta_f = max(0.1, min(2.0, 1.0 - abs(autocorr)))
+                            
+                            # Estimate trend following strength (beta_c)
+                            # Higher momentum → higher beta_c
+                            momentum = pd.Series(cal_returns).rolling(10).mean().std()
+                            estimated_beta_c = max(0.1, min(2.0, momentum * 100))
+                            
+                            # Estimate switching rate (gamma)
+                            # Higher volatility → higher switching
+                            estimated_gamma = max(0.1, min(5.0, returns_vol * 50))
+                            
+                            # Display calibrated parameters
+                            st.success("✅ Calibration Complete!")
+                            
+                            calib_col1, calib_col2, calib_col3, calib_col4 = st.columns(4)
+                            with calib_col1:
+                                st.metric("β_f (Fundamentalist)", f"{estimated_beta_f:.2f}",
+                                         help="Mean reversion strength")
+                            with calib_col2:
+                                st.metric("β_c (Chartist)", f"{estimated_beta_c:.2f}",
+                                         help="Trend following strength")
+                            with calib_col3:
+                                st.metric("γ (Switching)", f"{estimated_gamma:.2f}",
+                                         help="Agent switching rate")
+                            with calib_col4:
+                                Lambda_calibrated = (estimated_beta_c * estimated_gamma) / (estimated_beta_f * 0.2)
+                                st.metric("Λ (Bifurcation)", f"{Lambda_calibrated:.2f}",
+                                         help="System stability parameter")
+                            
+                            st.info(f"""
+                            **📊 Calibration Insights:**
+                            - Autocorrelation: {autocorr:.3f} → {"Strong" if abs(autocorr) > 0.3 else "Weak"} mean reversion
+                            - Momentum volatility: {momentum:.4f} → {"High" if momentum > 0.01 else "Low"} trend strength
+                            - Return volatility: {returns_vol:.4f} → {"High" if returns_vol > 0.02 else "Low"} switching rate
+                            - Regime: {"🟢 Stable" if Lambda_calibrated < 0.67 else "🟡 Mixed" if Lambda_calibrated <= 1.5 else "🔴 Unstable"}
+                            """)
+                            
+                            # Store calibrated params in session state
+                            st.session_state['calibrated_params'] = {
+                                'beta_f': estimated_beta_f,
+                                'beta_c': estimated_beta_c,
+                                'gamma': estimated_gamma,
+                                'Lambda': Lambda_calibrated
+                            }
+            
+            # Bubble detection mode
+            elif analysis_mode == "🫧 Bubble Detection":
+                st.markdown("#### 🫧 Sector Bubble Analysis")
+                st.info("""
+                **Bubble Indicators:**
+                - 🔴 **Critical Overvaluation**: Price >> Fundamental + High volatility + Trending regime
+                - 🟡 **Warning**: Moderate overvaluation with increasing volatility
+                - 🟢 **Normal**: Price near fundamental or undervalued
+                """)
+                
+                bubble_sensitivity = st.slider("Bubble Detection Sensitivity", 0.5, 2.0, 1.0, 0.1,
+                                              help="Lower = more sensitive to bubbles")
+                vol_threshold = st.slider("Volatility Threshold %", 1.0, 10.0, 3.0, 0.5,
+                                         help="Elevated volatility indicator")
+            
+            # Main button text changes based on mode
+            button_text = {
+                "📊 Trading Signals": "⚡ Generate Trading Signals",
+                "🫧 Bubble Detection": "🫧 Detect Bubble Risk",
+                "⚙️ Calibrate Parameters": "⚡ Generate Signals (Use Calibrated)"
+            }
+            
+            if st.button(button_text.get(analysis_mode, "⚡ Generate Signals"), type="primary"):
                 with st.spinner("Computing agent-based signals..."):
+                    # Use calibrated parameters if available
+                    if 'calibrated_params' in st.session_state and analysis_mode == "⚙️ Calibrate Parameters":
+                        cal_params = st.session_state['calibrated_params']
+                        active_beta_f = cal_params['beta_f']
+                        active_beta_c = cal_params['beta_c']
+                        active_gamma = cal_params['gamma']
+                    else:
+                        active_beta_f = beta_f
+                        active_beta_c = beta_c
+                        active_gamma = gamma
+                    
                     # Estimate fundamental price
                     if fund_method == "EMA":
                         fundamental = pd.Series(prices).ewm(span=fund_window).mean().values
@@ -561,7 +689,7 @@ with tab3:
                         fundamental = pd.Series(prices).rolling(fund_window).median().values
                     
                     # Fill NaN with first valid value
-                    fundamental = pd.Series(fundamental).fillna(method='bfill').values
+                    fundamental = pd.Series(fundamental).bfill().values
                     
                     # Compute mispricing and trend
                     mispricing = prices - fundamental
@@ -572,7 +700,10 @@ with tab3:
                     trend = pd.Series(returns).rolling(20).mean().fillna(0).values
                     
                     # Compute Lambda (bifurcation parameter) over time
-                    Lambda = (beta_c * gamma) / (beta_f * 0.2) if beta_f > 0 else 1.0
+                    Lambda = (active_beta_c * active_gamma) / (active_beta_f * 0.2) if active_beta_f > 0 else 1.0
+                    
+                    # Compute rolling volatility
+                    rolling_vol = pd.Series(returns).rolling(20).std().fillna(0).values * 100  # As percentage
                     
                     # Regime detection
                     regimes = []
@@ -584,7 +715,131 @@ with tab3:
                         else:
                             regimes.append('mixed')
                     
-                    # Generate signals based on regime
+                    # BUBBLE DETECTION
+                    if analysis_mode == "🫧 Bubble Detection":
+                        bubble_scores = []
+                        bubble_levels = []
+                        
+                        for i in range(max(fund_window, min_regime_duration), len(prices)):
+                            # Bubble indicators
+                            overvaluation = mispricing_pct[i]  # How far above fundamental
+                            vol_elevated = rolling_vol[i] > (vol_threshold if 'vol_threshold' in locals() else 3.0)
+                            is_trending = regimes[i] == 'trending' or Lambda > 1.5
+                            momentum_strong = abs(trend[i]) > 0.002
+                            
+                            # Bubble score (0-1)
+                            bubble_score = 0.0
+                            
+                            # Strong overvaluation (40% weight)
+                            if overvaluation > 0.05 / (bubble_sensitivity if 'bubble_sensitivity' in locals() else 1.0):
+                                bubble_score += 0.4 * min(overvaluation / 0.2, 1.0)
+                            
+                            # Elevated volatility (25% weight)
+                            if vol_elevated:
+                                bubble_score += 0.25
+                            
+                            # Trending regime (20% weight)
+                            if is_trending:
+                                bubble_score += 0.20
+                            
+                            # Strong momentum (15% weight)
+                            if momentum_strong and overvaluation > 0:
+                                bubble_score += 0.15
+                            
+                            bubble_scores.append(bubble_score)
+                            
+                            # Classify bubble level
+                            if bubble_score > 0.7:
+                                bubble_levels.append('🔴 CRITICAL')
+                            elif bubble_score > 0.4:
+                                bubble_levels.append('🟡 WARNING')
+                            else:
+                                bubble_levels.append('🟢 NORMAL')
+                        
+                        # Display bubble analysis
+                        st.markdown("---")
+                        st.markdown("### 🫧 Bubble Risk Assessment")
+                        
+                        current_bubble = bubble_levels[-1] if bubble_levels else '🟢 NORMAL'
+                        current_score = bubble_scores[-1] if bubble_scores else 0.0
+                        
+                        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+                        with metric_col1:
+                            st.metric("Bubble Level", current_bubble)
+                        with metric_col2:
+                            st.metric("Bubble Score", f"{current_score:.2f}")
+                        with metric_col3:
+                            st.metric("Overvaluation", f"{mispricing_pct[-1]:.2%}")
+                        with metric_col4:
+                            st.metric("Current Vol", f"{rolling_vol[-1]:.2f}%")
+                        
+                        # Bubble timeline
+                        critical_periods = sum(1 for level in bubble_levels if '🔴' in level)
+                        warning_periods = sum(1 for level in bubble_levels if '🟡' in level)
+                        
+                        st.markdown(f"""
+                        **📊 Historical Analysis ({len(bubble_levels)} periods):**
+                        - 🔴 Critical bubble risk: {critical_periods} periods ({critical_periods/len(bubble_levels)*100:.1f}%)
+                        - 🟡 Warning level: {warning_periods} periods ({warning_periods/len(bubble_levels)*100:.1f}%)
+                        - 🟢 Normal conditions: {len(bubble_levels) - critical_periods - warning_periods} periods
+                        """)
+                        
+                        if current_bubble == '🔴 CRITICAL':
+                            st.error("""
+                            ⚠️ **CRITICAL BUBBLE WARNING**
+                            - Price significantly above fundamental value
+                            - High volatility detected
+                            - Trending/unstable regime
+                            - Consider reducing exposure or hedging
+                            """)
+                        elif current_bubble == '🟡 WARNING':
+                            st.warning("""
+                            ⚠️ **Bubble Warning Signs Detected**
+                            - Moderate overvaluation
+                            - Monitor volatility and momentum
+                            - Consider taking profits or tightening stops
+                            """)
+                        else:
+                            st.success("""
+                            ✅ **Normal Market Conditions**
+                            - Price near fundamental value
+                            - Normal volatility levels
+                            - No significant bubble indicators
+                            """)
+                        
+                        # Plot bubble score over time
+                        bubble_fig = go.Figure()
+                        
+                        bubble_times = df.index[max(fund_window, min_regime_duration):]
+                        
+                        bubble_fig.add_trace(go.Scatter(
+                            x=bubble_times,
+                            y=bubble_scores,
+                            name='Bubble Score',
+                            line={'color': 'red', 'width': 2},
+                            fill='tozeroy',
+                            fillcolor='rgba(255,0,0,0.1)'
+                        ))
+                        
+                        bubble_fig.add_hline(y=0.7, line_dash="dash", line_color="red",
+                                           annotation_text="Critical (0.7)")
+                        bubble_fig.add_hline(y=0.4, line_dash="dash", line_color="orange",
+                                           annotation_text="Warning (0.4)")
+                        
+                        bubble_fig.update_layout(
+                            title="Bubble Risk Score Over Time",
+                            xaxis_title="Time",
+                            yaxis_title="Bubble Score (0-1)",
+                            height=400,
+                            hovermode='x unified'
+                        )
+                        
+                        st.plotly_chart(bubble_fig, use_container_width=True)
+                        
+                        # Skip normal signal generation in bubble mode
+                        st.stop()
+                    
+                    # Generate signals based on regime (for normal trading mode)
                     signals = []
                     for i in range(max(fund_window, min_regime_duration), len(prices)):
                         regime = regimes[i]

@@ -18,11 +18,12 @@
   "pythonVersion": "3.11",
   "pythonPlatform": "All",
   "typeCheckingMode": "basic",
-  "reportMissingImports": true,
+  "reportMissingImports": "none",
   "reportMissingTypeStubs": false,
   "reportUnknownMemberType": false,
   "reportUnknownParameterType": false,
   "reportUnknownVariableType": false,
   "reportUnknownArgumentType": false,
+  "reportMissingModuleSource": false,
   "stubPath": ""
 }

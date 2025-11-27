@@ -35,6 +35,35 @@ st.set_page_config(page_title="Signature Methods Lab", page_icon="✍️", layou
 render_sidebar_navigation(current_page="Signature Methods Lab")
 apply_custom_css()
 
+def compute_simple_signature(path: np.ndarray, level: int) -> float:
+    """
+    Compute simple signature-like features when Rust bindings unavailable
+    Uses polynomial moments as approximation
+    """
+    if len(path) == 0:
+        return 0.0
+    
+    # Normalize
+    path_norm = (path - np.mean(path)) / (np.std(path) + 1e-8)
+    
+    # Level 1: mean increment
+    increments = np.diff(path_norm)
+    sig1 = np.mean(increments) if len(increments) > 0 else 0.0
+    
+    if level == 1:
+        return sig1
+    
+    # Level 2: add variance-like term
+    sig2 = np.mean(increments ** 2) if len(increments) > 0 else 0.0
+    
+    if level == 2:
+        return sig1 + sig2
+    
+    # Level 3: add skewness-like term
+    sig3 = np.mean(increments ** 3) if len(increments) > 0 else 0.0
+    
+    return sig1 + sig2 + sig3
+
 st.markdown('<h1 class="lab-header">✍️ Signature Methods Lab</h1>', unsafe_allow_html=True)
 st.markdown("### Path signature analysis for feature extraction and classification")
 st.markdown("---")
@@ -258,35 +287,6 @@ with tab2:
                         
                         Higher levels capture more complex path dependencies.
                         """)
-
-def compute_simple_signature(path: np.ndarray, level: int) -> float:
-    """
-    Compute simple signature-like features when Rust bindings unavailable
-    Uses polynomial moments as approximation
-    """
-    if len(path) == 0:
-        return 0.0
-    
-    # Normalize
-    path_norm = (path - np.mean(path)) / (np.std(path) + 1e-8)
-    
-    # Level 1: mean increment
-    increments = np.diff(path_norm)
-    sig1 = np.mean(increments) if len(increments) > 0 else 0.0
-    
-    if level == 1:
-        return sig1
-    
-    # Level 2: add variance-like term
-    sig2 = np.mean(increments ** 2) if len(increments) > 0 else 0.0
-    
-    if level == 2:
-        return sig1 + sig2
-    
-    # Level 3: add skewness-like term
-    sig3 = np.mean(increments ** 3) if len(increments) > 0 else 0.0
-    
-    return sig1 + sig2 + sig3
 
 with tab3:
     st.markdown("### Signature Trading Strategies")

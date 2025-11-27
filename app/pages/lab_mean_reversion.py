@@ -246,14 +246,369 @@ with tab2:
 
 with tab3:
     st.markdown("### Strategy Backtest")
-    st.info("🚧 Coming soon: Full strategy backtesting with transaction costs, slippage, and performance metrics")
     
-    if st.button("🚀 Go to Strategy Backtest Page", type="primary"):
-        st.switch_page("pages/strategy_backtest.py")
+    if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
+        st.warning("⚠️ Please load data first from the Data Loader page")
+    else:
+        data = st.session_state.historical_data
+        
+        # Get symbols
+        if isinstance(data, dict):
+            symbols = list(data.keys())
+        elif isinstance(data, pd.DataFrame):
+            if 'symbol' in data.columns:
+                symbols = data['symbol'].unique().tolist()
+            else:
+                symbols = ['Data']
+        else:
+            symbols = []
+        
+        if len(symbols) > 0:
+            st.markdown("#### 🎯 Strategy Parameters")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                selected_symbol = st.selectbox("Symbol", symbols, key="backtest_symbol")
+                lookback = st.slider("Lookback Window", 10, 200, 50, help="Window for mean calculation")
+            
+            with col2:
+                entry_threshold = st.slider("Entry Threshold (σ)", 0.5, 3.0, 2.0, 0.1,
+                                           help="Standard deviations from mean to enter")
+                exit_threshold = st.slider("Exit Threshold (σ)", 0.0, 2.0, 0.5, 0.1,
+                                          help="Standard deviations from mean to exit")
+            
+            with col3:
+                transaction_cost_bps = st.slider("Transaction Cost (bps)", 0, 50, 10,
+                                                 help="Basis points per trade")
+                slippage_bps = st.slider("Slippage (bps)", 0, 50, 5,
+                                        help="Average slippage per trade")
+            
+            if st.button("🚀 Run Backtest", type="primary"):
+                with st.spinner("Running backtest..."):
+                    # Extract data
+                    if isinstance(data, dict):
+                        df = data[selected_symbol]
+                    elif isinstance(data, pd.DataFrame):
+                        if 'symbol' in data.columns:
+                            df = data[data['symbol'] == selected_symbol].copy()
+                        else:
+                            df = data.copy()
+                    else:
+                        st.error("Unsupported data format")
+                        st.stop()
+                    
+                    # Find close column
+                    close_col = None
+                    for col in df.columns:
+                        if col.lower() == 'close':
+                            close_col = col
+                            break
+                    
+                    if close_col is None:
+                        st.error(f"Close price column not found")
+                        st.stop()
+                    
+                    prices = df[close_col].values
+                    
+                    # Compute mean reversion signals
+                    rolling_mean = pd.Series(prices).rolling(lookback).mean().values
+                    rolling_std = pd.Series(prices).rolling(lookback).std().values
+                    
+                    # Z-score
+                    z_scores = (prices - rolling_mean) / (rolling_std + 1e-8)
+                    
+                    # Generate signals
+                    positions = np.zeros(len(prices))
+                    trades = []
+                    entry_prices = []
+                    
+                    position = 0
+                    entry_price = 0
+                    
+                    for i in range(lookback, len(prices)):
+                        if position == 0:
+                            # Enter long when oversold
+                            if z_scores[i] < -entry_threshold:
+                                position = 1
+                                entry_price = prices[i]
+                                trades.append({'idx': i, 'type': 'LONG', 'price': prices[i]})
+                            # Enter short when overbought
+                            elif z_scores[i] > entry_threshold:
+                                position = -1
+                                entry_price = prices[i]
+                                trades.append({'idx': i, 'type': 'SHORT', 'price': prices[i]})
+                        else:
+                            # Exit conditions
+                            exit_signal = False
+                            
+                            if position == 1:  # Long position
+                                if z_scores[i] > -exit_threshold:  # Mean reversion
+                                    exit_signal = True
+                            elif position == -1:  # Short position
+                                if z_scores[i] < exit_threshold:  # Mean reversion
+                                    exit_signal = True
+                            
+                            if exit_signal:
+                                pnl_pct = (prices[i] - entry_price) / entry_price * position
+                                trades.append({
+                                    'idx': i,
+                                    'type': 'EXIT',
+                                    'price': prices[i],
+                                    'pnl_pct': pnl_pct,
+                                    'position': position
+                                })
+                                position = 0
+                        
+                        positions[i] = position
+                    
+                    # Calculate P&L with costs
+                    total_cost_bps = transaction_cost_bps + slippage_bps
+                    cost_per_trade = total_cost_bps / 10000.0  # Convert to decimal
+                    
+                    trade_pnls = []
+                    for i, trade in enumerate(trades):
+                        if trade['type'] == 'EXIT':
+                            gross_pnl = trade['pnl_pct']
+                            # Deduct costs (2x for entry and exit)
+                            net_pnl = gross_pnl - (2 * cost_per_trade)
+                            trade_pnls.append(net_pnl)
+                    
+                    # Store in session state for performance metrics tab
+                    st.session_state['backtest_results'] = {
+                        'trades': trades,
+                        'positions': positions,
+                        'trade_pnls': trade_pnls,
+                        'prices': prices,
+                        'z_scores': z_scores,
+                        'df_index': df.index,
+                        'symbol': selected_symbol
+                    }
+                    
+                    # Display results
+                    st.markdown("### 📊 Backtest Results")
+                    
+                    col_a, col_b, col_c, col_d = st.columns(4)
+                    
+                    with col_a:
+                        st.metric("Total Trades", len(trade_pnls))
+                    with col_b:
+                        total_return = sum(trade_pnls) * 100
+                        st.metric("Total Return", f"{total_return:.2f}%")
+                    with col_c:
+                        win_rate = sum(1 for pnl in trade_pnls if pnl > 0) / len(trade_pnls) * 100 if trade_pnls else 0
+                        st.metric("Win Rate", f"{win_rate:.1f}%")
+                    with col_d:
+                        avg_pnl = np.mean(trade_pnls) * 100 if trade_pnls else 0
+                        st.metric("Avg Trade", f"{avg_pnl:.2f}%")
+                    
+                    # Plot equity curve and signals
+                    fig = make_subplots(
+                        rows=3, cols=1,
+                        subplot_titles=('Price & Signals', 'Z-Score', 'Cumulative P&L'),
+                        vertical_spacing=0.1,
+                        row_heights=[0.4, 0.3, 0.3]
+                    )
+                    
+                    # Price chart
+                    fig.add_trace(
+                        go.Scatter(x=df.index, y=prices, name='Price', line={'color': 'blue'}),
+                        row=1, col=1
+                    )
+                    
+                    # Add trade markers
+                    long_entries = [t for t in trades if t['type'] == 'LONG']
+                    short_entries = [t for t in trades if t['type'] == 'SHORT']
+                    exits = [t for t in trades if t['type'] == 'EXIT']
+                    
+                    if long_entries:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=[df.index[t['idx']] for t in long_entries],
+                                y=[t['price'] for t in long_entries],
+                                mode='markers',
+                                marker={'symbol': 'triangle-up', 'size': 10, 'color': 'green'},
+                                name='Long Entry'
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    if short_entries:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=[df.index[t['idx']] for t in short_entries],
+                                y=[t['price'] for t in short_entries],
+                                mode='markers',
+                                marker={'symbol': 'triangle-down', 'size': 10, 'color': 'red'},
+                                name='Short Entry'
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    if exits:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=[df.index[t['idx']] for t in exits],
+                                y=[t['price'] for t in exits],
+                                mode='markers',
+                                marker={'symbol': 'x', 'size': 10, 'color': 'orange'},
+                                name='Exit'
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    # Z-score
+                    fig.add_trace(
+                        go.Scatter(x=df.index, y=z_scores, name='Z-Score', line={'color': 'purple'}),
+                        row=2, col=1
+                    )
+                    fig.add_hline(y=entry_threshold, line_dash="dash", line_color="red", row=2, col=1)
+                    fig.add_hline(y=-entry_threshold, line_dash="dash", line_color="green", row=2, col=1)
+                    fig.add_hline(y=0, line_color="gray", row=2, col=1)
+                    
+                    # Cumulative P&L
+                    cum_pnl = np.cumsum(trade_pnls) * 100 if trade_pnls else [0]
+                    trade_indices = [t['idx'] for t in trades if t['type'] == 'EXIT']
+                    
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[df.index[idx] for idx in trade_indices] if trade_indices else [df.index[0]],
+                            y=cum_pnl if trade_indices else [0],
+                            name='Cumulative P&L',
+                            line={'color': 'green', 'width': 2},
+                            fill='tozeroy'
+                        ),
+                        row=3, col=1
+                    )
+                    
+                    fig.update_xaxes(title_text="Time", row=3, col=1)
+                    fig.update_yaxes(title_text="Price", row=1, col=1)
+                    fig.update_yaxes(title_text="Z-Score (σ)", row=2, col=1)
+                    fig.update_yaxes(title_text="Cumulative Return (%)", row=3, col=1)
+                    fig.update_layout(height=900, showlegend=True, hovermode='x unified')
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.success("✅ Backtest complete! View detailed metrics in the Performance Metrics tab.")
 
 with tab4:
     st.markdown("### Performance Metrics")
-    st.info("🚧 Coming soon: Sharpe ratio, max drawdown, win rate, and other performance metrics")
+    
+    if 'backtest_results' not in st.session_state:
+        st.info("💡 Run a backtest in the Strategy Backtest tab first")
+    else:
+        results = st.session_state['backtest_results']
+        trade_pnls = results['trade_pnls']
+        
+        if not trade_pnls:
+            st.warning("No completed trades to analyze")
+        else:
+            st.markdown("#### 📈 Risk-Adjusted Performance")
+            
+            # Calculate metrics
+            returns = np.array(trade_pnls)
+            cum_returns = np.cumsum(returns)
+            
+            # Sharpe Ratio (annualized, assuming ~250 trading days)
+            mean_return = np.mean(returns)
+            std_return = np.std(returns)
+            sharpe_ratio = (mean_return / std_return) * np.sqrt(250) if std_return > 0 else 0
+            
+            # Maximum Drawdown
+            running_max = np.maximum.accumulate(cum_returns)
+            drawdowns = cum_returns - running_max
+            max_drawdown = np.min(drawdowns) * 100 if len(drawdowns) > 0 else 0
+            
+            # Win/Loss metrics
+            wins = [r for r in returns if r > 0]
+            losses = [r for r in returns if r < 0]
+            win_rate = len(wins) / len(returns) * 100
+            
+            avg_win = np.mean(wins) * 100 if wins else 0
+            avg_loss = np.mean(losses) * 100 if losses else 0
+            profit_factor = abs(sum(wins) / sum(losses)) if losses and sum(losses) != 0 else float('inf')
+            
+            # Display metrics
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Sharpe Ratio", f"{sharpe_ratio:.2f}",
+                         help="Risk-adjusted return (annualized)")
+            with col2:
+                st.metric("Max Drawdown", f"{max_drawdown:.2f}%",
+                         help="Largest peak-to-trough decline")
+            with col3:
+                st.metric("Win Rate", f"{win_rate:.1f}%",
+                         help="Percentage of profitable trades")
+            with col4:
+                st.metric("Profit Factor", f"{profit_factor:.2f}" if profit_factor != float('inf') else "∞",
+                         help="Gross profit / Gross loss")
+            
+            col5, col6, col7, col8 = st.columns(4)
+            
+            with col5:
+                st.metric("Avg Win", f"{avg_win:.2f}%")
+            with col6:
+                st.metric("Avg Loss", f"{avg_loss:.2f}%")
+            with col7:
+                st.metric("Total Trades", len(returns))
+            with col8:
+                total_pnl = sum(returns) * 100
+                st.metric("Total P&L", f"{total_pnl:.2f}%")
+            
+            # Detailed analysis
+            st.markdown("#### 📊 Trade Distribution")
+            
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                # P&L histogram
+                fig_hist = go.Figure()
+                fig_hist.add_trace(go.Histogram(
+                    x=returns * 100,
+                    nbinsx=30,
+                    name='Trade P&L',
+                    marker_color='lightblue'
+                ))
+                fig_hist.update_layout(
+                    title='Distribution of Trade Returns',
+                    xaxis_title='Return (%)',
+                    yaxis_title='Frequency',
+                    height=400
+                )
+                st.plotly_chart(fig_hist, use_container_width=True)
+            
+            with col_b:
+                # Drawdown chart
+                fig_dd = go.Figure()
+                fig_dd.add_trace(go.Scatter(
+                    y=drawdowns * 100,
+                    name='Drawdown',
+                    line={'color': 'red', 'width': 2},
+                    fill='tozeroy',
+                    fillcolor='rgba(255,0,0,0.1)'
+                ))
+                fig_dd.update_layout(
+                    title='Underwater Plot (Drawdowns)',
+                    xaxis_title='Trade Number',
+                    yaxis_title='Drawdown (%)',
+                    height=400
+                )
+                st.plotly_chart(fig_dd, use_container_width=True)
+            
+            # Trade log
+            st.markdown("#### 📋 Trade Log")
+            
+            trade_log = []
+            for i, pnl in enumerate(returns):
+                trade_log.append({
+                    'Trade #': i + 1,
+                    'P&L (%)': f"{pnl * 100:.2f}",
+                    'Cumulative (%)': f"{cum_returns[i] * 100:.2f}",
+                    'Result': '✅ Win' if pnl > 0 else '❌ Loss'
+                })
+            
+            st.dataframe(pd.DataFrame(trade_log), use_container_width=True, height=300)
 
 # Footer
 st.markdown("---")

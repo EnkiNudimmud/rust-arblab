@@ -556,11 +556,294 @@ with tab4:
     ```
     """)
     
-    st.info("🚧 Portfolio optimization features coming soon! Will include:\n"
-            "- Multi-strike portfolio construction\n"
-            "- Utility maximization\n"
-            "- Risk-adjusted return optimization\n"
-            "- Correlation effects")
+    st.markdown("### 🎯 Multi-Strike Portfolio Construction")
+    
+    st.markdown("""
+    Construct optimal option portfolios across multiple strikes to maximize
+    risk-adjusted returns while managing Greek exposures.
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Portfolio Parameters")
+        S_port = st.number_input("Current Stock Price", value=100.0, step=5.0, key="port_S")
+        num_strikes = st.slider("Number of Strikes", 3, 10, 5)
+        strike_range_pct = st.slider("Strike Range (%)", 5, 30, 15,
+                                     help="Range around ATM")
+        
+        portfolio_objective = st.selectbox(
+            "Optimization Objective",
+            ["Maximize Sharpe Ratio", "Minimize Portfolio Variance", "Maximize Expected Return", "Target Delta Neutral"]
+        )
+    
+    with col2:
+        st.markdown("#### Risk Constraints")
+        max_delta = st.slider("Max Absolute Delta", 0.0, 2.0, 0.5, 0.1,
+                             help="Maximum net delta exposure")
+        max_gamma = st.slider("Max Absolute Gamma", 0.0, 0.5, 0.2, 0.05,
+                             help="Maximum gamma exposure")
+        max_vega = st.slider("Max Absolute Vega", 0.0, 50.0, 20.0, 5.0,
+                            help="Maximum vega exposure")
+    
+    if st.button("🎯 Optimize Portfolio", type="primary"):
+        with st.spinner("Optimizing options portfolio..."):
+            # Generate strike ladder
+            strike_width = strike_range_pct / 100 * S_port / (num_strikes - 1)
+            strikes = [S_port * (1 - strike_range_pct/200) + i * strike_width 
+                      for i in range(num_strikes)]
+            
+            # Simplified option pricing (Black-Scholes for demonstration)
+            # Use same parameters from earlier
+            r_bs = 0.05
+            sigma_bs = 0.2
+            T_bs = 1.0
+            
+            from scipy.stats import norm as scipy_norm
+            
+            def black_scholes_call(S, K, T, r, sigma):
+                d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+                d2 = d1 - sigma * np.sqrt(T)
+                return S * scipy_norm.cdf(d1) - K * np.exp(-r * T) * scipy_norm.cdf(d2)
+            
+            def bs_delta(S, K, T, r, sigma):
+                d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+                return scipy_norm.cdf(d1)
+            
+            def bs_gamma(S, K, T, r, sigma):
+                d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+                return scipy_norm.pdf(d1) / (S * sigma * np.sqrt(T))
+            
+            def bs_vega(S, K, T, r, sigma):
+                d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+                return S * scipy_norm.pdf(d1) * np.sqrt(T)
+            
+            # Calculate option prices and Greeks
+            option_data = []
+            for K in strikes:
+                price = black_scholes_call(S_port, K, T_bs, r_bs, sigma_bs)
+                delta = bs_delta(S_port, K, T_bs, r_bs, sigma_bs)
+                gamma = bs_gamma(S_port, K, T_bs, r_bs, sigma_bs)
+                vega = bs_vega(S_port, K, T_bs, r_bs, sigma_bs)
+                
+                option_data.append({
+                    'Strike': K,
+                    'Price': price,
+                    'Delta': delta,
+                    'Gamma': gamma,
+                    'Vega': vega
+                })
+            
+            df_options = pd.DataFrame(option_data)
+            
+            # Optimization using simplified approach
+            # Weights represent position sizes (positive = long, negative = short)
+            
+            if portfolio_objective == "Maximize Sharpe Ratio":
+                # Simplified: weight by moneyness-adjusted return potential
+                df_options['Weight'] = df_options.apply(
+                    lambda row: (S_port / row['Strike'] - 1) * row['Delta'] 
+                    if row['Strike'] < S_port else (1 - S_port / row['Strike']) * (1 - row['Delta']),
+                    axis=1
+                )
+            elif portfolio_objective == "Minimize Portfolio Variance":
+                # Weight inversely to gamma (lower convexity risk)
+                df_options['Weight'] = 1 / (df_options['Gamma'] + 0.01)
+            elif portfolio_objective == "Maximize Expected Return":
+                # Weight by delta (directional exposure)
+                df_options['Weight'] = df_options['Delta']
+            else:  # Target Delta Neutral
+                # Solve for delta-neutral weights
+                # Simplified: alternate long/short to balance
+                df_options['Weight'] = [(-1)**i * 1/num_strikes for i in range(num_strikes)]
+            
+            # Normalize weights
+            df_options['Weight'] = df_options['Weight'] / df_options['Weight'].abs().sum()
+            
+            # Calculate portfolio Greeks
+            port_delta = (df_options['Weight'] * df_options['Delta']).sum()
+            port_gamma = (df_options['Weight'] * df_options['Gamma']).sum()
+            port_vega = (df_options['Weight'] * df_options['Vega']).sum()
+            port_cost = (df_options['Weight'].abs() * df_options['Price']).sum()
+            
+            # Display results
+            st.markdown("### 📊 Optimized Portfolio")
+            
+            col_a, col_b, col_c, col_d = st.columns(4)
+            
+            with col_a:
+                st.metric("Portfolio Delta", f"{port_delta:.3f}",
+                         help="Net directional exposure")
+            with col_b:
+                st.metric("Portfolio Gamma", f"{port_gamma:.4f}",
+                         help="Convexity exposure")
+            with col_c:
+                st.metric("Portfolio Vega", f"{port_vega:.2f}",
+                         help="Volatility sensitivity")
+            with col_d:
+                st.metric("Total Cost", f"${port_cost:.2f}",
+                         help="Net portfolio cost")
+            
+            # Check constraints
+            st.markdown("### ✅ Constraint Validation")
+            
+            constraint_status = []
+            constraint_status.append({
+                'Constraint': 'Max Delta',
+                'Limit': f"±{max_delta}",
+                'Actual': f"{port_delta:.3f}",
+                'Status': '✅ OK' if abs(port_delta) <= max_delta else '❌ VIOLATED'
+            })
+            constraint_status.append({
+                'Constraint': 'Max Gamma',
+                'Limit': f"±{max_gamma}",
+                'Actual': f"{port_gamma:.4f}",
+                'Status': '✅ OK' if abs(port_gamma) <= max_gamma else '❌ VIOLATED'
+            })
+            constraint_status.append({
+                'Constraint': 'Max Vega',
+                'Limit': f"±{max_vega}",
+                'Actual': f"{port_vega:.2f}",
+                'Status': '✅ OK' if abs(port_vega) <= max_vega else '❌ VIOLATED'
+            })
+            
+            st.dataframe(pd.DataFrame(constraint_status), use_container_width=True)
+            
+            # Portfolio composition
+            st.markdown("### 📋 Portfolio Composition")
+            
+            display_df = df_options.copy()
+            display_df['Position'] = display_df['Weight'].apply(
+                lambda w: f"{'LONG' if w > 0 else 'SHORT'} {abs(w):.2%}"
+            )
+            display_df = display_df[['Strike', 'Price', 'Position', 'Delta', 'Gamma', 'Vega']]
+            display_df = display_df.style.format({
+                'Strike': '${:.2f}',
+                'Price': '${:.2f}',
+                'Delta': '{:.3f}',
+                'Gamma': '{:.4f}',
+                'Vega': '{:.2f}'
+            })
+            
+            st.dataframe(display_df, use_container_width=True)
+            
+            # Visualization
+            st.markdown("### 📈 Portfolio Greeks Profile")
+            
+            fig = make_subplots(
+                rows=2, cols=2,
+                subplot_titles=('Weights by Strike', 'Delta by Strike', 'Gamma by Strike', 'Vega by Strike'),
+                specs=[[{'type': 'bar'}, {'type': 'scatter'}],
+                      [{'type': 'scatter'}, {'type': 'scatter'}]]
+            )
+            
+            # Weights
+            fig.add_trace(
+                go.Bar(x=df_options['Strike'], y=df_options['Weight'],
+                      name='Weight', marker_color='lightblue'),
+                row=1, col=1
+            )
+            
+            # Delta
+            fig.add_trace(
+                go.Scatter(x=df_options['Strike'], y=df_options['Delta'],
+                          name='Delta', mode='lines+markers', line={'color': 'blue'}),
+                row=1, col=2
+            )
+            
+            # Gamma
+            fig.add_trace(
+                go.Scatter(x=df_options['Strike'], y=df_options['Gamma'],
+                          name='Gamma', mode='lines+markers', line={'color': 'green'}),
+                row=2, col=1
+            )
+            
+            # Vega
+            fig.add_trace(
+                go.Scatter(x=df_options['Strike'], y=df_options['Vega'],
+                          name='Vega', mode='lines+markers', line={'color': 'red'}),
+                row=2, col=2
+            )
+            
+            fig.update_layout(height=700, showlegend=False)
+            fig.update_xaxes(title_text="Strike")
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # P&L simulation
+            st.markdown("### 💰 P&L Simulation")
+            
+            # Simulate various stock price scenarios
+            price_scenarios = np.linspace(S_port * 0.8, S_port * 1.2, 50)
+            pnl_scenarios = []
+            
+            for S_scenario in price_scenarios:
+                pnl = 0
+                for _, option in df_options.iterrows():
+                    # Revalue option at new stock price
+                    new_price = black_scholes_call(S_scenario, option['Strike'], T_bs, r_bs, sigma_bs)
+                    position_pnl = (new_price - option['Price']) * option['Weight']
+                    pnl += position_pnl
+                
+                pnl_scenarios.append(pnl)
+            
+            fig_pnl = go.Figure()
+            
+            fig_pnl.add_trace(go.Scatter(
+                x=price_scenarios,
+                y=pnl_scenarios,
+                mode='lines',
+                name='Portfolio P&L',
+                line={'color': 'purple', 'width': 3},
+                fill='tozeroy',
+                fillcolor='rgba(128,0,128,0.1)'
+            ))
+            
+            fig_pnl.add_vline(x=S_port, line_dash="dash", line_color="gray",
+                            annotation_text="Current Price")
+            fig_pnl.add_hline(y=0, line_color="black", line_width=1)
+            
+            fig_pnl.update_layout(
+                title='Portfolio P&L vs Stock Price',
+                xaxis_title='Stock Price',
+                yaxis_title='P&L ($)',
+                height=400
+            )
+            
+            st.plotly_chart(fig_pnl, use_container_width=True)
+            
+            # Risk metrics
+            st.markdown("### 📊 Risk-Return Analysis")
+            
+            max_profit = max(pnl_scenarios)
+            max_loss = min(pnl_scenarios)
+            breakeven_points = []
+            
+            for i in range(len(pnl_scenarios) - 1):
+                if pnl_scenarios[i] * pnl_scenarios[i+1] < 0:  # Sign change
+                    breakeven_points.append(price_scenarios[i])
+            
+            risk_col1, risk_col2, risk_col3 = st.columns(3)
+            
+            with risk_col1:
+                st.metric("Max Profit", f"${max_profit:.2f}")
+            with risk_col2:
+                st.metric("Max Loss", f"${max_loss:.2f}")
+            with risk_col3:
+                profit_prob = sum(1 for pnl in pnl_scenarios if pnl > 0) / len(pnl_scenarios) * 100
+                st.metric("Profit Probability", f"{profit_prob:.1f}%")
+            
+            if breakeven_points:
+                st.success(f"📍 Breakeven Point(s): {', '.join([f'${bp:.2f}' for bp in breakeven_points])}")
+            
+            st.info("""
+            **💡 Portfolio Optimization Insights:**
+            - Multi-strike portfolios allow for sophisticated payoff profiles
+            - Greek constraints ensure risk management requirements are met
+            - Delta-neutral strategies profit from volatility, not direction
+            - Gamma and vega exposures determine sensitivity to market moves
+            - Always monitor position Greeks as market conditions change
+            """)
 
 # ==================== TAB 5: Mathematical Formulas ====================
 

@@ -11,6 +11,7 @@ Provides functionality to:
 
 import os
 import json
+import re
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -29,6 +30,34 @@ def get_data_dir() -> Path:
     return DATA_DIR
 
 
+def sanitize_name(name: str) -> str:
+    """
+    Sanitize a dataset name to prevent directory traversal and filesystem issues.
+    
+    Args:
+        name: Raw dataset name
+        
+    Returns:
+        Sanitized name safe for use in filesystem paths
+        
+    Raises:
+        ValueError: If name is empty or contains only invalid characters
+    """
+    # Remove any path separators and parent directory references
+    safe_name = name.replace('/', '_').replace('\\', '_').replace('..', '_')
+    
+    # Only allow alphanumeric, underscore, and hyphen
+    safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', safe_name)
+    
+    # Remove leading/trailing underscores and collapse multiple underscores
+    safe_name = re.sub(r'_+', '_', safe_name).strip('_')
+    
+    if not safe_name:
+        raise ValueError("Dataset name cannot be empty or contain only invalid characters")
+    
+    return safe_name
+
+
 def generate_dataset_name(symbols: List[str], interval: str, source: str) -> str:
     """Generate a unique dataset name based on parameters."""
     # Use first 3 symbols and count for naming
@@ -37,7 +66,8 @@ def generate_dataset_name(symbols: List[str], interval: str, source: str) -> str
         symbol_part += f"_+{len(symbols)-3}more"
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{source}_{symbol_part}_{interval}_{timestamp}"
+    raw_name = f"{source}_{symbol_part}_{interval}_{timestamp}"
+    return sanitize_name(raw_name)
 
 
 def save_dataset(
@@ -58,8 +88,8 @@ def save_dataset(
     """
     data_dir = get_data_dir()
     
-    # Ensure name is filesystem-safe
-    safe_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in name)
+    # Sanitize name to prevent directory traversal
+    safe_name = sanitize_name(name)
     
     # Create dataset directory
     dataset_dir = data_dir / safe_name
@@ -111,7 +141,10 @@ def load_dataset(name: str) -> Tuple[pd.DataFrame, Dict]:
         Tuple of (DataFrame, metadata dict)
     """
     data_dir = get_data_dir()
-    dataset_dir = data_dir / name
+    
+    # Sanitize name to prevent directory traversal
+    safe_name = sanitize_name(name)
+    dataset_dir = data_dir / safe_name
     
     if not dataset_dir.exists():
         raise FileNotFoundError(f"Dataset '{name}' not found in {data_dir}")
@@ -179,9 +212,19 @@ def delete_dataset(name: str) -> bool:
     import shutil
     
     data_dir = get_data_dir()
-    dataset_dir = data_dir / name
+    
+    # Sanitize name to prevent directory traversal
+    safe_name = sanitize_name(name)
+    dataset_dir = data_dir / safe_name
     
     if not dataset_dir.exists():
+        return False
+    
+    # Additional safety check: ensure the path is within data_dir
+    try:
+        dataset_dir.resolve().relative_to(data_dir.resolve())
+    except ValueError:
+        logger.error(f"Security: Attempted to delete outside data directory: {name}")
         return False
     
     try:
@@ -270,7 +313,10 @@ def stack_data(
 def get_dataset_info(name: str) -> Optional[Dict]:
     """Get metadata for a specific dataset."""
     data_dir = get_data_dir()
-    meta_path = data_dir / name / "metadata.json"
+    
+    # Sanitize name to prevent directory traversal
+    safe_name = sanitize_name(name)
+    meta_path = data_dir / safe_name / "metadata.json"
     
     if meta_path.exists():
         with open(meta_path, "r") as f:
@@ -289,6 +335,7 @@ def export_dataset_csv(name: str, output_path: Optional[str] = None) -> str:
     Returns:
         Path to exported CSV
     """
+    # load_dataset already sanitizes the name
     df, meta = load_dataset(name)
     
     # Reset index for CSV export
@@ -296,7 +343,9 @@ def export_dataset_csv(name: str, output_path: Optional[str] = None) -> str:
     
     if output_path is None:
         data_dir = get_data_dir()
-        output_path = str(data_dir / f"{name}.csv")
+        # Sanitize name for the output filename
+        safe_name = sanitize_name(name)
+        output_path = str(data_dir / f"{safe_name}.csv")
     
     df_export.to_csv(output_path, index=False)
     return output_path

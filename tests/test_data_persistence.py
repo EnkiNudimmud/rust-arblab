@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from python.data_persistence import (
     save_dataset, load_dataset, list_datasets, delete_dataset,
     merge_dataframes, stack_data, generate_dataset_name,
-    format_size, get_data_dir
+    format_size, get_data_dir, sanitize_name
 )
 
 
@@ -210,6 +210,44 @@ class TestDataPersistence(unittest.TestCase):
         self.assertEqual(format_size(1024), "1.0 KB")
         self.assertEqual(format_size(1024 * 1024), "1.0 MB")
         self.assertEqual(format_size(1024 * 1024 * 1024), "1.0 GB")
+    
+    def test_sanitize_name_basic(self):
+        """Test basic name sanitization."""
+        self.assertEqual(sanitize_name("my_dataset"), "my_dataset")
+        self.assertEqual(sanitize_name("dataset-1"), "dataset-1")
+        self.assertEqual(sanitize_name("Dataset123"), "Dataset123")
+    
+    def test_sanitize_name_removes_path_traversal(self):
+        """Test that directory traversal attempts are blocked."""
+        # Path traversal attempts should be sanitized
+        result = sanitize_name("../../../etc/passwd")
+        self.assertNotIn("..", result)
+        self.assertNotIn("/", result)
+        
+        result = sanitize_name("..\\..\\windows\\system32")
+        self.assertNotIn("..", result)
+        self.assertNotIn("\\", result)
+    
+    def test_sanitize_name_removes_special_chars(self):
+        """Test that special characters are removed."""
+        result = sanitize_name("data<>set|:name")
+        self.assertNotIn("<", result)
+        self.assertNotIn(">", result)
+        self.assertNotIn("|", result)
+        self.assertNotIn(":", result)
+    
+    def test_sanitize_name_collapses_underscores(self):
+        """Test that multiple underscores are collapsed."""
+        result = sanitize_name("my___dataset")
+        self.assertNotIn("___", result)
+    
+    def test_sanitize_name_empty_raises(self):
+        """Test that empty names raise ValueError."""
+        with self.assertRaises(ValueError):
+            sanitize_name("")
+        
+        with self.assertRaises(ValueError):
+            sanitize_name("...")
 
 
 if __name__ == "__main__":

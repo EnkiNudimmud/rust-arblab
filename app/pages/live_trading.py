@@ -33,6 +33,18 @@ def render():
     """Render the live trading page"""
     render_sidebar_navigation(current_page="Live Trading")
     apply_custom_css()
+    
+    # Initialize session state
+    if 'theme_mode' not in st.session_state:
+        st.session_state.theme_mode = 'dark'
+    if 'portfolio' not in st.session_state:
+        st.session_state.portfolio = {
+            'positions': {},
+            'cash': 100000.0,
+            'initial_capital': 100000.0,
+            'history': []
+        }
+    
     st.title("🔴 Live Trading")
     st.markdown("Execute strategies on real-time market data via WebSocket")
     

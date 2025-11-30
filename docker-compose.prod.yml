@@ -9,8 +9,13 @@ services:
       - .:/app
       - ./api_keys.properties:/app/api_keys.properties:ro
       - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+      - hft_data_prod:/app/data  # Persistent data storage
     environment:
       - PYTHONPATH=/app
       - ENABLE_AUTH=true
     command: ["streamlit", "run", "app/HFT_Arbitrage_Lab.py", "--server.port", "8501", "--server.headless", "true"]
     restart: unless-stopped
+
+volumes:
+  hft_data_prod:
+    driver: local

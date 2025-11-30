@@ -24,6 +24,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from python.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
 from python.rust_bridge import list_connectors, get_connector
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.data_persistence import (
+    save_dataset, load_dataset, load_all_datasets, delete_dataset,
+    list_datasets, get_storage_stats, merge_datasets
+)
 
 # Predefined sectors, indexes, and ETF constituents
 SECTORS = {
@@ -170,6 +174,8 @@ apply_custom_css()
 def render():
     """Render the data loading page"""
     # Initialize session state
+    if 'theme_mode' not in st.session_state:
+        st.session_state.theme_mode = 'dark'
     if 'historical_data' not in st.session_state:
         st.session_state.historical_data = None
     if 'symbols' not in st.session_state:
@@ -197,6 +203,65 @@ def render():
             - Examples: BTC/USDT, ETH/USDT, SOL/USDT
             - Use **Crypto** presets
             """)
+    
+    st.markdown("---")
+    
+    # Persisted Datasets Section
+    with st.expander("💾 Persisted Datasets", expanded=False):
+        st.markdown("### Manage Saved Datasets")
+        
+        # Get storage stats
+        stats = get_storage_stats()
+        
+        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        with col_stat1:
+            st.metric("📦 Datasets", stats['total_datasets'])
+        with col_stat2:
+            st.metric("📊 Total Rows", f"{stats['total_rows']:,}")
+        with col_stat3:
+            st.metric("🏷️ Symbols", stats['total_symbols'])
+        with col_stat4:
+            st.metric("💽 Storage", f"{stats['total_size_mb']} MB")
+        
+        st.markdown("---")
+        
+        # List persisted datasets
+        datasets = list_datasets()
+        
+        if datasets:
+            st.markdown("#### Available Datasets")
+            
+            for dataset in datasets:
+                with st.container():
+                    col_ds1, col_ds2, col_ds3 = st.columns([3, 1, 1])
+                    
+                    with col_ds1:
+                        st.markdown(f"**{dataset['name']}**")
+                        st.caption(
+                            f"Source: {dataset['source']} | "
+                            f"Symbols: {len(dataset['symbols'])} | "
+                            f"Rows: {dataset['row_count']:,} | "
+                            f"Updated: {dataset['last_updated'][:10]}"
+                        )
+                    
+                    with col_ds2:
+                        if st.button("📂 Load", key=f"load_{dataset['name']}", use_container_width=True):
+                            df = load_dataset(dataset['name'])
+                            if df is not None:
+                                st.session_state.historical_data = df
+                                st.session_state.symbols = dataset['symbols']
+                                st.success(f"✅ Loaded {dataset['name']}")
+                                st.rerun()
+                    
+                    with col_ds3:
+                        if st.button("🗑️ Delete", key=f"delete_{dataset['name']}", use_container_width=True):
+                            if delete_dataset(dataset['name']):
+                                st.success(f"✅ Deleted {dataset['name']}")
+                                st.rerun()
+                    
+                    st.divider()
+        else:
+            st.info("📭 No saved datasets yet. Fetch data below to save it automatically!")
     
     st.markdown("---")
     
@@ -537,8 +602,8 @@ def render():
         display_data_preview()
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: str, exchange_id: Optional[str] = None) -> pd.DataFrame:
-    """Fetch data with caching"""
+def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: str, exchange_id: Optional[str] = None, save_mode: str = "append") -> pd.DataFrame:
+    """Fetch data with caching and persistence"""
     display_source = f"{source} ({exchange_id})" if exchange_id else source
     with st.spinner(f"Fetching data for {len(symbols)} symbols from {display_source}..."):
         try:
@@ -563,6 +628,16 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             st.session_state.symbols = symbols
             st.session_state.data_source = source
             st.session_state.date_range = (start, end)
+            
+            # Auto-save to persistent storage
+            dataset_name = f"{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            if exchange_id:
+                dataset_name = f"{exchange_id}_{dataset_name}"
+            
+            append_mode = (save_mode == "append")
+            if save_dataset(df, dataset_name, symbols, display_source, (start, end), append=append_mode):
+                save_msg = "appended to existing dataset" if append_mode else "saved"
+                st.info(f"💾 Data {save_msg} as '{dataset_name}'")
             
             st.success(f"✅ Successfully loaded {len(df):,} records for {len(symbols)} symbols")
             return df
@@ -699,7 +774,53 @@ def display_data_preview():
                         st.metric("Sharpe Ratio", f"{sharpe:.3f}")
     
     with tab4:
-        st.markdown("#### Export Data")
+        st.markdown("#### 💾 Save & Export")
+        
+        # Save to persistent storage
+        st.markdown("**Save to Persistent Storage**")
+        
+        col_save1, col_save2 = st.columns([2, 1])
+        
+        with col_save1:
+            dataset_name = st.text_input(
+                "Dataset Name",
+                value=f"dataset_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                help="Name for the saved dataset (will be stored in data/persisted/)"
+            )
+        
+        with col_save2:
+            save_mode = st.selectbox(
+                "Save Mode",
+                ["Create New", "Append to Existing"],
+                help="Create new dataset or append to existing one with same name"
+            )
+        
+        col_savebtn1, col_savebtn2 = st.columns(2)
+        
+        with col_savebtn1:
+            if st.button("💾 Save Dataset", use_container_width=True, type="primary"):
+                append_mode = (save_mode == "Append to Existing")
+                symbols = df['symbol'].unique().tolist() if 'symbol' in df.columns else st.session_state.get('symbols', [])
+                source = st.session_state.get('data_source', 'Unknown')
+                date_range = st.session_state.get('date_range')
+                
+                if save_dataset(df, dataset_name, symbols, source, date_range, append=append_mode):
+                    st.success(f"✅ Dataset saved as '{dataset_name}'")
+                    st.balloons()
+                else:
+                    st.error("❌ Failed to save dataset")
+        
+        with col_savebtn2:
+            if st.button("🗑️ Clear Session Data", use_container_width=True):
+                st.session_state.historical_data = None
+                st.session_state.symbols = []
+                st.success("✅ Session data cleared")
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # Export downloads
+        st.markdown("**Download Files**")
         
         col1, col2 = st.columns(2)
         
@@ -728,7 +849,7 @@ def display_data_preview():
             except Exception as e:
                 st.error(f"Parquet export not available: {e}")
         
-        st.info("💡 Tip: Parquet format is more efficient for large datasets")
+        st.info("💡 Tip: Saved datasets persist across sessions and are accessible via Docker volumes")
 
 # Execute the render function when page is loaded
 if __name__ == "__main__":

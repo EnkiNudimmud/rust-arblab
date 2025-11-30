@@ -1,31 +1,31 @@
-# Chiarella Model Trading Signals - Complete Guide
+# Signaux de Trading du Modèle de Chiarella - Guide Complet
 
-## Overview
+## Vue d'ensemble
 
-This implementation adds **real-time trading signals** to the Live Trading page using the **Mode-Switching Chiarella Model** from the recent paper:
+Cette implémentation ajoute des **signaux de trading en temps réel** à la page de Trading en Direct en utilisant le **Modèle de Chiarella à Changement de Mode** issu de l'article récent :
 
-**"Stationary Distributions of the Mode-switching Chiarella Model"**  
+**"Distributions Stationnaires du Modèle de Chiarella à Changement de Mode"**  
 Kurth & Bouchaud (2025), arXiv:2511.13277
 
-## What is the Chiarella Model?
+## Qu'est-ce que le Modèle de Chiarella ?
 
-The Chiarella model describes financial markets as a **dynamical system** with two competing forces:
+Le modèle de Chiarella décrit les marchés financiers comme un **système dynamique** avec deux forces concurrentes :
 
-### 1. Fundamentalists
-- Believe prices should revert to fundamental value
-- Create **mean-reversion** pressure
-- Dominant when markets are "rational"
+### 1. Fondamentalistes
+- Croient que les prix doivent revenir à leur valeur fondamentale
+- Créent une pression de **retour à la moyenne**
+- Dominants lorsque les marchés sont "rationnels"
 
-### 2. Chartists (Trend-followers)
-- Follow momentum and trends
-- Create **trending** behavior
-- Can cause bubbles and crashes when dominant
+### 2. Chartistes (Suiveurs de tendance)
+- Suivent le momentum et les tendances
+- Créent un comportement de **tendance**
+- Peuvent causer des bulles et des krachs lorsqu'ils sont dominants
 
-## Mathematical Framework
+## Cadre Mathématique
 
-### Core Dynamics
+### Dynamiques Fondamentales
 
-The model is described by two coupled stochastic differential equations:
+Le modèle est décrit par deux équations différentielles stochastiques couplées :
 
 ```
 dp/dt = α·trend(t) - β·mispricing(t) + σ·dW₁(t)
@@ -33,336 +33,336 @@ dp/dt = α·trend(t) - β·mispricing(t) + σ·dW₁(t)
 dtrend/dt = γ·[p(t) - p(t-dt)] - δ·trend(t) + η·dW₂(t)
 ```
 
-**Where:**
-- `p(t)`: Market price at time t
-- `p_f`: Fundamental price (equilibrium)
-- `mispricing(t) = p(t) - p_f`
-- `trend(t)`: Current trend estimate
-- `α`: Chartist strength (trend feedback coefficient)
-- `β`: Fundamentalist strength (mean reversion coefficient)
-- `γ`: Trend formation speed
-- `δ`: Trend decay rate
-- `σ, η`: Noise intensities
-- `W₁, W₂`: Brownian motion processes
+**Où :**
+- `p(t)` : Prix du marché au temps t
+- `p_f` : Prix fondamental (équilibre)
+- `mispricing(t) = p(t) - p_f` : Écart de prix
+- `trend(t)` : Estimation de la tendance actuelle
+- `α` : Force des chartistes (coefficient de rétroaction de tendance)
+- `β` : Force des fondamentalistes (coefficient de retour à la moyenne)
+- `γ` : Vitesse de formation de la tendance
+- `δ` : Taux de décroissance de la tendance
+- `σ, η` : Intensités du bruit
+- `W₁, W₂` : Processus de mouvement brownien
 
-### Physical Interpretation
+### Interprétation Physique
 
 ```
-Price Change = Trend Push - Mean Reversion Pull + Noise
-              ↑ Chartists  ↑ Fundamentalists
+Changement de Prix = Poussée de Tendance - Attraction vers la Moyenne + Bruit
+                     ↑ Chartistes         ↑ Fondamentalistes
 ```
 
-- **Chartist term** `α·trend`: Pushes price in direction of momentum
-- **Fundamentalist term** `-β·mispricing`: Pulls price toward fair value
-- **Trend formation** `γ·Δp`: Trend strengthens with price changes
-- **Trend decay** `-δ·trend`: Trends naturally weaken over time
+- **Terme chartiste** `α·trend` : Pousse le prix dans la direction du momentum
+- **Terme fondamentaliste** `-β·mispricing` : Tire le prix vers la valeur juste
+- **Formation de tendance** `γ·Δp` : La tendance se renforce avec les changements de prix
+- **Décroissance de tendance** `-δ·trend` : Les tendances s'affaiblissent naturellement avec le temps
 
-## Regime Classification
+## Classification des Régimes
 
-### Bifurcation Parameter
+### Paramètre de Bifurcation
 
-The key insight from the paper is the **bifurcation parameter**:
+L'intuition clé de l'article est le **paramètre de bifurcation** :
 
 ```
 Λ = (α · γ) / (β · δ)
 ```
 
-This single number determines market behavior:
+Ce nombre unique détermine le comportement du marché :
 
-| Λ Value | Regime | Behavior | Trading Strategy |
-|---------|--------|----------|------------------|
-| Λ < 0.67 | **Mean-Reverting** | Prices oscillate around fundamental | Buy dips, sell rallies |
-| 0.67 ≤ Λ ≤ 1.5 | **Mixed** | Complex dynamics | Balanced approach |
-| Λ > 1.5 | **Trending** | Sustained trends, bubbles possible | Follow momentum |
+| Valeur Λ | Régime | Comportement | Stratégie de Trading |
+|----------|--------|--------------|----------------------|
+| Λ < 0,67 | **Retour à la Moyenne** | Prix oscillent autour du fondamental | Acheter les baisses, vendre les hausses |
+| 0,67 ≤ Λ ≤ 1,5 | **Mixte** | Dynamiques complexes | Approche équilibrée |
+| Λ > 1,5 | **Tendanciel** | Tendances soutenues, bulles possibles | Suivre le momentum |
 
-### Critical Condition (P-Bifurcation)
+### Condition Critique (P-Bifurcation)
 
-**Unimodal (stable):** `β·δ > α·γ` — Mean-reversion dominates  
-**Bimodal (unstable):** `α·γ > β·δ` — Trending dominates, crashes possible
+**Unimodal (stable) :** `β·δ > α·γ` — Le retour à la moyenne domine  
+**Bimodal (instable) :** `α·γ > β·δ` — La tendance domine, krachs possibles
 
-## Signal Generation
+## Génération de Signaux
 
-### Component Signals
+### Signaux Composants
 
-1. **Fundamentalist Signal** (Mean-Reversion):
+1. **Signal Fondamentaliste** (Retour à la Moyenne) :
    ```
-   S_fundamental = -β · (p - p_f) / p_f
+   S_fondamental = -β · (p - p_f) / p_f
    ```
-   - Positive when undervalued (p < p_f) → Buy
-   - Negative when overvalued (p > p_f) → Sell
+   - Positif quand sous-évalué (p < p_f) → Acheter
+   - Négatif quand surévalué (p > p_f) → Vendre
 
-2. **Chartist Signal** (Trend-Following):
+2. **Signal Chartiste** (Suivi de Tendance) :
    ```
-   S_chartist = α · trend / p_f
+   S_chartiste = α · trend / p_f
    ```
-   - Positive when uptrend → Buy
-   - Negative when downtrend → Sell
+   - Positif en tendance haussière → Acheter
+   - Négatif en tendance baissière → Vendre
 
-### Combined Signal (Regime-Adaptive)
+### Signal Combiné (Adaptatif au Régime)
 
-The model dynamically weights signals based on current regime:
+Le modèle pondère dynamiquement les signaux selon le régime actuel :
 
 ```python
-if Λ < 0.67:  # Mean-Reverting
-    w_f, w_c = 0.8, 0.2  # Fundamentalists dominate
-elif Λ > 1.5:  # Trending
-    w_f, w_c = 0.2, 0.8  # Chartists dominate
-else:  # Mixed
-    w_f, w_c = 0.5, 0.5  # Balanced
+if Λ < 0.67:  # Retour à la Moyenne
+    w_f, w_c = 0.8, 0.2  # Les fondamentalistes dominent
+elif Λ > 1.5:  # Tendanciel
+    w_f, w_c = 0.2, 0.8  # Les chartistes dominent
+else:  # Mixte
+    w_f, w_c = 0.5, 0.5  # Équilibré
     
-signal = w_f · S_fundamental + w_c · S_chartist
+signal = w_f · S_fondamental + w_c · S_chartiste
 ```
 
-**Final signal strength:** `tanh(signal)` → normalized to [-1, 1]
+**Force du signal final :** `tanh(signal)` → normalisé à [-1, 1]
 
-### Position Sizing (Kelly Criterion)
+### Dimensionnement de Position (Critère de Kelly)
 
 ```
-Position Size = (Expected Return / Risk²) · Confidence
+Taille de Position = (Rendement Attendu / Risque²) · Confiance
 ```
 
-Where:
-- **Expected Return**: From combined signal
-- **Risk**: Realized volatility (std of recent returns)
-- **Confidence**: Based on trend consistency
+Où :
+- **Rendement Attendu** : Du signal combiné
+- **Risque** : Volatilité réalisée (écart-type des rendements récents)
+- **Confiance** : Basée sur la cohérence de la tendance
 
-## Implementation Architecture
+## Architecture d'Implémentation
 
-### 1. Rust Core (`rust_core/src/chiarella.rs`)
+### 1. Cœur Rust (`rust_core/src/chiarella.rs`)
 
-High-performance implementation with:
-- Euler-Maruyama discretization
-- Real-time state updates
-- Statistical analysis
-- Regime detection
+Implémentation haute performance avec :
+- Discrétisation d'Euler-Maruyama
+- Mises à jour d'état en temps réel
+- Analyse statistique
+- Détection de régime
 
-### 2. Python Bindings (`rust_python_bindings/src/chiarella_bindings.rs`)
+### 2. Liaisons Python (`rust_python_bindings/src/chiarella_bindings.rs`)
 
-PyO3 wrappers for:
-- `PyChiarellaModel`: Main model class
-- `PyTradingSignal`: Signal output
-- `PyStationaryStats`: Distribution statistics
-- `PyModelState`: Current state
+Wrappers PyO3 pour :
+- `PyChiarellaModel` : Classe du modèle principal
+- `PyTradingSignal` : Sortie du signal
+- `PyStationaryStats` : Statistiques de distribution
+- `PyModelState` : État actuel
 
-### 3. Python Signal Generator (`python/strategies/chiarella_signals.py`)
+### 3. Générateur de Signaux Python (`python/strategies/chiarella_signals.py`)
 
-User-friendly interface:
-- `ChiarellaSignalGenerator`: Main class
-- `estimate_fundamental_price()`: Fundamental estimation
-- `generate_signal()`: Signal generation
-- `get_regime()`: Regime classification
+Interface conviviale :
+- `ChiarellaSignalGenerator` : Classe principale
+- `estimate_fundamental_price()` : Estimation du fondamental
+- `generate_signal()` : Génération de signal
+- `get_regime()` : Classification de régime
 
-### 4. Streamlit Integration (`app/pages/live_trading.py`)
+### 4. Intégration Streamlit (`app/pages/live_trading.py`)
 
-Real-time dashboard with:
-- Live signal generation
-- Regime visualization
-- Component breakdown
-- Trading recommendations
+Tableau de bord en temps réel avec :
+- Génération de signaux en direct
+- Visualisation des régimes
+- Décomposition des composants
+- Recommandations de trading
 
-## Usage Guide
+## Guide d'Utilisation
 
-### In the Streamlit App
+### Dans l'Application Streamlit
 
-1. **Navigate to Live Trading Page**
-   - Select your data source (Finnhub recommended for 5-minute intervals)
-   - Choose symbols to track
-   - Start live feed
+1. **Naviguer vers la Page de Trading en Direct**
+   - Sélectionner votre source de données (Finnhub recommandé pour intervalles de 5 minutes)
+   - Choisir les symboles à suivre
+   - Démarrer le flux en direct
 
-2. **View Signals Tab**
-   - Scroll to "Live Analytics" section
-   - Click on "⚡ Signals" tab
-   - See real-time Chiarella signals for each symbol
+2. **Afficher l'Onglet Signaux**
+   - Faire défiler jusqu'à la section "Analyses en Direct"
+   - Cliquer sur l'onglet "⚡ Signaux"
+   - Voir les signaux Chiarella en temps réel pour chaque symbole
 
-### Signal Dashboard Components
+### Composants du Tableau de Bord des Signaux
 
-#### Top Metrics
-- **Signal Strength**: [-1, 1] scale (-1=strong sell, 1=strong buy)
-- **Market Regime**: Current regime with bifurcation parameter
-- **Position Size**: Recommended position (Kelly-based)
-- **Mispricing**: How far from fundamental value
+#### Métriques Principales
+- **Force du Signal** : Échelle [-1, 1] (-1=vente forte, 1=achat fort)
+- **Régime du Marché** : Régime actuel avec paramètre de bifurcation
+- **Taille de Position** : Position recommandée (basée sur Kelly)
+- **Écart de Prix** : Distance par rapport à la valeur fondamentale
 
-#### Detailed Analysis
-- **Signal Decomposition**: Fundamental vs Chartist components
-- **Regime Weights**: Current weightings
-- **Price & Trend**: Visual comparison to fundamental
+#### Analyse Détaillée
+- **Décomposition du Signal** : Composants fondamentaliste vs chartiste
+- **Poids du Régime** : Pondérations actuelles
+- **Prix et Tendance** : Comparaison visuelle au fondamental
 
-#### Trading Recommendation
-- **Action**: BUY/SELL/NEUTRAL with strength
-- **Position**: Recommended size as % of capital
-- **Expected Return**: Model's return estimate
-- **Risk**: Volatility-based risk measure
-- **Confidence**: Signal quality [0, 1]
+#### Recommandation de Trading
+- **Action** : ACHETER/VENDRE/NEUTRE avec force
+- **Position** : Taille recommandée en % du capital
+- **Rendement Attendu** : Estimation de rendement du modèle
+- **Risque** : Mesure de risque basée sur la volatilité
+- **Confiance** : Qualité du signal [0, 1]
 
-## In the Jupyter Notebook
+## Dans le Notebook Jupyter
 
-The comprehensive notebook (`examples/notebooks/chiarella_model_signals.ipynb`) includes:
+Le notebook complet (`examples/notebooks/chiarella_model_signals.ipynb`) inclut :
 
-1. **Mathematical Derivations**: Full equations with explanations
-2. **Parameter Exploration**: Visualize different regimes
-3. **Bifurcation Analysis**: Understand phase transitions
-4. **Real Data Application**: Apply to Apple (AAPL) stock
-5. **Signal Generation**: Step-by-step signal creation
-6. **Backtesting**: Historical performance analysis
+1. **Dérivations Mathématiques** : Équations complètes avec explications
+2. **Exploration de Paramètres** : Visualiser différents régimes
+3. **Analyse de Bifurcation** : Comprendre les transitions de phase
+4. **Application sur Données Réelles** : Appliquer à l'action Apple (AAPL)
+5. **Génération de Signaux** : Création pas à pas de signaux
+6. **Backtesting** : Analyse de performance historique
 
-### Running the Notebook
+### Exécuter le Notebook
 
 ```bash
 cd /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab
 jupyter notebook examples/notebooks/chiarella_model_signals.ipynb
 ```
 
-## Parameter Tuning
+## Ajustement des Paramètres
 
-### Default Parameters (Moderate Setup)
+### Paramètres par Défaut (Configuration Modérée)
 
 ```python
-α = 0.3  # Moderate chartist influence
-β = 0.5  # Stronger fundamentalist influence
-γ = 0.4  # Moderate trend formation
-δ = 0.2  # Slow trend decay
+α = 0.3  # Influence chartiste modérée
+β = 0.5  # Influence fondamentaliste plus forte
+γ = 0.4  # Formation de tendance modérée
+δ = 0.2  # Décroissance de tendance lente
 ```
 
-**Result:** Λ = 0.75 → Mixed regime, balanced behavior
+**Résultat :** Λ = 0,75 → Régime mixte, comportement équilibré
 
-### Strong Mean-Reversion
+### Fort Retour à la Moyenne
 
 ```python
-α = 0.2  # Low chartist
-β = 1.0  # High fundamentalist
+α = 0.2  # Chartiste faible
+β = 1.0  # Fondamentaliste élevé
 γ = 0.3
-δ = 0.8  # Fast trend decay
+δ = 0.8  # Décroissance de tendance rapide
 ```
 
-**Result:** Λ = 0.075 → Strong mean-reversion, good for range-bound markets
+**Résultat :** Λ = 0,075 → Fort retour à la moyenne, bon pour marchés en range
 
-### Strong Trending
+### Forte Tendance
 
 ```python
-α = 1.0  # High chartist
-β = 0.2  # Low fundamentalist
-γ = 0.8  # Fast trend formation
-δ = 0.3  # Slow trend decay
+α = 1.0  # Chartiste élevé
+β = 0.2  # Fondamentaliste faible
+γ = 0.8  # Formation de tendance rapide
+δ = 0.3  # Décroissance de tendance lente
 ```
 
-**Result:** Λ = 13.3 → Strong trending, good for momentum markets
+**Résultat :** Λ = 13,3 → Forte tendance, bon pour marchés momentum
 
-## Key Features
+## Caractéristiques Clés
 
-### ✅ Adaptive to Market Regimes
-- Automatically detects mean-reversion vs trending
-- Adjusts strategy weights dynamically
-- No manual regime switching needed
+### ✅ Adaptatif aux Régimes de Marché
+- Détecte automatiquement retour à la moyenne vs tendance
+- Ajuste les poids de stratégie dynamiquement
+- Pas besoin de changement de régime manuel
 
-### ✅ Mathematically Rigorous
-- Based on peer-reviewed research (2025 paper)
-- Stochastic calculus foundation
-- Bifurcation theory for regime detection
+### ✅ Mathématiquement Rigoureux
+- Basé sur recherche évaluée par les pairs (article 2025)
+- Fondation en calcul stochastique
+- Théorie de bifurcation pour la détection de régime
 
-### ✅ Risk-Aware
-- Kelly criterion for position sizing
-- Volatility-based risk adjustment
-- Confidence scoring
+### ✅ Conscient du Risque
+- Critère de Kelly pour le dimensionnement de position
+- Ajustement du risque basé sur la volatilité
+- Score de confiance
 
-### ✅ Real-Time
-- Updates with every price tick
-- Minimal computational overhead
-- Rust-powered for speed
+### ✅ Temps Réel
+- Mise à jour à chaque tick de prix
+- Charge de calcul minimale
+- Propulsé par Rust pour la vitesse
 
-### ✅ Interpretable
-- Clear signal decomposition
-- Visual regime indicators
-- Explainable recommendations
+### ✅ Interprétable
+- Décomposition claire du signal
+- Indicateurs visuels de régime
+- Recommandations explicables
 
-## Trading Strategies
+## Stratégies de Trading
 
-### Mean-Reversion Strategy (Λ < 0.67)
+### Stratégie de Retour à la Moyenne (Λ < 0,67)
 
-**When to use:** Range-bound markets, low volatility
+**Quand utiliser :** Marchés en range, faible volatilité
 
-**Approach:**
-- Buy when signal < -0.3 (undervalued)
-- Sell when signal > 0.3 (overvalued)
-- Use tighter stops (prices should revert quickly)
+**Approche :**
+- Acheter quand signal < -0,3 (sous-évalué)
+- Vendre quand signal > 0,3 (surévalué)
+- Utiliser des stops serrés (les prix devraient revenir rapidement)
 
-**Ideal for:** Pairs trading, stat arb, market making
+**Idéal pour :** Trading de paires, arbitrage statistique, market making
 
-### Trend-Following Strategy (Λ > 1.5)
+### Stratégie de Suivi de Tendance (Λ > 1,5)
 
-**When to use:** Strong trends, high momentum
+**Quand utiliser :** Tendances fortes, momentum élevé
 
-**Approach:**
-- Buy when signal > 0.3 and rising
-- Sell when signal < -0.3 and falling
-- Use wider stops (let trends run)
+**Approche :**
+- Acheter quand signal > 0,3 et en hausse
+- Vendre quand signal < -0,3 et en baisse
+- Utiliser des stops plus larges (laisser courir les tendances)
 
-**Ideal for:** Breakout trading, momentum strategies
+**Idéal pour :** Trading de breakout, stratégies momentum
 
-### Mixed Strategy (0.67 ≤ Λ ≤ 1.5)
+### Stratégie Mixte (0,67 ≤ Λ ≤ 1,5)
 
-**When to use:** Normal market conditions
+**Quand utiliser :** Conditions de marché normales
 
-**Approach:**
-- Only trade strong signals (|signal| > 0.5)
-- Smaller position sizes
-- Quick profit-taking
+**Approche :**
+- Ne trader que les signaux forts (|signal| > 0,5)
+- Tailles de position plus petites
+- Prise de bénéfices rapide
 
-**Ideal for:** Swing trading, day trading
+**Idéal pour :** Swing trading, day trading
 
-## Performance Metrics
+## Métriques de Performance
 
-From the notebook backtest (AAPL 2024):
+Du backtest du notebook (AAPL 2024) :
 
-| Metric | Value |
-|--------|-------|
-| Strategy Return | +X.XX% |
-| Market Return | +Y.YY% |
-| Outperformance | +Z.ZZ% |
-| Sharpe Ratio | X.XX |
-| Max Drawdown | -X.X% |
+| Métrique | Valeur |
+|----------|--------|
+| Rendement de la Stratégie | +X,XX% |
+| Rendement du Marché | +Y,YY% |
+| Surperformance | +Z,ZZ% |
+| Ratio de Sharpe | X,XX |
+| Drawdown Maximum | -X,X% |
 
-*(Actual values in notebook depend on data range)*
+*(Les valeurs réelles dans le notebook dépendent de la plage de données)*
 
-## Troubleshooting
+## Dépannage
 
-### Signal Not Updating
+### Signal ne se Met pas à Jour
 
-**Cause:** Insufficient data history  
-**Solution:** Ensure at least 20 data points have been collected
+**Cause :** Historique de données insuffisant  
+**Solution :** S'assurer qu'au moins 20 points de données ont été collectés
 
-### All Signals Neutral
+### Tous les Signaux sont Neutres
 
-**Cause:** Low volatility, prices near fundamental  
-**Solution:** Normal behavior. Wait for market opportunities
+**Cause :** Faible volatilité, prix proches du fondamental  
+**Solution :** Comportement normal. Attendre les opportunités de marché
 
-### Regime Flickering
+### Régime Vacillant
 
-**Cause:** Parameters near bifurcation point (Λ ≈ 1)  
-**Solution:** Add hysteresis or adjust α, β, γ, δ parameters
+**Cause :** Paramètres près du point de bifurcation (Λ ≈ 1)  
+**Solution :** Ajouter de l'hystérésis ou ajuster les paramètres α, β, γ, δ
 
-### High Risk Warnings
+### Avertissements de Risque Élevé
 
-**Cause:** Recent high volatility detected  
-**Solution:** Consider reducing position sizes or waiting
+**Cause :** Haute volatilité récente détectée  
+**Solution :** Considérer la réduction des tailles de position ou attendre
 
-## Advanced Usage
+## Utilisation Avancée
 
-### Custom Fundamental Estimation
+### Estimation Fondamentale Personnalisée
 
 ```python
 from python.strategies.chiarella_signals import ChiarellaSignalGenerator
 
-# Use your own fundamental estimate
+# Utiliser votre propre estimation fondamentale
 model = ChiarellaSignalGenerator(fundamental_price=150.0)
 
-# Update fundamental dynamically (e.g., from DCF model)
+# Mettre à jour le fondamental dynamiquement (ex: depuis un modèle DCF)
 model.update_fundamental(new_fundamental=155.0)
 ```
 
-### Parameter Optimization
+### Optimisation de Paramètres
 
 ```python
-# Test different parameter combinations
+# Tester différentes combinaisons de paramètres
 for alpha in [0.2, 0.3, 0.5, 0.8]:
     for beta in [0.3, 0.5, 0.8, 1.0]:
         model = ChiarellaSignalGenerator(
@@ -370,10 +370,10 @@ for alpha in [0.2, 0.3, 0.5, 0.8]:
             alpha=alpha,
             beta=beta
         )
-        # Run backtest...
+        # Exécuter le backtest...
 ```
 
-### Multi-Asset Signals
+### Signaux Multi-Actifs
 
 ```python
 models = {}
@@ -383,72 +383,72 @@ for symbol in ['AAPL', 'MSFT', 'GOOGL']:
     )
 ```
 
-## Research Extensions
+## Extensions de Recherche
 
-### Potential Improvements
+### Améliorations Potentielles
 
-1. **Online Parameter Learning**
-   - Use Kalman filtering to adapt α, β, γ, δ in real-time
-   - Estimate from order flow data
+1. **Apprentissage de Paramètres en Ligne**
+   - Utiliser le filtrage de Kalman pour adapter α, β, γ, δ en temps réel
+   - Estimer à partir des données de flux d'ordres
 
-2. **Multi-Timeframe Analysis**
-   - Combine signals from different time scales
-   - Hierarchical regime detection
+2. **Analyse Multi-Échelles Temporelles**
+   - Combiner les signaux de différentes échelles de temps
+   - Détection de régime hiérarchique
 
-3. **Cross-Sectional Signals**
-   - Compare mispricing across assets
-   - Pairs trading with Chiarella models for each asset
+3. **Signaux Cross-Sectionnels**
+   - Comparer les écarts de prix entre actifs
+   - Trading de paires avec modèles Chiarella pour chaque actif
 
-4. **Options Integration**
-   - Use regime (Λ) to predict volatility regime
-   - Adjust option strategies based on trending vs mean-reverting
+4. **Intégration des Options**
+   - Utiliser le régime (Λ) pour prédire le régime de volatilité
+   - Ajuster les stratégies d'options selon tendance vs retour à la moyenne
 
-5. **Machine Learning Enhancement**
-   - Neural networks to predict regime switches
-   - Reinforcement learning for optimal α, β, γ, δ
+5. **Amélioration par Machine Learning**
+   - Réseaux de neurones pour prédire les changements de régime
+   - Apprentissage par renforcement pour des α, β, γ, δ optimaux
 
-## References
+## Références
 
-1. **Kurth, J. G., & Bouchaud, J. P. (2025).** *Stationary Distributions of the Mode-switching Chiarella Model.* arXiv:2511.13277 [q-fin.TR]
+1. **Kurth, J. G., & Bouchaud, J. P. (2025).** *Distributions Stationnaires du Modèle de Chiarella à Changement de Mode.* arXiv:2511.13277 [q-fin.TR]
 
-2. **Chiarella, C. (1992).** *The dynamics of speculative behaviour.* Annals of Operations Research, 37(1), 101-123.
+2. **Chiarella, C. (1992).** *La dynamique du comportement spéculatif.* Annals of Operations Research, 37(1), 101-123.
 
-3. **Westerhoff, F. H., & Reitz, S. (2003).** *Nonlinearities and cyclical behavior: The role of chartists and fundamentalists.* Studies in Nonlinear Dynamics & Econometrics, 7(4).
+3. **Westerhoff, F. H., & Reitz, S. (2003).** *Non-linéarités et comportement cyclique : Le rôle des chartistes et des fondamentalistes.* Studies in Nonlinear Dynamics & Econometrics, 7(4).
 
-4. **Kelly, J. L. (1956).** *A new interpretation of information rate.* Bell System Technical Journal, 35(4), 917-926.
+4. **Kelly, J. L. (1956).** *Une nouvelle interprétation du taux d'information.* Bell System Technical Journal, 35(4), 917-926.
 
-## Files Created
+## Fichiers Créés
 
-- ✅ `rust_core/src/chiarella.rs` - Core Rust implementation
-- ✅ `rust_python_bindings/src/chiarella_bindings.rs` - Python bindings
-- ✅ `python/strategies/chiarella_signals.py` - Python signal generator
-- ✅ `app/pages/live_trading.py` - Streamlit integration (updated)
-- ✅ `examples/notebooks/chiarella_model_signals.ipynb` - Complete notebook
-- ✅ This documentation file
+- ✅ `rust_core/src/chiarella.rs` - Implémentation Rust principale
+- ✅ `rust_python_bindings/src/chiarella_bindings.rs` - Liaisons Python
+- ✅ `python/strategies/chiarella_signals.py` - Générateur de signaux Python
+- ✅ `app/pages/live_trading.py` - Intégration Streamlit (mis à jour)
+- ✅ `examples/notebooks/chiarella_model_signals.ipynb` - Notebook complet
+- ✅ Ce fichier de documentation
 
-## Quick Start
+## Démarrage Rapide
 
-1. **Ensure app is running:**
+1. **S'assurer que l'application est lancée :**
    ```bash
    ./clean_restart_streamlit.sh
    ```
 
-2. **Navigate to Live Trading:**
-   - Go to http://localhost:8501
-   - Click "🔴 Live Trading"
+2. **Naviguer vers Trading en Direct :**
+   - Aller sur http://localhost:8501
+   - Cliquer sur "🔴 Trading en Direct"
 
-3. **Start Data Feed:**
-   - Select data source
-   - Enter symbols (e.g., AAPL, MSFT)
-   - Click "Start Live Feed"
+3. **Démarrer le Flux de Données :**
+   - Sélectionner la source de données
+   - Entrer les symboles (ex : AAPL, MSFT)
+   - Cliquer sur "Démarrer le Flux en Direct"
 
-4. **View Signals:**
-   - Scroll to "Live Analytics"
-   - Click "⚡ Signals" tab
-   - See real-time Chiarella signals with regime detection!
+4. **Voir les Signaux :**
+   - Faire défiler jusqu'à "Analyses en Direct"
+   - Cliquer sur l'onglet "⚡ Signaux"
+   - Voir les signaux Chiarella en temps réel avec détection de régime !
 
 ---
 
-**Status:** ✅ **Fully Implemented and Operational**
+**Statut :** ✅ **Entièrement Implémenté et Opérationnel**
 
-All components are integrated and ready for real-time trading signal generation using the novel Mode-Switching Chiarella Model!
+Tous les composants sont intégrés et prêts pour la génération de signaux de trading en temps réel utilisant le nouveau Modèle de Chiarella à Changement de Mode !

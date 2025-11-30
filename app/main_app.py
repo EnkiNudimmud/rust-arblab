@@ -193,7 +193,7 @@ with tab1:
         """, unsafe_allow_html=True)
         
         if st.button("🚀 Launch Chiarella Lab", key="chiarella"):
-            st.info("Chiarella model page coming soon!")
+            st.switch_page("pages/lab_chiarella.py")
     
     with col2:
         st.markdown("""
@@ -210,7 +210,7 @@ with tab1:
         """, unsafe_allow_html=True)
         
         if st.button("🚀 Launch PCA Lab", key="pca"):
-            st.info("PCA arbitrage page coming soon!")
+            st.switch_page("pages/lab_pca_arbitrage.py")
 
 with tab2:
     col1, col2 = st.columns(2)
@@ -230,7 +230,7 @@ with tab2:
         """, unsafe_allow_html=True)
         
         if st.button("🚀 Launch Momentum Lab", key="momentum"):
-            st.info("Momentum trading page coming soon!")
+            st.switch_page("pages/lab_momentum.py")
     
     with col2:
         st.markdown("""
@@ -247,7 +247,7 @@ with tab2:
         """, unsafe_allow_html=True)
         
         if st.button("🚀 Launch Market Making", key="mm"):
-            st.info("Market making page coming soon!")
+            st.switch_page("pages/lab_market_making.py")
 
 with tab3:
     col1, col2 = st.columns(2)

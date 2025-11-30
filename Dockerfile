@@ -36,4 +36,4 @@ RUN maturin build --release --manifest-path rust_connector/Cargo.toml && \
 EXPOSE 8501 8888
 
 # Default: Streamlit
-CMD ["streamlit", "run", "app/streamlit_strategies.py", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app/HFT_Arbitrage_Lab.py", "--server.address=0.0.0.0"]

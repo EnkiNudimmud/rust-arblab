@@ -1,0 +1,6 @@
+# Ignore all portfolio files
+*.json
+
+# Except this gitignore and README
+!.gitignore
+!README.md

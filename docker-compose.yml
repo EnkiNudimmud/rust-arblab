@@ -19,8 +19,10 @@ services:
     volumes:
       - .:/app
       - ./api_keys.properties:/app/api_keys.properties:ro
+      - hft_data:/app/data  # Persistent data storage
     environment:
       - PYTHONPATH=/app
+    command: ["streamlit", "run", "app/HFT_Arbitrage_Lab.py", "--server.address=0.0.0.0"]
     depends_on:
       - mock_apis
     restart: unless-stopped
@@ -34,8 +36,13 @@ services:
     volumes:
       - .:/app
       - ./api_keys.properties:/app/api_keys.properties:ro
+      - hft_data:/app/data  # Persistent data storage
     environment:
       - PYTHONPATH=/app
     command: ["bash", "scripts/start_jupyter.sh"]
     depends_on:
       - mock_apis
+
+volumes:
+  hft_data:
+    driver: local

@@ -31,6 +31,17 @@ def render():
     render_sidebar_navigation(current_page="Portfolio View")
     apply_custom_css()
     
+    # Initialize session state
+    if 'theme_mode' not in st.session_state:
+        st.session_state.theme_mode = 'dark'
+    if 'portfolio' not in st.session_state:
+        st.session_state.portfolio = {
+            'positions': {},
+            'cash': 100000.0,
+            'initial_capital': 100000.0,
+            'history': []
+        }
+    
     st.title("💼 Portfolio View")
     st.markdown("Monitor your virtual portfolio and track performance")
     

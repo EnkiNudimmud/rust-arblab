@@ -409,7 +409,7 @@ def compute_mean_reversion(data: Dict, symbols: List[str], params: Dict) -> Dict
                 'series': pc1_series,
                 'weights': pc1_weights,
                 'backtest': backtest,
-                'variance_explained': pca_info['variance_explained'][0]
+                'variance_explained': pca_info['explained_variance_ratio_'][0]
             }
         except Exception as e:
             st.warning(f"PCA method failed: {e}")

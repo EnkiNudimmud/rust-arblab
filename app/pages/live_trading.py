@@ -27,6 +27,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from python.rust_bridge import list_connectors, get_connector
 from python.strategies.definitions import AVAILABLE_STRATEGIES
 from python.strategies.executor import StrategyExecutor, StrategyConfig
+from python.lob_recorder import (
+    LOBRecorder, OrderBookSnapshot, OrderBookUpdate, LOBAnalytics,
+    parse_binance_orderbook, parse_binance_diff_depth, OrderBookLevel
+)
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 def render():
@@ -65,9 +69,9 @@ def render():
     with col2:
         display_live_feed()
     
-    # Bottom section - trade log and analytics
+    # Bottom section - trade log, analytics, and LOB
     st.markdown("---")
-    display_live_analytics()
+    display_live_analytics_and_lob()
     
     # Auto-refresh when trading is active
     if st.session_state.get('live_trading_active', False):
@@ -234,6 +238,15 @@ def start_live_trading(connector_name: str, symbols: List[str], use_websocket: b
     # Initialize trade log if needed
     if 'trade_log' not in st.session_state:
         st.session_state.trade_log = []
+    
+    # Initialize LOB recorder
+    st.session_state.lob_recorder = LOBRecorder(
+        symbols=symbols,
+        snapshot_interval=60,  # Full snapshot every minute
+        max_levels=20,
+        storage_path="data/lob"
+    )
+    st.session_state.lob_enabled = True
     
     # Initialize strategy executor if enabled
     if st.session_state.get('live_strategy'):
@@ -769,6 +782,14 @@ def fetch_rest_polling():
                     if len(st.session_state.live_data_buffer) > 1000:
                         st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
                     
+                    # Record full LOB if enabled
+                    if st.session_state.get('lob_enabled') and isinstance(ob, dict):
+                        try:
+                            lob_snapshot = parse_binance_orderbook(ob, symbol, connector_name)
+                            st.session_state.lob_recorder.add_snapshot(lob_snapshot)
+                        except Exception as e:
+                            pass  # Silent fail for LOB recording
+                    
                     # Execute strategy if enabled
                     if st.session_state.get('live_executor'):
                         execute_strategy_on_tick(data_point)
@@ -849,12 +870,12 @@ def execute_strategy_on_tick(data_point: Dict):
                 
                 st.session_state.trade_log.append(trade)
 
-def display_live_analytics():
-    """Display live trading analytics"""
+def display_live_analytics_and_lob():
+    """Display live trading analytics and LOB data"""
     
-    st.markdown("### Live Analytics")
+    st.markdown("### Live Analytics & Orderbook")
     
-    tab1, tab2, tab3 = st.tabs(["📊 Statistics", "📝 Trade Log", "⚡ Signals"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Statistics", "📝 Trade Log", "⚡ Signals", "📖 Limit Order Book"])
     
     with tab1:
         display_live_statistics()
@@ -864,6 +885,9 @@ def display_live_analytics():
     
     with tab3:
         display_live_signals()
+    
+    with tab4:
+        display_limit_order_book()
 
 def display_live_statistics():
     """Display live statistics"""
@@ -1180,6 +1204,553 @@ def display_live_signals():
             st.warning("⏸️ **NEUTRAL** - No strong signal. Consider waiting for better setup.")
         
         st.markdown("---")
+
+def display_limit_order_book():
+    """Display comprehensive Limit Order Book data and analytics"""
+    
+    if not st.session_state.get('lob_enabled'):
+        st.info("📖 Limit Order Book recording is not active. Start live feed to begin recording.")
+        
+        st.markdown("""
+        ### What is Limit Order Book (LOB) Data?
+        
+        The **Limit Order Book** shows all pending buy and sell orders at different price levels:
+        
+        - **Bids** (Buy Orders): Prices buyers are willing to pay
+        - **Asks** (Sell Orders): Prices sellers are asking
+        - **Depth**: Volume available at each price level
+        - **Spread**: Difference between best bid and ask
+        
+        ### Features:
+        - 📊 Multi-level orderbook visualization (20+ levels)
+        - 📈 LOB heatmaps and depth charts
+        - 📉 Real-time imbalance metrics
+        - 💰 Market impact analysis
+        - 📥 Export LOB data for analysis
+        
+        Inspired by: [pfei-sa/binance-LOB](https://github.com/pfei-sa/binance-LOB)
+        """)
+        return
+    
+    recorder = st.session_state.get('lob_recorder')
+    if not recorder:
+        st.warning("LOB recorder not initialized")
+        return
+    
+    symbols = st.session_state.get('live_symbols', [])
+    if not symbols:
+        st.info("No symbols selected")
+        return
+    
+    # Symbol selector
+    selected_symbol = st.selectbox("Select Symbol for LOB View", symbols, key="lob_symbol_selector")
+    
+    # Get current orderbook
+    current_book = recorder.get_current_book(selected_symbol)
+    
+    if not current_book:
+        st.info(f"⏳ Waiting for orderbook data for {selected_symbol}...")
+        return
+    
+    # LOB Tabs
+    lob_tab1, lob_tab2, lob_tab3, lob_tab4 = st.tabs([
+        "📊 Orderbook Levels",
+        "📈 LOB Analytics",
+        "🔥 Heatmap",
+        "💾 Export Data"
+    ])
+    
+    with lob_tab1:
+        display_orderbook_levels(current_book, recorder, selected_symbol)
+    
+    with lob_tab2:
+        display_lob_analytics(recorder, selected_symbol)
+    
+    with lob_tab3:
+        display_lob_heatmap(recorder, selected_symbol)
+    
+    with lob_tab4:
+        display_lob_export(recorder, selected_symbol)
+
+
+def display_orderbook_levels(book: OrderBookSnapshot, recorder: LOBRecorder, symbol: str):
+    """Display current orderbook levels in a table format"""
+    
+    st.markdown(f"### 📖 {symbol} Orderbook Levels")
+    
+    # Calculate analytics for current book
+    analytics = recorder.calculate_analytics(book)
+    
+    # Display key metrics
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("Best Bid", f"${analytics.best_bid:.2f}")
+    with col2:
+        st.metric("Best Ask", f"${analytics.best_ask:.2f}")
+    with col3:
+        st.metric("Spread", f"${analytics.spread_abs:.4f}", 
+                 delta=f"{analytics.spread_bps:.1f} bps")
+    with col4:
+        st.metric("Mid Price", f"${analytics.mid_price:.2f}")
+    with col5:
+        imbalance_pct = analytics.volume_imbalance * 100
+        st.metric("Imbalance", f"{imbalance_pct:+.1f}%",
+                 delta="Bullish" if imbalance_pct > 5 else "Bearish" if imbalance_pct < -5 else "Neutral")
+    
+    st.markdown("---")
+    
+    # Display orderbook as two-column table
+    col_asks, col_bids = st.columns(2)
+    
+    with col_asks:
+        st.markdown("#### 🔴 Asks (Sell Orders)")
+        
+        if book.asks:
+            # Reverse asks so highest price is at top
+            asks_reversed = list(reversed(book.asks[:15]))
+            
+            asks_data = []
+            cumulative_vol = 0
+            for level in asks_reversed:
+                cumulative_vol += level.quantity * level.price
+                asks_data.append({
+                    'Price ($)': level.price,
+                    'Quantity': level.quantity,
+                    'Total ($)': level.quantity * level.price,
+                    'Cumulative ($)': cumulative_vol
+                })
+            
+            asks_df = pd.DataFrame(asks_data)
+            
+            st.dataframe(
+                asks_df.style.format({
+                    'Price ($)': '{:.2f}',
+                    'Quantity': '{:.4f}',
+                    'Total ($)': '{:,.2f}',
+                    'Cumulative ($)': '{:,.2f}'
+                }).background_gradient(subset=['Total ($)'], cmap='Reds'),
+                use_container_width=True,
+                hide_index=True,
+                height=400
+            )
+        else:
+            st.info("No ask orders")
+    
+    with col_bids:
+        st.markdown("#### 🟢 Bids (Buy Orders)")
+        
+        if book.bids:
+            bids_data = []
+            cumulative_vol = 0
+            for level in book.bids[:15]:
+                cumulative_vol += level.quantity * level.price
+                bids_data.append({
+                    'Price ($)': level.price,
+                    'Quantity': level.quantity,
+                    'Total ($)': level.quantity * level.price,
+                    'Cumulative ($)': cumulative_vol
+                })
+            
+            bids_df = pd.DataFrame(bids_data)
+            
+            st.dataframe(
+                bids_df.style.format({
+                    'Price ($)': '{:.2f}',
+                    'Quantity': '{:.4f}',
+                    'Total ($)': '{:,.2f}',
+                    'Cumulative ($)': '{:,.2f}'
+                }).background_gradient(subset=['Total ($)'], cmap='Greens'),
+                use_container_width=True,
+                hide_index=True,
+                height=400
+            )
+        else:
+            st.info("No bid orders")
+    
+    # Depth visualization
+    st.markdown("---")
+    st.markdown("#### 📊 Order Book Depth Visualization")
+    
+    if book.bids and book.asks:
+        fig = go.Figure()
+        
+        # Prepare bid data (cumulative)
+        bid_prices = [level.price for level in book.bids]
+        bid_volumes = [level.quantity * level.price for level in book.bids]
+        bid_cumulative = np.cumsum(bid_volumes)
+        
+        # Prepare ask data (cumulative)
+        ask_prices = [level.price for level in book.asks]
+        ask_volumes = [level.quantity * level.price for level in book.asks]
+        ask_cumulative = np.cumsum(ask_volumes)
+        
+        # Plot bids
+        fig.add_trace(go.Scatter(
+            x=bid_prices,
+            y=bid_cumulative,
+            mode='lines',
+            name='Bid Depth',
+            fill='tozeroy',
+            fillcolor='rgba(0, 255, 0, 0.2)',
+            line=dict(color='green', width=2)
+        ))
+        
+        # Plot asks
+        fig.add_trace(go.Scatter(
+            x=ask_prices,
+            y=ask_cumulative,
+            mode='lines',
+            name='Ask Depth',
+            fill='tozeroy',
+            fillcolor='rgba(255, 0, 0, 0.2)',
+            line=dict(color='red', width=2)
+        ))
+        
+        # Add mid price line
+        fig.add_vline(
+            x=analytics.mid_price,
+            line_dash="dash",
+            line_color="cyan",
+            annotation_text=f"Mid: ${analytics.mid_price:.2f}",
+            annotation_position="top"
+        )
+        
+        fig.update_layout(
+            title="Cumulative Order Book Depth",
+            xaxis_title="Price ($)",
+            yaxis_title="Cumulative Volume ($)",
+            template="plotly_dark",
+            height=400,
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True, key=f"depth_{symbol}")
+
+
+def display_lob_analytics(recorder: LOBRecorder, symbol: str):
+    """Display LOB analytics over time"""
+    
+    st.markdown(f"### 📈 {symbol} LOB Analytics")
+    
+    analytics_list = recorder.get_analytics(symbol, n=500)
+    
+    if len(analytics_list) < 2:
+        st.info("⏳ Collecting analytics data... (need at least 2 data points)")
+        return
+    
+    # Convert to DataFrame
+    df = pd.DataFrame([a.to_dict() for a in analytics_list])
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    
+    # Display current metrics
+    latest = analytics_list[-1]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Spread (bps)", f"{latest.spread_bps:.2f}")
+        st.metric("Bid Depth (0.1%)", f"${latest.bid_depth_1:,.0f}")
+    
+    with col2:
+        st.metric("Volume Imbalance", f"{latest.volume_imbalance*100:+.1f}%")
+        st.metric("Ask Depth (0.1%)", f"${latest.ask_depth_1:,.0f}")
+    
+    with col3:
+        st.metric("Market Impact ($10k)", f"{latest.market_impact_10k:.2f} bps")
+        st.metric("Bid Depth (1%)", f"${latest.bid_depth_10:,.0f}")
+    
+    with col4:
+        st.metric("Effective Spread", f"{latest.effective_spread_bps:.2f} bps")
+        st.metric("Ask Depth (1%)", f"${latest.ask_depth_10:,.0f}")
+    
+    st.markdown("---")
+    
+    # Time series plots
+    st.markdown("#### 📊 Analytics Over Time")
+    
+    # Create subplots
+    fig = make_subplots(
+        rows=3, cols=2,
+        subplot_titles=(
+            'Spread (bps)', 'Volume Imbalance',
+            'Bid/Ask Depth (0.1%)', 'Market Impact ($10k)',
+            'Mid Price', 'Effective Spread (bps)'
+        ),
+        vertical_spacing=0.1
+    )
+    
+    # Spread
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['spread_bps'], name='Spread', line=dict(color='cyan')),
+        row=1, col=1
+    )
+    
+    # Imbalance
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['volume_imbalance']*100, name='Imbalance', line=dict(color='orange')),
+        row=1, col=2
+    )
+    
+    # Depth
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['bid_depth_1'], name='Bid Depth', line=dict(color='green')),
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['ask_depth_1'], name='Ask Depth', line=dict(color='red')),
+        row=2, col=1
+    )
+    
+    # Market Impact
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['market_impact_10k'], name='Impact', line=dict(color='purple')),
+        row=2, col=2
+    )
+    
+    # Mid Price
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['mid_price'], name='Mid Price', line=dict(color='white')),
+        row=3, col=1
+    )
+    
+    # Effective Spread
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['effective_spread_bps'], name='Eff. Spread', line=dict(color='pink')),
+        row=3, col=2
+    )
+    
+    fig.update_layout(
+        height=900,
+        showlegend=False,
+        template="plotly_dark",
+        hovermode='x unified'
+    )
+    
+    fig.update_yaxes(title_text="bps", row=1, col=1)
+    fig.update_yaxes(title_text="%", row=1, col=2)
+    fig.update_yaxes(title_text="$ Volume", row=2, col=1)
+    fig.update_yaxes(title_text="bps", row=2, col=2)
+    fig.update_yaxes(title_text="$", row=3, col=1)
+    fig.update_yaxes(title_text="bps", row=3, col=2)
+    
+    st.plotly_chart(fig, use_container_width=True, key=f"analytics_{symbol}")
+    
+    # Statistics table
+    st.markdown("#### 📋 Summary Statistics")
+    
+    summary_stats = {
+        'Metric': [
+            'Avg Spread (bps)',
+            'Avg Volume Imbalance (%)',
+            'Avg Market Impact ($10k)',
+            'Avg Bid Depth (0.1%)',
+            'Avg Ask Depth (0.1%)',
+            'Total Bid Levels',
+            'Total Ask Levels'
+        ],
+        'Value': [
+            f"{df['spread_bps'].mean():.2f}",
+            f"{df['volume_imbalance'].mean()*100:+.2f}",
+            f"{df['market_impact_10k'].mean():.2f} bps",
+            f"${df['bid_depth_1'].mean():,.0f}",
+            f"${df['ask_depth_1'].mean():,.0f}",
+            f"{df['bid_levels'].mean():.1f}",
+            f"{df['ask_levels'].mean():.1f}"
+        ]
+    }
+    
+    st.dataframe(pd.DataFrame(summary_stats), use_container_width=True, hide_index=True)
+
+
+def display_lob_heatmap(recorder: LOBRecorder, symbol: str):
+    """Display LOB heatmap visualization"""
+    
+    st.markdown(f"### 🔥 {symbol} Order Book Heatmap")
+    
+    st.info("📊 Heatmap shows order book evolution over time. Darker colors = higher volume.")
+    
+    # Get recent snapshots
+    snapshots = list(recorder.snapshots[symbol])[-50:]  # Last 50 snapshots
+    
+    if len(snapshots) < 2:
+        st.warning("Need at least 2 snapshots to generate heatmap. Keep recording...")
+        return
+    
+    # Extract price levels and volumes
+    times = [s.timestamp for s in snapshots]
+    
+    # Find price range
+    all_prices = []
+    for s in snapshots:
+        all_prices.extend([b.price for b in s.bids[:10]])
+        all_prices.extend([a.price for a in s.asks[:10]])
+    
+    if not all_prices:
+        st.warning("No price data available")
+        return
+    
+    min_price = min(all_prices)
+    max_price = max(all_prices)
+    price_range = max_price - min_price
+    
+    # Create price bins
+    n_bins = 50
+    price_bins = np.linspace(min_price - price_range*0.1, max_price + price_range*0.1, n_bins)
+    
+    # Build heatmap matrix
+    heatmap_data = np.zeros((n_bins, len(snapshots)))
+    
+    for t_idx, snapshot in enumerate(snapshots):
+        # Aggregate volume at each price bin
+        for bid in snapshot.bids[:10]:
+            bin_idx = np.digitize(bid.price, price_bins) - 1
+            if 0 <= bin_idx < n_bins:
+                heatmap_data[bin_idx, t_idx] += bid.quantity * bid.price
+        
+        for ask in snapshot.asks[:10]:
+            bin_idx = np.digitize(ask.price, price_bins) - 1
+            if 0 <= bin_idx < n_bins:
+                heatmap_data[bin_idx, t_idx] -= ask.quantity * ask.price  # Negative for asks
+    
+    # Create heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=heatmap_data,
+        x=[t.strftime("%H:%M:%S") for t in times],
+        y=[f"${p:.2f}" for p in price_bins],
+        colorscale='RdYlGn',
+        zmid=0,
+        colorbar=dict(title="Volume ($)")
+    ))
+    
+    fig.update_layout(
+        title="Order Book Heatmap (Green=Bids, Red=Asks)",
+        xaxis_title="Time",
+        yaxis_title="Price",
+        template="plotly_dark",
+        height=600
+    )
+    
+    st.plotly_chart(fig, use_container_width=True, key=f"heatmap_{symbol}")
+    
+    st.caption("💡 Tip: Look for patterns like walls, gaps, or shifting liquidity zones")
+
+
+def display_lob_export(recorder: LOBRecorder, symbol: str):
+    """Export LOB data and analytics"""
+    
+    st.markdown(f"### 💾 Export {symbol} LOB Data")
+    
+    st.markdown("""
+    Export orderbook data and analytics for further analysis:
+    - **Analytics CSV**: Time series of LOB metrics
+    - **Snapshots JSON**: Full orderbook snapshots
+    - **Summary Report**: Statistical summary
+    """)
+    
+    # Export analytics
+    analytics_df = recorder.export_to_csv(symbol)
+    
+    if analytics_df.empty:
+        st.warning("No data available to export yet")
+        return
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("Data Points", f"{len(analytics_df):,}")
+        st.metric("Time Range", f"{(analytics_df['timestamp'].max() - analytics_df['timestamp'].min()).total_seconds():.0f}s")
+    
+    with col2:
+        st.metric("Avg Spread", f"{analytics_df['spread_bps'].mean():.2f} bps")
+        st.metric("Avg Imbalance", f"{analytics_df['volume_imbalance'].mean()*100:+.1f}%")
+    
+    st.markdown("---")
+    
+    # Download buttons
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Analytics CSV
+        csv_data = analytics_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📊 Download Analytics CSV",
+            data=csv_data,
+            file_name=f"{symbol}_lob_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col2:
+        # Snapshots JSON
+        snapshots = list(recorder.snapshots[symbol])
+        snapshots_json = json.dumps([s.to_dict() for s in snapshots], indent=2)
+        st.download_button(
+            label="📖 Download Snapshots JSON",
+            data=snapshots_json.encode('utf-8'),
+            file_name=f"{symbol}_lob_snapshots_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    
+    with col3:
+        # Summary report
+        summary = f"""
+LOB Analysis Report for {symbol}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+=== SUMMARY STATISTICS ===
+Data Points: {len(analytics_df)}
+Time Range: {analytics_df['timestamp'].min()} to {analytics_df['timestamp'].max()}
+
+=== SPREAD METRICS ===
+Avg Spread: {analytics_df['spread_bps'].mean():.2f} bps
+Min Spread: {analytics_df['spread_bps'].min():.2f} bps
+Max Spread: {analytics_df['spread_bps'].max():.2f} bps
+Std Spread: {analytics_df['spread_bps'].std():.2f} bps
+
+=== IMBALANCE METRICS ===
+Avg Volume Imbalance: {analytics_df['volume_imbalance'].mean()*100:+.2f}%
+Avg Depth Imbalance (0.1%): {analytics_df['depth_imbalance_1'].mean()*100:+.2f}%
+Avg Depth Imbalance (0.5%): {analytics_df['depth_imbalance_5'].mean()*100:+.2f}%
+
+=== LIQUIDITY METRICS ===
+Avg Market Impact ($10k): {analytics_df['market_impact_10k'].mean():.2f} bps
+Avg Effective Spread: {analytics_df['effective_spread_bps'].mean():.2f} bps
+Avg Bid Depth (0.1%): ${analytics_df['bid_depth_1'].mean():,.2f}
+Avg Ask Depth (0.1%): ${analytics_df['ask_depth_1'].mean():,.2f}
+
+=== ORDERBOOK STRUCTURE ===
+Avg Bid Levels: {analytics_df['bid_levels'].mean():.1f}
+Avg Ask Levels: {analytics_df['ask_levels'].mean():.1f}
+Avg Total Bid Volume: ${analytics_df['total_bid_volume'].mean():,.2f}
+Avg Total Ask Volume: ${analytics_df['total_ask_volume'].mean():,.2f}
+"""
+        
+        st.download_button(
+            label="📋 Download Summary Report",
+            data=summary.encode('utf-8'),
+            file_name=f"{symbol}_lob_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    
+    # Preview data
+    st.markdown("---")
+    st.markdown("#### 👀 Data Preview")
+    
+    st.dataframe(
+        analytics_df.tail(100).style.format({
+            'spread_bps': '{:.2f}',
+            'spread_abs': '{:.4f}',
+            'mid_price': '{:.2f}',
+            'volume_imbalance': '{:+.3f}',
+            'market_impact_10k': '{:.2f}'
+        }),
+        use_container_width=True,
+        height=400
+    )
+
 
 # Execute the render function when page is loaded
 if __name__ == "__main__":

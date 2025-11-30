@@ -16,6 +16,7 @@
 ### Data & Connectivity
 - [Kraken WebSocket Guide](KRAKEN_WEBSOCKET_GUIDE.md) - Real-time data via Kraken WebSocket
 - [Finnhub Usage](FINNHUB_USAGE.md) - Using Finnhub market data API
+- **[Rust LOB Implementation](RUST_LOB_IMPLEMENTATION.md) - Limit Order Book feature (Rust-powered)**
 
 ### Reference
 - [Navigation Guide](NAVIGATION_GUIDE.md) - Navigate the application

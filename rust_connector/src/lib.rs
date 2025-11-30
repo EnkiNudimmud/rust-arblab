@@ -24,6 +24,7 @@ use log::{info, warn};
 use fastrand;
 
 mod meanrev;
+mod lob;
 
 /// OrderBook struct sent to Python
 #[pyclass]
@@ -547,6 +548,9 @@ fn rust_connector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(meanrev::backtest_with_costs_rust, m)?)?;
     m.add_function(wrap_pyfunction!(meanrev::optimal_thresholds_rust, m)?)?;
     m.add_function(wrap_pyfunction!(meanrev::multiperiod_optimize_rust, m)?)?;
+    
+    // Register LOB functions
+    lob::register_lob_functions(m)?;
     
     Ok(())
 }

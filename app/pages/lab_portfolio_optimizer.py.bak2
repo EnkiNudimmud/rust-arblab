@@ -1422,143 +1422,143 @@ else:
         if 'optimal_portfolio' not in st.session_state:
             st.info("💡 Optimize a portfolio in the Portfolio Optimization tab first")
         else:
-            portfolio = st.session_state['optimal_portfolio']
-            
-            st.markdown("#### 📈 Historical Performance Simulation")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                backtest_period = st.slider("Backtest Period (days)", 30, 252, 126)
-                rebalance_freq = st.selectbox("Rebalance Frequency", ["None", "Weekly", "Monthly"], index=0)
-            
-            with col2:
-                initial_capital = st.number_input("Initial Capital ($)", value=100000.0, step=10000.0)
-                transaction_cost = st.slider("Transaction Cost (bps)", 0, 50, 10)
-            
-            if st.button("📊 Run Backtest", type="primary"):
-                with st.spinner("Running backtest..."):
-                    symbols = portfolio['symbols']
-                    weights = portfolio['weights']
-                    analysis_results = portfolio['analysis_results']
-                    
-                    # Simulate portfolio returns
-                    returns_matrix = np.array([r['returns'][-backtest_period:] for r in analysis_results])
-                    
-                    # Align lengths
-                    min_len = min(len(r) for r in returns_matrix)
-                    returns_matrix = np.array([r[-min_len:] for r in returns_matrix])
-                    
-                    # Portfolio returns
-                    portfolio_returns = returns_matrix.T @ weights
-                    
-                    # Apply transaction costs (simplified)
-                    cost_per_trade = transaction_cost / 10000.0
-                    portfolio_returns -= cost_per_trade  # Assume daily rebalancing approximation
-                    
-                    # Cumulative returns
-                    portfolio_value = initial_capital * np.cumprod(1 + portfolio_returns)
-                    
-                    # Benchmark: equal weight
-                    equal_weight_returns = returns_matrix.mean(axis=0)
-                    benchmark_value = initial_capital * np.cumprod(1 + equal_weight_returns)
-                    
-                    # Metrics
-                    total_return = (portfolio_value[-1] - initial_capital) / initial_capital
-                    ann_return = (1 + total_return) ** (252 / len(portfolio_returns)) - 1
-                    ann_vol = np.std(portfolio_returns) * np.sqrt(252)
-                    sharpe = ann_return / ann_vol if ann_vol > 0 else 0
-                    
-                    # Drawdown
-                    running_max = np.maximum.accumulate(portfolio_value)
-                    drawdowns = (portfolio_value - running_max) / running_max
-                    max_drawdown = np.min(drawdowns)
-                    
-                    # Display metrics
-                    st.markdown("### 📊 Performance Metrics")
-                    
-                    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-                    
-                    with metric_col1:
-                        st.metric("Total Return", f"{total_return*100:.2f}%")
-                    with metric_col2:
-                        st.metric("Annual Return", f"{ann_return*100:.2f}%")
-                    with metric_col3:
-                        st.metric("Sharpe Ratio", f"{sharpe:.2f}")
-                    with metric_col4:
-                        st.metric("Max Drawdown", f"{max_drawdown*100:.2f}%")
-                    
-                    # Benchmark comparison
-                    bench_return = (benchmark_value[-1] - initial_capital) / initial_capital
-                    outperformance = (total_return - bench_return) * 100
-                    
-                    st.info(f"**Outperformance vs Equal Weight:** {outperformance:+.2f}%")
-                    
-                    # Plot
-                    st.markdown("### 📈 Equity Curves")
-                    
-                    fig = go.Figure()
-                    
-                    fig.add_trace(go.Scatter(
-                        y=portfolio_value,
-                        name='Optimized Portfolio',
-                        line={'color': 'blue', 'width': 2}
-                    ))
-                    
-                    fig.add_trace(go.Scatter(
-                        y=benchmark_value,
-                        name='Equal Weight Benchmark',
-                        line={'color': 'gray', 'width': 2, 'dash': 'dash'}
-                    ))
-                    
-                    fig.update_layout(
-                        title='Portfolio Value Over Time',
-                        yaxis_title='Portfolio Value ($)',
-                        xaxis_title='Days',
-                        height=500,
-                        hovermode='x unified'
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Drawdown chart
-                    st.markdown("### 📉 Drawdown Analysis")
-                    
-                    fig_dd = go.Figure()
-                    
-                    fig_dd.add_trace(go.Scatter(
-                        y=drawdowns * 100,
-                        fill='tozeroy',
-                        fillcolor='rgba(255,0,0,0.1)',
-                        line={'color': 'red', 'width': 2},
-                        name='Drawdown'
-                    ))
-                    
-                    fig_dd.update_layout(
-                        title='Portfolio Drawdown',
-                        yaxis_title='Drawdown (%)',
-                        xaxis_title='Days',
-                        height=400
-                    )
-                    
-                    st.plotly_chart(fig_dd, use_container_width=True)
-                    
-                    # Summary
-                    st.markdown("### 📋 Summary")
-                    
-                    st.success(f"""
-                    **Portfolio Performance Summary:**
-                    - Optimized portfolio returned **{total_return*100:.2f}%** over {len(portfolio_returns)} days
-                    - Annualized return: **{ann_return*100:.2f}%**
-                    - Risk-adjusted return (Sharpe): **{sharpe:.2f}**
-                    - Maximum drawdown: **{max_drawdown*100:.2f}%**
-                    - Outperformed equal-weight benchmark by **{outperformance:+.2f}%**
-                    
-                    **Strategy Highlights:**
-                    - Combined mean reversion, bubble risk, and regime switching
-                    - Dynamic weight optimization based on multi-factor scores
-                    - Risk-aware position sizing with correlation considerations
-                    """)
+        portfolio = st.session_state['optimal_portfolio']
+        
+        st.markdown("#### 📈 Historical Performance Simulation")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            backtest_period = st.slider("Backtest Period (days)", 30, 252, 126)
+            rebalance_freq = st.selectbox("Rebalance Frequency", ["None", "Weekly", "Monthly"], index=0)
+        
+        with col2:
+            initial_capital = st.number_input("Initial Capital ($)", value=100000.0, step=10000.0)
+            transaction_cost = st.slider("Transaction Cost (bps)", 0, 50, 10)
+        
+        if st.button("📊 Run Backtest", type="primary"):
+            with st.spinner("Running backtest..."):
+                symbols = portfolio['symbols']
+                weights = portfolio['weights']
+                analysis_results = portfolio['analysis_results']
+                
+                # Simulate portfolio returns
+                returns_matrix = np.array([r['returns'][-backtest_period:] for r in analysis_results])
+                
+                # Align lengths
+                min_len = min(len(r) for r in returns_matrix)
+                returns_matrix = np.array([r[-min_len:] for r in returns_matrix])
+                
+                # Portfolio returns
+                portfolio_returns = returns_matrix.T @ weights
+                
+                # Apply transaction costs (simplified)
+                cost_per_trade = transaction_cost / 10000.0
+                portfolio_returns -= cost_per_trade  # Assume daily rebalancing approximation
+                
+                # Cumulative returns
+                portfolio_value = initial_capital * np.cumprod(1 + portfolio_returns)
+                
+                # Benchmark: equal weight
+                equal_weight_returns = returns_matrix.mean(axis=0)
+                benchmark_value = initial_capital * np.cumprod(1 + equal_weight_returns)
+                
+                # Metrics
+                total_return = (portfolio_value[-1] - initial_capital) / initial_capital
+                ann_return = (1 + total_return) ** (252 / len(portfolio_returns)) - 1
+                ann_vol = np.std(portfolio_returns) * np.sqrt(252)
+                sharpe = ann_return / ann_vol if ann_vol > 0 else 0
+                
+                # Drawdown
+                running_max = np.maximum.accumulate(portfolio_value)
+                drawdowns = (portfolio_value - running_max) / running_max
+                max_drawdown = np.min(drawdowns)
+                
+                # Display metrics
+                st.markdown("### 📊 Performance Metrics")
+                
+                metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+                
+                with metric_col1:
+                    st.metric("Total Return", f"{total_return*100:.2f}%")
+                with metric_col2:
+                    st.metric("Annual Return", f"{ann_return*100:.2f}%")
+                with metric_col3:
+                    st.metric("Sharpe Ratio", f"{sharpe:.2f}")
+                with metric_col4:
+                    st.metric("Max Drawdown", f"{max_drawdown*100:.2f}%")
+                
+                # Benchmark comparison
+                bench_return = (benchmark_value[-1] - initial_capital) / initial_capital
+                outperformance = (total_return - bench_return) * 100
+                
+                st.info(f"**Outperformance vs Equal Weight:** {outperformance:+.2f}%")
+                
+                # Plot
+                st.markdown("### 📈 Equity Curves")
+                
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    y=portfolio_value,
+                    name='Optimized Portfolio',
+                    line={'color': 'blue', 'width': 2}
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    y=benchmark_value,
+                    name='Equal Weight Benchmark',
+                    line={'color': 'gray', 'width': 2, 'dash': 'dash'}
+                ))
+                
+                fig.update_layout(
+                    title='Portfolio Value Over Time',
+                    yaxis_title='Portfolio Value ($)',
+                    xaxis_title='Days',
+                    height=500,
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Drawdown chart
+                st.markdown("### 📉 Drawdown Analysis")
+                
+                fig_dd = go.Figure()
+                
+                fig_dd.add_trace(go.Scatter(
+                    y=drawdowns * 100,
+                    fill='tozeroy',
+                    fillcolor='rgba(255,0,0,0.1)',
+                    line={'color': 'red', 'width': 2},
+                    name='Drawdown'
+                ))
+                
+                fig_dd.update_layout(
+                    title='Portfolio Drawdown',
+                    yaxis_title='Drawdown (%)',
+                    xaxis_title='Days',
+                    height=400
+                )
+                
+                st.plotly_chart(fig_dd, use_container_width=True)
+                
+                # Summary
+                st.markdown("### 📋 Summary")
+                
+                st.success(f"""
+                **Portfolio Performance Summary:**
+                - Optimized portfolio returned **{total_return*100:.2f}%** over {len(portfolio_returns)} days
+                - Annualized return: **{ann_return*100:.2f}%**
+                - Risk-adjusted return (Sharpe): **{sharpe:.2f}**
+                - Maximum drawdown: **{max_drawdown*100:.2f}%**
+                - Outperformed equal-weight benchmark by **{outperformance:+.2f}%**
+                
+                **Strategy Highlights:**
+                - Combined mean reversion, bubble risk, and regime switching
+                - Dynamic weight optimization based on multi-factor scores
+                - Risk-aware position sizing with correlation considerations
+                """)
 
 # Footer
 st.markdown("---")

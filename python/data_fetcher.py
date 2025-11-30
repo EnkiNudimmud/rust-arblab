@@ -302,6 +302,7 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
         while retry_count < max_retries and not success:
             try:
                 ticker = yf.Ticker(symbol)
+                df = pd.DataFrame()
                 
                 # Use different methods based on interval and Yahoo's limitations
                 if yf_interval in ["1m", "5m", "15m", "30m"]:
@@ -321,8 +322,28 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
                         # Use max period and truncate to requested range
                         df = ticker.history(period="730d", interval=yf_interval)
                 else:
-                    # For daily and above, use date range (no limitations)
-                    df = ticker.history(start=start, end=end, interval=yf_interval)
+                    # For daily and above, try period-based first (more reliable)
+                    # Map days to appropriate period
+                    if days_range <= 5:
+                        df = ticker.history(period="5d", interval=yf_interval)
+                    elif days_range <= 30:
+                        df = ticker.history(period="1mo", interval=yf_interval)
+                    elif days_range <= 90:
+                        df = ticker.history(period="3mo", interval=yf_interval)
+                    elif days_range <= 180:
+                        df = ticker.history(period="6mo", interval=yf_interval)
+                    elif days_range <= 365:
+                        df = ticker.history(period="1y", interval=yf_interval)
+                    elif days_range <= 730:
+                        df = ticker.history(period="2y", interval=yf_interval)
+                    elif days_range <= 1825:
+                        df = ticker.history(period="5y", interval=yf_interval)
+                    else:
+                        df = ticker.history(period="max", interval=yf_interval)
+                    
+                    # If period-based failed or returned empty, try date range
+                    if df.empty:
+                        df = ticker.history(start=start, end=end, interval=yf_interval)
                 
                 if not df.empty:
                     # Filter to exact date range requested (handle timezone-aware timestamps)

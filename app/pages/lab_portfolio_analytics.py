@@ -535,29 +535,9 @@ with tab2:
                             st.error("❌ Invalid returns calculated. Check your price data.")
                             st.stop()
                         
-                        # Try Rust optimization if available
-                        try:
-                            import rust_connector
-                            
-                            # CARA utility optimization
-                            risk_aversion = 2.0
-                            result = rust_connector.cara_optimal_weights_rust(
-                                mean_returns.values.tolist(),
-                                cov_matrix.values.tolist(),
-                                risk_aversion
-                            )
-                            
-                            # Handle dict or list return type
-                            if isinstance(result, dict):
-                                weights = result.get('weights', list(result.values()))
-                            else:
-                                weights = result
-                            
-                            st.success("✅ Optimization completed using Rust backend")
-                        except Exception as e:
-                            # Fallback to equal weights
-                            st.warning(f"Using equal weights (Rust optimization unavailable: {str(e)})")
-                            weights = np.ones(len(selected_assets)) / len(selected_assets)
+                        # Use equal weights for now (Rust optimizer not yet implemented)
+                        weights = np.ones(len(selected_assets)) / len(selected_assets)
+                        st.info("ℹ️ Using equal-weighted portfolio")
                         
                         # Display results
                         st.markdown("#### Optimal Weights")

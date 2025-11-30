@@ -139,7 +139,7 @@ def fetch_historical_simulation(symbols: List[str], periods: int = 1000, api_key
 
 def fetch_ohlcv(symbol: str, start: pd.Timestamp, end: pd.Timestamp, api_key: Optional[str] = None) -> pd.DataFrame:
     """
-    Fetch OHLCV historical data from Finnhub.
+    Fetch OHLCV historical data from Finnhub with automatic retry on failures.
     
     Args:
         symbol: Symbol to fetch (e.g., "AAPL", "BINANCE:BTCUSDT")
@@ -159,6 +159,7 @@ def fetch_ohlcv(symbol: str, start: pd.Timestamp, end: pd.Timestamp, api_key: Op
     
     try:
         import requests
+        from python.retry_utils import RetryConfig, make_retriable_request
         
         # Convert timestamps to Unix time
         start_unix = int(start.timestamp())
@@ -174,7 +175,13 @@ def fetch_ohlcv(symbol: str, start: pd.Timestamp, end: pd.Timestamp, api_key: Op
             "token": api_key
         }
         
-        response = requests.get(url, params=params, timeout=10)
+        session = requests.Session()
+        response = make_retriable_request(
+            session, 'GET', url,
+            config=RetryConfig.default(),
+            params=params,
+            timeout=10
+        )
         response.raise_for_status()
         data = response.json()
         

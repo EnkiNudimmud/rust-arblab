@@ -25,8 +25,12 @@ logger = logging.getLogger(__name__)
 
 # Try to import Rust optimizers
 try:
-    import rust_connector as rust_optimizers
-    RUST_AVAILABLE = True
+    import rust_connector as rust_conn
+    RUST_AVAILABLE = hasattr(rust_conn, 'optimization')
+    if RUST_AVAILABLE:
+        rust_optimizers = rust_conn.optimization
+    else:
+        rust_optimizers = None
 except ImportError:
     RUST_AVAILABLE = False
     rust_optimizers = None
@@ -80,25 +84,23 @@ class HMMRegimeDetector:
             n_iterations: Number of EM iterations
         """
         # Try Rust implementation first
-        if RUST_AVAILABLE:
+        if RUST_AVAILABLE and rust_optimizers is not None:
             try:
-                hmm_params = rust_optimizers.fit_hmm(  # type: ignore
+                hmm_params = rust_optimizers.fit_hmm(
                     returns.tolist(),
                     n_states=self.n_states,
-                    n_bins=10,
                     n_iterations=n_iterations,
                     tolerance=1e-6
                 )
                 
-                self.transition_matrix = np.array(hmm_params['transition_matrix'])
-                self.emission_params = hmm_params['emission_matrix']
+                self.transition_matrix = np.array(hmm_params.transition_matrix)
+                self.emission_params = [(m, s**2) for m, s in zip(hmm_params.emission_means, hmm_params.emission_stds)]
                 
                 # Decode state sequence
-                self.state_sequence = rust_optimizers.viterbi_decode(  # type: ignore
+                self.state_sequence = np.array(rust_optimizers.viterbi_decode(
                     returns.tolist(),
-                    hmm_params,
-                    n_bins=10
-                )
+                    hmm_params
+                ))
                 
                 logger.info(f"✓ HMM fitted with {self.n_states} states (Rust backend)")
                 return

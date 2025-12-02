@@ -25,6 +25,7 @@ use fastrand;
 
 mod meanrev;
 mod lob;
+mod optimization;
 
 /// OrderBook struct sent to Python
 #[pyclass]
@@ -575,6 +576,9 @@ fn rust_connector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Register LOB functions
     lob::register_lob_functions(m)?;
+    
+    // Register optimization functions
+    optimization::register_optimization_module(m)?;
     
     Ok(())
 }

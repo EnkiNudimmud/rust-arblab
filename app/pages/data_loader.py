@@ -234,7 +234,15 @@ def render_saved_datasets_tab():
                 
                 date_range = ds.get('date_range', {})
                 if date_range:
-                    st.markdown(f"**Date Range:** {date_range.get('start', 'N/A')[:10]} to {date_range.get('end', 'N/A')[:10]}")
+                    if isinstance(date_range, dict):
+                        start = str(date_range.get('start', 'N/A'))[:10]
+                        end = str(date_range.get('end', 'N/A'))[:10]
+                    elif isinstance(date_range, (list, tuple)) and len(date_range) >= 2:
+                        start = str(date_range[0])[:10]
+                        end = str(date_range[1])[:10]
+                    else:
+                        start = end = 'N/A'
+                    st.markdown(f"**Date Range:** {start} to {end}")
             
             with col2:
                 st.markdown(f"**Source:** {ds.get('source', 'N/A')}")

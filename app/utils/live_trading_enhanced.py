@@ -31,7 +31,8 @@ try:
         InformationTheoryOptimizer,
         MultiStrategyOptimizer,
         ParameterSpace,
-        OptimizationResult
+        OptimizationResult,
+        RUST_AVAILABLE
     )
 except ImportError:
     HMMRegimeDetector = None
@@ -41,6 +42,18 @@ except ImportError:
     MultiStrategyOptimizer = None
     ParameterSpace = None
     OptimizationResult = None
+    RUST_AVAILABLE = False
+
+try:
+    from python.adaptive_strategies import (
+        AdaptiveMeanReversion,
+        AdaptiveMomentum,
+        AdaptiveStatArb
+    )
+except ImportError:
+    AdaptiveMeanReversion = None
+    AdaptiveMomentum = None
+    AdaptiveStatArb = None
 
 # Available strategies dictionary
 AVAILABLE_STRATEGIES = {
@@ -126,55 +139,180 @@ def configure_virtual_portfolio():
 
 
 def configure_regime_detection():
-    """Configure HMM regime detection"""
+    """Configure HMM regime detection with adaptive strategies"""
     
-    with st.expander("🔮 Regime Detection (HMM)", expanded=False):
-        st.markdown("**Hidden Markov Model for Market Regimes**")
+    with st.expander("🔮 Regime-Adaptive Trading", expanded=False):
+        st.markdown("**Auto-Adapt Strategy Parameters to Market Conditions**")
         
-        enable_hmm = st.checkbox(
-            "Enable Regime Detection",
+        if RUST_AVAILABLE:
+            st.success("🚀 Rust-Accelerated HMM: ON")
+        else:
+            st.warning("⚠️ Rust OFF (slower HMM)")
+        
+        enable_adaptive = st.checkbox(
+            "Enable Adaptive Strategies",
             value=False,
-            help="Detect market regimes (bull/bear/sideways) and adapt parameters"
+            help="Automatically detect market regimes and adapt strategy parameters"
         )
         
-        if enable_hmm:
-            n_states = st.slider(
-                "Number of Regimes",
-                2, 5, 3,
-                help="Typical: 3 (bull/bear/sideways)"
+        if enable_adaptive:
+            # Strategy selection for adaptation
+            st.markdown("**Adaptive Strategy Type**")
+            adaptive_strategy_type = st.selectbox(
+                "Base Strategy",
+                ["Mean Reversion", "Momentum", "Statistical Arbitrage"],
+                help="Strategy to make regime-adaptive"
             )
             
-            lookback_period = st.number_input(
-                "Training Period (bars)",
-                min_value=100,
-                max_value=5000,
-                value=500,
-                step=100,
-                help="Historical data for HMM training"
-            )
+            # HMM configuration
+            st.markdown("**HMM Configuration**")
+            col1, col2 = st.columns(2)
             
-            if st.button("🧠 Train HMM Model"):
-                with st.spinner("Training HMM..."):
-                    train_hmm_model(n_states, lookback_period)
+            with col1:
+                n_states = st.slider(
+                    "Number of Regimes",
+                    2, 5, 3,
+                    help="Typical: 3 (bull/bear/sideways)"
+                )
+                
+                lookback_period = st.number_input(
+                    "Training Period (bars)",
+                    min_value=100,
+                    max_value=5000,
+                    value=500,
+                    step=100,
+                    help="Historical data for HMM training"
+                )
             
-            # Show current regime if model trained
-            if st.session_state.get('hmm_regime_detector'):
-                detector = st.session_state.hmm_regime_detector
-                if detector.state_sequence is not None:
-                    current_regime = detector.state_sequence[-1]
-                    regime_names = ["📉 Bear", "↔️ Sideways", "📈 Bull"]
+            with col2:
+                update_frequency = st.number_input(
+                    "Update Frequency (bars)",
+                    min_value=10,
+                    max_value=500,
+                    value=100,
+                    step=10,
+                    help="Bars between HMM retraining"
+                )
+                
+                auto_retrain = st.checkbox(
+                    "Auto-Retrain",
+                    value=True,
+                    help="Automatically retrain HMM periodically"
+                )
+            
+            # Base parameters
+            st.markdown("**Base Strategy Parameters**")
+            with st.form("adaptive_params_form"):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    entry_thresh = st.number_input("Entry Threshold", 0.5, 5.0, 2.0, 0.1)
+                    exit_thresh = st.number_input("Exit Threshold", 0.1, 2.0, 0.5, 0.1)
+                
+                with col2:
+                    pos_size = st.number_input("Position Size", 0.1, 2.0, 1.0, 0.1)
+                    stop_loss_pct = st.number_input("Stop Loss (%)", 0.5, 10.0, 2.0, 0.5)
+                
+                with col3:
+                    take_profit_pct = st.number_input("Take Profit (%)", 1.0, 20.0, 5.0, 0.5)
+                    max_holding = st.number_input("Max Holding (bars)", 5, 100, 20, 5)
+                
+                submitted = st.form_submit_button("🚀 Initialize Adaptive Strategy")
+                
+                if submitted:
+                    # Check if adaptive strategies are available
+                    if AdaptiveMeanReversion is None:
+                        st.error("❌ Adaptive strategies module not available. Check imports.")
+                        return
                     
-                    st.success(f"Current Regime: {regime_names[current_regime]}")
+                    # Create adaptive strategy
+                    base_config = {
+                        'entry_threshold': entry_thresh,
+                        'exit_threshold': exit_thresh,
+                        'position_size': pos_size,
+                        'stop_loss': stop_loss_pct / 100,
+                        'take_profit': take_profit_pct / 100,
+                        'max_holding_period': max_holding
+                    }
+                    
+                    try:
+                        if adaptive_strategy_type == "Mean Reversion":
+                            strategy = AdaptiveMeanReversion(
+                                n_regimes=n_states,
+                                lookback_period=lookback_period,
+                                update_frequency=update_frequency,
+                                base_config=base_config
+                            )
+                        elif adaptive_strategy_type == "Momentum":
+                            strategy = AdaptiveMomentum(
+                                n_regimes=n_states,
+                                lookback_period=lookback_period,
+                                update_frequency=update_frequency,
+                                base_config=base_config
+                            )
+                        else:  # Statistical Arbitrage
+                            strategy = AdaptiveStatArb(
+                                n_regimes=n_states,
+                                lookback_period=lookback_period,
+                                update_frequency=update_frequency,
+                                base_config=base_config
+                            )
+                        
+                        st.session_state['adaptive_strategy'] = strategy
+                        st.session_state['adaptive_enabled'] = True
+                        st.success(f"✓ Initialized {adaptive_strategy_type} with {n_states} regimes")
+                        st.rerun()
+                    
+                    except Exception as e:
+                        st.error(f"❌ Failed to initialize: {str(e)}")
+            
+            # Show current regime if strategy initialized
+            if st.session_state.get('adaptive_strategy'):
+                strategy = st.session_state['adaptive_strategy']
+                
+                st.markdown("---")
+                st.markdown("**Current Status**")
+                
+                if strategy.hmm_trained and strategy.current_regime is not None:
+                    regime_names = ["📉 Bear Market", "↔️ Sideways", "📈 Bull Market"]
+                    current_regime = strategy.current_regime
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Current Regime", regime_names[current_regime])
+                    
+                    with col2:
+                        current_config = strategy.get_current_config()
+                        st.metric("Entry Threshold", f"{current_config.entry_threshold:.2f}")
+                    
+                    with col3:
+                        st.metric("Position Size", f"{current_config.position_size:.2f}x")
                     
                     # Show regime transition probabilities
-                    if detector.transition_matrix is not None:
-                        st.markdown("**Transition Probabilities**")
+                    trans_matrix = strategy.get_transition_probabilities()
+                    if trans_matrix is not None:
+                        st.markdown("**Regime Transition Probabilities**")
                         trans_df = pd.DataFrame(
-                            detector.transition_matrix,
+                            trans_matrix,
                             index=[f"State {i}" for i in range(n_states)],
                             columns=[f"State {i}" for i in range(n_states)]
                         )
                         st.dataframe(trans_df.style.format("{:.3f}"), use_container_width=True)
+                    
+                    # Performance by regime
+                    regime_perf = strategy.get_regime_performance()
+                    if not regime_perf.empty:
+                        st.markdown("**Performance by Regime**")
+                        st.dataframe(regime_perf, use_container_width=True)
+                
+                else:
+                    st.info("⏳ Waiting for sufficient data to train HMM...")
+                
+                # Manual retrain button
+                if st.button("🔄 Retrain HMM Now"):
+                    st.session_state['force_hmm_retrain'] = True
+                    st.info("Will retrain on next update")
 
 
 def configure_parameter_optimization():

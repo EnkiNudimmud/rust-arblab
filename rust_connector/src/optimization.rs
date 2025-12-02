@@ -121,6 +121,14 @@ fn forward(observations: &[f64], params: &HMMParams) -> Vec<Vec<f64>> {
         alpha[0][s] = params.initial_probs[s] * emission_prob(observations[0], params, s);
     }
     
+    // Normalize to prevent underflow
+    let sum0: f64 = alpha[0].iter().sum();
+    if sum0 > 0.0 {
+        for s in 0..n_states {
+            alpha[0][s] /= sum0;
+        }
+    }
+    
     // t=1..T-1
     for t in 1..n_obs {
         for s in 0..n_states {
@@ -129,6 +137,14 @@ fn forward(observations: &[f64], params: &HMMParams) -> Vec<Vec<f64>> {
                 sum += alpha[t-1][prev_s] * params.transition_matrix[prev_s][s];
             }
             alpha[t][s] = sum * emission_prob(observations[t], params, s);
+        }
+        
+        // Normalize at each step
+        let sum_t: f64 = alpha[t].iter().sum();
+        if sum_t > 0.0 {
+            for s in 0..n_states {
+                alpha[t][s] /= sum_t;
+            }
         }
     }
     
@@ -156,6 +172,14 @@ fn backward(observations: &[f64], params: &HMMParams) -> Vec<Vec<f64>> {
                        beta[t+1][next_s];
             }
             beta[t][s] = sum;
+        }
+        
+        // Normalize to prevent underflow
+        let sum_t: f64 = beta[t].iter().sum();
+        if sum_t > 0.0 {
+            for s in 0..n_states {
+                beta[t][s] /= sum_t;
+            }
         }
     }
     

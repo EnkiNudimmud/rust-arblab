@@ -19,8 +19,6 @@
 /// - δ: trend decay rate
 /// - σ, η: noise terms
 
-use std::f64::consts::PI;
-
 #[derive(Debug, Clone)]
 pub struct ChiarellaModel {
     /// Fundamental price (equilibrium)

@@ -14,7 +14,7 @@ pub fn execute_market(book: &mut OrderBook, side: Side, mut qty: Qty) -> (Qty, f
     let mut filled=0.0; let mut cost=0.0; let mut fills=Vec::new();
     match side {
         Side::Buy => {
-            let mut it: Vec<Price> = book.asks.price_iter().collect();
+            let it: Vec<Price> = book.asks.price_iter().collect();
             for p in it {
                 if qty<=0.0 { break; }
                 let (f, c, parts) = book.asks.consume_at_price(p, qty);
@@ -23,7 +23,7 @@ pub fn execute_market(book: &mut OrderBook, side: Side, mut qty: Qty) -> (Qty, f
             }
         }
         Side::Sell => {
-            let mut it: Vec<Price> = book.bids.price_iter().collect();
+            let it: Vec<Price> = book.bids.price_iter().collect();
             for p in it {
                 if qty<=0.0 { break; }
                 let (f, c, parts) = book.bids.consume_at_price(p, qty);

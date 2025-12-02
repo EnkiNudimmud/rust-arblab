@@ -1,0 +1,478 @@
+"""
+Enhanced Live Trading Configuration Components
+===============================================
+
+This file contains UI components for:
+1. Virtual portfolio management
+2. Advanced parameter optimization (HMM, MCMC, MLE, Information Theory)
+3. Multi-strategy/multi-asset configuration
+4. Portfolio merging with labs
+"""
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from typing import Dict, List
+from datetime import datetime
+
+def configure_virtual_portfolio():
+    """Configure virtual portfolio settings"""
+    
+    with st.expander("💼 Virtual Portfolio", expanded=False):
+        st.markdown("**Portfolio Management**")
+        
+        # Portfolio selection/creation
+        existing_portfolios = list_portfolios()
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if existing_portfolios:
+                portfolio_name = st.selectbox(
+                    "Select Portfolio",
+                    ["[Create New]"] + existing_portfolios,
+                    key="portfolio_selector"
+                )
+            else:
+                portfolio_name = "[Create New]"
+                st.info("No existing portfolios found")
+        
+        with col2:
+            if st.button("🔄 Refresh"):
+                st.rerun()
+        
+        # Create new or load existing
+        if portfolio_name == "[Create New]":
+            new_name = st.text_input("Portfolio Name", value="live_trading_" + datetime.now().strftime("%Y%m%d"))
+            initial_cash = st.number_input("Initial Cash", value=100000.0, min_value=1000.0, step=1000.0)
+            
+            if st.button("Create Portfolio"):
+                from python.virtual_portfolio import VirtualPortfolio
+                portfolio = VirtualPortfolio(name=new_name, initial_cash=initial_cash)
+                st.session_state.virtual_portfolio = portfolio
+                st.success(f"✓ Created portfolio: {new_name}")
+                st.rerun()
+        else:
+            # Load existing portfolio
+            if 'virtual_portfolio' not in st.session_state or \
+               st.session_state.virtual_portfolio.name != portfolio_name:
+                from python.virtual_portfolio import load_portfolio
+                portfolio = load_portfolio(portfolio_name)
+                st.session_state.virtual_portfolio = portfolio
+                st.success(f"✓ Loaded portfolio: {portfolio_name}")
+        
+        # Show portfolio summary
+        if 'virtual_portfolio' in st.session_state:
+            portfolio = st.session_state.virtual_portfolio
+            metrics = portfolio.get_metrics()
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Value", f"${metrics['total_value']:,.2f}")
+            with col2:
+                st.metric("Cash", f"${metrics['cash']:,.2f}")
+            with col3:
+                st.metric("P&L", f"${metrics['total_pnl']:,.2f}", 
+                         delta=f"{metrics['total_pnl_pct']:.2f}%")
+            
+            # Portfolio actions
+            st.markdown("**Actions**")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("📊 View Portfolio Details"):
+                    st.session_state['show_portfolio_details'] = True
+            
+            with col2:
+                if st.button("🔗 Merge with Lab Portfolio"):
+                    st.session_state['show_merge_dialog'] = True
+
+
+def configure_regime_detection():
+    """Configure HMM regime detection"""
+    
+    with st.expander("🔮 Regime Detection (HMM)", expanded=False):
+        st.markdown("**Hidden Markov Model for Market Regimes**")
+        
+        enable_hmm = st.checkbox(
+            "Enable Regime Detection",
+            value=False,
+            help="Detect market regimes (bull/bear/sideways) and adapt parameters"
+        )
+        
+        if enable_hmm:
+            n_states = st.slider(
+                "Number of Regimes",
+                2, 5, 3,
+                help="Typical: 3 (bull/bear/sideways)"
+            )
+            
+            lookback_period = st.number_input(
+                "Training Period (bars)",
+                min_value=100,
+                max_value=5000,
+                value=500,
+                step=100,
+                help="Historical data for HMM training"
+            )
+            
+            if st.button("🧠 Train HMM Model"):
+                with st.spinner("Training HMM..."):
+                    train_hmm_model(n_states, lookback_period)
+            
+            # Show current regime if model trained
+            if st.session_state.get('hmm_regime_detector'):
+                detector = st.session_state.hmm_regime_detector
+                if detector.state_sequence is not None:
+                    current_regime = detector.state_sequence[-1]
+                    regime_names = ["📉 Bear", "↔️ Sideways", "📈 Bull"]
+                    
+                    st.success(f"Current Regime: {regime_names[current_regime]}")
+                    
+                    # Show regime transition probabilities
+                    if detector.transition_matrix is not None:
+                        st.markdown("**Transition Probabilities**")
+                        trans_df = pd.DataFrame(
+                            detector.transition_matrix,
+                            index=[f"State {i}" for i in range(n_states)],
+                            columns=[f"State {i}" for i in range(n_states)]
+                        )
+                        st.dataframe(trans_df.style.format("{:.3f}"), use_container_width=True)
+
+
+def configure_parameter_optimization():
+    """Configure advanced parameter optimization"""
+    
+    with st.expander("⚙️ Parameter Optimization", expanded=False):
+        st.markdown("**Advanced Optimization Methods**")
+        
+        optimization_method = st.selectbox(
+            "Optimization Method",
+            [
+                "None - Use Manual Parameters",
+                "MCMC - Bayesian Sampling",
+                "MLE - Maximum Likelihood",
+                "Information Theory - Mutual Information",
+                "Grid Search - Exhaustive",
+                "Differential Evolution"
+            ]
+        )
+        
+        if optimization_method != "None - Use Manual Parameters":
+            st.markdown("**Parameter Space**")
+            
+            # Define parameter ranges for selected strategy
+            strategy = st.session_state.get('live_strategy')
+            if strategy:
+                st.text(f"Optimizing: {strategy}")
+                
+                # Example parameter spaces (would be strategy-specific)
+                with st.form("param_space_form"):
+                    st.markdown("Define search ranges:")
+                    
+                    entry_z_range = st.slider(
+                        "Entry Z-Score Range",
+                        0.5, 5.0, (1.5, 3.0), 0.1
+                    )
+                    
+                    exit_z_range = st.slider(
+                        "Exit Z-Score Range",
+                        0.1, 2.0, (0.3, 1.0), 0.1
+                    )
+                    
+                    lookback_range = st.slider(
+                        "Lookback Period Range",
+                        20, 200, (40, 100), 10
+                    )
+                    
+                    if "MCMC" in optimization_method:
+                        n_iterations = st.number_input(
+                            "MCMC Iterations",
+                            1000, 50000, 10000, 1000
+                        )
+                        burn_in = st.number_input(
+                            "Burn-in Period",
+                            100, 10000, 1000, 100
+                        )
+                    
+                    submitted = st.form_submit_button("🚀 Run Optimization")
+                    
+                    if submitted:
+                        with st.spinner(f"Running {optimization_method}..."):
+                            run_parameter_optimization(
+                                method=optimization_method,
+                                param_ranges={
+                                    'entry_z': entry_z_range,
+                                    'exit_z': exit_z_range,
+                                    'lookback': lookback_range
+                                }
+                            )
+            else:
+                st.warning("⚠️ Enable a strategy first to optimize parameters")
+        
+        # Show optimization results if available
+        if 'optimization_result' in st.session_state:
+            result = st.session_state.optimization_result
+            st.success(f"✓ Optimization complete: Score = {result.best_score:.4f}")
+            
+            st.markdown("**Optimal Parameters**")
+            params_df = pd.DataFrame([result.best_params])
+            st.dataframe(params_df, use_container_width=True)
+            
+            if st.button("📊 View Convergence"):
+                plot_optimization_convergence(result)
+
+
+def configure_multi_strategy_mode():
+    """Configure multi-strategy, multi-asset trading"""
+    
+    with st.expander("🎯 Multi-Strategy Mode", expanded=False):
+        st.markdown("**Multiple Strategies × Multiple Assets**")
+        
+        enable_multi = st.checkbox(
+            "Enable Multi-Strategy Mode",
+            value=False,
+            help="Run multiple strategies across different asset types"
+        )
+        
+        if enable_multi:
+            st.markdown("**Asset Types**")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                enable_stocks = st.checkbox("📈 Stocks", value=True)
+                enable_crypto = st.checkbox("₿ Crypto", value=True)
+            
+            with col2:
+                enable_etfs = st.checkbox("📊 ETFs", value=False)
+                enable_options = st.checkbox("📜 Options", value=False)
+            
+            asset_types = []
+            if enable_stocks:
+                asset_types.append('stock')
+            if enable_crypto:
+                asset_types.append('crypto')
+            if enable_etfs:
+                asset_types.append('etf')
+            if enable_options:
+                asset_types.append('option')
+            
+            st.session_state['enabled_asset_types'] = asset_types
+            
+            # Strategy allocation
+            st.markdown("**Strategy Selection**")
+            
+            available_strategies = list(AVAILABLE_STRATEGIES.keys())
+            selected_strategies = st.multiselect(
+                "Active Strategies",
+                available_strategies,
+                default=available_strategies[:2] if len(available_strategies) >= 2 else available_strategies
+            )
+            
+            if selected_strategies:
+                st.markdown("**Capital Allocation**")
+                
+                allocations = {}
+                remaining = 100.0
+                
+                for strategy in selected_strategies[:-1]:
+                    alloc = st.slider(
+                        f"{strategy} (%)",
+                        0.0, remaining, min(20.0, remaining),
+                        1.0,
+                        key=f"alloc_{strategy}"
+                    )
+                    allocations[strategy] = alloc
+                    remaining -= alloc
+                
+                # Last strategy gets remainder
+                allocations[selected_strategies[-1]] = remaining
+                st.info(f"{selected_strategies[-1]}: {remaining:.1f}%")
+                
+                # Save configuration
+                st.session_state['multi_strategy_config'] = {
+                    'strategies': selected_strategies,
+                    'allocations': allocations,
+                    'asset_types': asset_types
+                }
+                
+                # Optimize allocation
+                if st.button("🎯 Optimize Allocation"):
+                    with st.spinner("Running multi-objective optimization..."):
+                        optimize_multi_strategy_allocation()
+
+
+def train_hmm_model(n_states: int, lookback: int):
+    """Train HMM model on historical data"""
+    try:
+        from python.advanced_optimization import HMMRegimeDetector
+        
+        # Get historical returns from buffer
+        buffer = st.session_state.get('live_data_buffer', [])
+        if len(buffer) < lookback:
+            st.warning(f"Need at least {lookback} data points. Current: {len(buffer)}")
+            return
+        
+        # Extract returns
+        df = pd.DataFrame(buffer[-lookback:])
+        returns = df['mid'].pct_change().dropna().values
+        
+        # Train HMM
+        detector = HMMRegimeDetector(n_states=n_states)
+        detector.fit(returns, n_iterations=100)
+        
+        st.session_state.hmm_regime_detector = detector
+        st.success(f"✓ HMM trained with {n_states} states")
+        
+    except Exception as e:
+        st.error(f"HMM training failed: {e}")
+
+
+def run_parameter_optimization(method: str, param_ranges: Dict):
+    """Run parameter optimization"""
+    try:
+        from python.advanced_optimization import (
+            MCMCOptimizer, MLEOptimizer, ParameterSpace
+        )
+        
+        # Define parameter space
+        param_spaces = []
+        for param_name, (low, high) in param_ranges.items():
+            param_spaces.append(ParameterSpace(
+                name=param_name,
+                bounds=(low, high),
+                dtype='float'
+            ))
+        
+        # Get historical data for optimization
+        buffer = st.session_state.get('live_data_buffer', [])
+        if len(buffer) < 100:
+            st.warning("Need more historical data for optimization")
+            return
+        
+        df = pd.DataFrame(buffer)
+        returns = df['mid'].pct_change().dropna().values
+        
+        # Define objective function
+        def objective(params):
+            # Simplified - in production, run full backtest
+            entry_z = params.get('entry_z', 2.0)
+            lookback = int(params.get('lookback', 60))
+            
+            if lookback >= len(returns):
+                return -1e10
+            
+            # Simple mean reversion score
+            score = 0.0
+            for i in range(lookback, len(returns)):
+                window = returns[i-lookback:i]
+                mean = np.mean(window)
+                std = np.std(window)
+                
+                if std > 0:
+                    z = (returns[i] - mean) / std
+                    if abs(z) > entry_z:
+                        score += returns[i]
+            
+            return score
+        
+        # Run optimization
+        if "MCMC" in method:
+            optimizer = MCMCOptimizer(param_spaces, objective)
+            result = optimizer.optimize(n_iterations=5000, burn_in=500)
+        elif "MLE" in method:
+            def log_likelihood(params):
+                return objective(params)  # Simplified
+            optimizer = MLEOptimizer(param_spaces, log_likelihood)
+            result = optimizer.optimize()
+        else:
+            st.warning("Method not yet implemented")
+            return
+        
+        st.session_state.optimization_result = result
+        st.success(f"✓ Optimization complete")
+        
+        # Apply optimal parameters
+        st.session_state.live_strategy_params = result.best_params
+        
+    except Exception as e:
+        st.error(f"Optimization failed: {e}")
+
+
+def optimize_multi_strategy_allocation():
+    """Optimize allocation across multiple strategies and assets"""
+    try:
+        from python.advanced_optimization import MultiStrategyOptimizer
+        
+        config = st.session_state.get('multi_strategy_config')
+        if not config:
+            st.warning("Configure multi-strategy mode first")
+            return
+        
+        # Get historical data
+        buffer = st.session_state.get('live_data_buffer', [])
+        if len(buffer) < 100:
+            st.warning("Need more data for optimization")
+            return
+        
+        df = pd.DataFrame(buffer)
+        
+        # Create historical data dict
+        historical_data = {}
+        for symbol in df['symbol'].unique():
+            symbol_df = df[df['symbol'] == symbol].copy()
+            symbol_df['close'] = symbol_df['mid']
+            historical_data[symbol] = symbol_df
+        
+        # Asset types mapping
+        asset_types = {symbol: 'crypto' for symbol in df['symbol'].unique()}  # Simplified
+        
+        optimizer = MultiStrategyOptimizer(
+            strategies=config['strategies'],
+            assets=list(df['symbol'].unique()),
+            asset_types=asset_types
+        )
+        
+        # Simplified parameter spaces
+        strategy_params = {
+            strat: [
+                ParameterSpace('entry_z', (1.5, 3.0)),
+                ParameterSpace('lookback', (40, 100))
+            ]
+            for strat in config['strategies']
+        }
+        
+        result = optimizer.optimize(historical_data, strategy_params)
+        
+        st.session_state.multi_strategy_optimal = result
+        st.success("✓ Multi-strategy optimization complete")
+        
+        # Display results
+        st.markdown("**Optimal Allocation**")
+        st.dataframe(result['allocations'], use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Multi-strategy optimization failed: {e}")
+
+
+def plot_optimization_convergence(result: OptimizationResult):
+    """Plot optimization convergence"""
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        y=result.convergence_history,
+        mode='lines',
+        name='Objective Value',
+        line=dict(color='#4ECDC4', width=2)
+    ))
+    
+    fig.update_layout(
+        title=f"{result.method} Convergence",
+        xaxis_title="Iteration",
+        yaxis_title="Objective Value",
+        template="plotly_dark",
+        height=400
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)

@@ -24,6 +24,7 @@ use log::{info, warn};
 use fastrand;
 
 mod meanrev;
+mod lob;
 
 /// OrderBook struct sent to Python
 #[pyclass]
@@ -156,31 +157,49 @@ impl ExchangeConnector {
             let lower = name.to_lowercase();
             if lower.contains("binance") {
                 let url = format!("wss://stream.binance.com:9443/ws/{}@depth5@100ms", symbol.to_lowercase());
+                info!("Connecting to Binance WebSocket: {}", url);
                 match connect_async(&url).await {
                     Ok((ws_stream, _)) => {
-                        info!("Connected to Binance {}", url);
+                        info!("✓ Connected to Binance {}", url);
                         let (_write, mut read) = ws_stream.split();
+                        info!("Starting message loop...");
                         while let Some(msg) = read.next().await {
                             match msg {
                                 Ok(Message::Text(txt)) => {
-                                    if let Ok(ob) = parse_binance_depth_text(&txt) {
-                                        if let Ok(mut s) = snapshot.lock() { *s = Some(ob.clone()); }
-                                        Python::with_gil(|py| {
-                                            let cb_ref = cb.bind(py);
-                                            if let Ok(py_ob) = Py::new(py, ob.clone()) {
-                                                let _ = cb_ref.call1((py_ob,));
-                                            }
-                                        });
+                                    info!("Received text message of {} bytes: {}", txt.len(), &txt[..txt.len().min(500)]);
+                                    match parse_binance_depth_text(&txt) {
+                                        Ok(ob) => {
+                                            info!("Parsed orderbook: {} bids, {} asks", ob.bids.len(), ob.asks.len());
+                                            if let Ok(mut s) = snapshot.lock() { *s = Some(ob.clone()); }
+                                            Python::with_gil(|py| {
+                                                let cb_ref = cb.bind(py);
+                                                if let Ok(py_ob) = Py::new(py, ob.clone()) {
+                                                    info!("Calling Python callback...");
+                                                    match cb_ref.call1((py_ob,)) {
+                                                        Ok(_) => info!("✓ Callback successful"),
+                                                        Err(e) => warn!("✗ Callback error: {:?}", e),
+                                                    }
+                                                } else {
+                                                    warn!("Failed to create Python OrderBook object");
+                                                }
+                                            });
+                                        }
+                                        Err(e) => warn!("Failed to parse orderbook: {:?}", e),
                                     }
                                 }
-                                Ok(Message::Ping(_)) | Ok(Message::Pong(_)) => {}
-                                Ok(Message::Close(_)) => break,
+                                Ok(Message::Ping(_)) => info!("Received Ping"),
+                                Ok(Message::Pong(_)) => info!("Received Pong"),
+                                Ok(Message::Close(_)) => {
+                                    info!("Received Close message");
+                                    break;
+                                }
                                 Err(e) => { warn!("binance ws error: {:?}", e); break; }
-                                _ => {}
+                                _ => info!("Received other message type"),
                             }
                         }
+                        info!("WebSocket loop ended");
                     }
-                    Err(e) => warn!("binance connect error: {:?}", e),
+                    Err(e) => warn!("✗ binance connect error: {:?}", e),
                 }
             } else if lower.contains("coinbase") {
                 let url = "wss://ws-feed.exchange.coinbase.com";
@@ -333,8 +352,11 @@ fn parse_binance_depth_text(txt: &str) -> Result<OrderBook, serde_json::Error> {
     let root = if v.get("e").is_some() || v.get("b").is_some() || v.get("a").is_some() {
         v
     } else if let Some(data) = v.get("data") { data.clone() } else { v };
+    
+    // Try "bids" first (WebSocket format), fall back to "b" (alternative format)
     let bids = root
-        .get("b")
+        .get("bids")
+        .or_else(|| root.get("b"))
         .and_then(|x| x.as_array())
         .map(|arr| {
             arr.iter()
@@ -347,8 +369,11 @@ fn parse_binance_depth_text(txt: &str) -> Result<OrderBook, serde_json::Error> {
                 .collect()
         })
         .unwrap_or_default();
+    
+    // Try "asks" first (WebSocket format), fall back to "a" (alternative format)
     let asks = root
-        .get("a")
+        .get("asks")
+        .or_else(|| root.get("a"))
         .and_then(|x| x.as_array())
         .map(|arr| {
             arr.iter()
@@ -547,6 +572,9 @@ fn rust_connector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(meanrev::backtest_with_costs_rust, m)?)?;
     m.add_function(wrap_pyfunction!(meanrev::optimal_thresholds_rust, m)?)?;
     m.add_function(wrap_pyfunction!(meanrev::multiperiod_optimize_rust, m)?)?;
+    
+    // Register LOB functions
+    lob::register_lob_functions(m)?;
     
     Ok(())
 }

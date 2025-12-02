@@ -10,6 +10,8 @@ use std::collections::HashMap;
 mod analytics_bindings;
 mod options_bindings;
 mod rough_heston_bindings;
+mod portfolio_drift_bindings;
+mod signature_bindings;
 
 type HandleId = u64;
 
@@ -156,6 +158,16 @@ fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Add rough Heston submodule
     rough_heston_bindings::register_rough_heston(m)?;
+    
+    // Add portfolio drift uncertainty submodule
+    let portfolio_drift = PyModule::new_bound(m.py(), "portfolio_drift")?;
+    portfolio_drift_bindings::register_portfolio_drift(m.py(), &portfolio_drift)?;
+    m.add_submodule(&portfolio_drift)?;
+    
+    // Add signature portfolio submodule
+    let signature = PyModule::new_bound(m.py(), "signature")?;
+    signature_bindings::register_signature_portfolio(m.py(), &signature)?;
+    m.add_submodule(&signature)?;
     
     Ok(())
 }

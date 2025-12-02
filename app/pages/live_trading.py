@@ -20,6 +20,7 @@ import time
 import threading
 import queue
 import sys
+import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -27,12 +28,45 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from python.rust_bridge import list_connectors, get_connector
 from python.strategies.definitions import AVAILABLE_STRATEGIES
 from python.strategies.executor import StrategyExecutor, StrategyConfig
+from python.lob_recorder import (
+    LOBRecorder, OrderBookSnapshot, OrderBookUpdate, LOBAnalytics,
+    parse_binance_orderbook, parse_binance_diff_depth, OrderBookLevel,
+    analytics_to_dict, snapshot_to_dict
+)
+from python.virtual_portfolio import VirtualPortfolio, list_portfolios
+from python.advanced_optimization import (
+    HMMRegimeDetector, MCMCOptimizer, MLEOptimizer, 
+    InformationTheoryOptimizer, MultiStrategyOptimizer,
+    ParameterSpace, OptimizationResult
+)
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 def render():
     """Render the live trading page"""
     render_sidebar_navigation(current_page="Live Trading")
     apply_custom_css()
+    
+    # Initialize session state
+    if 'theme_mode' not in st.session_state:
+        st.session_state.theme_mode = 'dark'
+    
+    # Initialize virtual portfolio
+    if 'virtual_portfolio' not in st.session_state:
+        portfolio_name = st.session_state.get('selected_portfolio', 'live_trading_default')
+        st.session_state.virtual_portfolio = VirtualPortfolio(
+            name=portfolio_name,
+            initial_cash=100000.0,
+            commission_rate=0.001
+        )
+    
+    # Initialize HMM regime detector
+    if 'hmm_regime_detector' not in st.session_state:
+        st.session_state.hmm_regime_detector = None
+    
+    # Initialize parameter optimizer
+    if 'parameter_optimizer' not in st.session_state:
+        st.session_state.parameter_optimizer = None
+    
     st.title("🔴 Live Trading")
     st.markdown("Execute strategies on real-time market data via WebSocket")
     
@@ -53,9 +87,9 @@ def render():
     with col2:
         display_live_feed()
     
-    # Bottom section - trade log and analytics
+    # Bottom section - trade log, analytics, and LOB
     st.markdown("---")
-    display_live_analytics()
+    display_live_analytics_and_lob()
     
     # Auto-refresh when trading is active
     if st.session_state.get('live_trading_active', False):
@@ -67,6 +101,32 @@ def configure_live_trading():
     """Configure live trading parameters"""
     
     st.markdown("### Configuration")
+    
+    # Import enhanced configuration components
+    try:
+        from utils.live_trading_enhanced import (
+            configure_virtual_portfolio,
+            configure_regime_detection,
+            configure_parameter_optimization,
+            configure_multi_strategy_mode
+        )
+        
+        # Virtual Portfolio Management
+        configure_virtual_portfolio()
+        
+        # HMM Regime Detection
+        configure_regime_detection()
+        
+        # Advanced Parameter Optimization
+        configure_parameter_optimization()
+        
+        # Multi-Strategy Mode
+        configure_multi_strategy_mode()
+        
+    except Exception as e:
+        st.warning(f"⚠️ Advanced features unavailable: {e}")
+    
+    st.markdown("---")
     
     # Connector selection
     connectors = list_connectors()
@@ -223,6 +283,15 @@ def start_live_trading(connector_name: str, symbols: List[str], use_websocket: b
     if 'trade_log' not in st.session_state:
         st.session_state.trade_log = []
     
+    # Initialize LOB recorder
+    st.session_state.lob_recorder = LOBRecorder(
+        symbols=symbols,
+        snapshot_interval=60,  # Full snapshot every minute
+        max_levels=20,
+        storage_path="data/lob"
+    )
+    st.session_state.lob_enabled = True
+    
     # Initialize strategy executor if enabled
     if st.session_state.get('live_strategy'):
         config = StrategyConfig(
@@ -288,8 +357,17 @@ def start_websocket_streams(connector_name: str, symbols: List[str]):
                 try:
                     callback_count[0] += 1
                     
+                    # Log first few callbacks to confirm they're being called
+                    if callback_count[0] <= 3:
+                        print(f"[CALLBACK] {symbol}: Callback #{callback_count[0]} triggered with orderbook type: {type(orderbook)}")
+                        log_ws(f"{symbol}: Callback #{callback_count[0]} triggered - orderbook type: {type(orderbook).__name__}")
+                    
                     # Extract top of book
                     bid, ask = extract_top_of_book(orderbook)
+                    
+                    if callback_count[0] <= 3:
+                        print(f"[CALLBACK] {symbol}: Extracted bid={bid}, ask={ask}")
+                        log_ws(f"{symbol}: Extracted bid={bid}, ask={ask}")
                     
                     if bid > 0 and ask > 0:
                         data_point = {
@@ -297,20 +375,29 @@ def start_websocket_streams(connector_name: str, symbols: List[str]):
                             'symbol': symbol,
                             'bid': bid,
                             'ask': ask,
-                            'mid': (bid + ask) / 2
+                            'mid': (bid + ask) / 2,
+                            'orderbook': orderbook  # Include full orderbook for LOB recording
                         }
                         
                         # Put data in thread-safe queue (using captured reference, NOT session_state)
                         data_queue.put(data_point)
+                        
+                        if callback_count[0] <= 3:
+                            print(f"[CALLBACK] {symbol}: Data queued successfully")
+                            log_ws(f"{symbol}: Data queued successfully")
                         
                         # Log every 10th callback to avoid spam
                         if callback_count[0] % 10 == 0:
                             log_ws(f"{symbol}: Received update #{callback_count[0]} - bid=${bid:.2f}, ask=${ask:.2f}")
                     else:
                         log_ws(f"{symbol}: Invalid bid/ask - bid={bid}, ask={ask}", "WARN")
+                        print(f"[CALLBACK] {symbol}: Invalid bid/ask - bid={bid}, ask={ask}")
                         
                 except Exception as e:
                     log_ws(f"{symbol}: Callback error - {e}", "ERROR")
+                    print(f"[CALLBACK] {symbol}: Callback error - {e}")
+                    import traceback
+                    traceback.print_exc()
                     # Queue error status update
                     error_status = {
                         'type': 'error',
@@ -554,7 +641,10 @@ def display_live_feed():
         all_prices = pd.concat([symbol_df['bid'], symbol_df['ask']])
         price_min = all_prices.min()
         price_max = all_prices.max()
-        price_range = price_max - price_min if price_max > price_min else 1.0
+        # Convert to float to avoid Series bool comparison issues
+        price_min_val = float(price_min) if hasattr(price_min, 'item') else price_min  # type: ignore[arg-type]
+        price_max_val = float(price_max) if hasattr(price_max, 'item') else price_max  # type: ignore[arg-type]
+        price_range = price_max_val - price_min_val if price_max_val > price_min_val else 1.0  # type: ignore[operator]
         
         # Store or update range (expand only, never shrink during session)
         if symbol not in st.session_state.live_chart_ranges:
@@ -695,6 +785,27 @@ def fetch_websocket_snapshots():
                         if len(st.session_state.live_data_buffer) > 1000:
                             st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
                     
+                    # Record LOB data if enabled and orderbook is present
+                    if st.session_state.get('lob_enabled'):
+                        orderbook = data.get('orderbook')
+                        if orderbook and hasattr(orderbook, 'bids') and hasattr(orderbook, 'asks'):
+                            try:
+                                # Convert Rust OrderBook to OrderBookSnapshot
+                                snapshot = OrderBookSnapshot(
+                                    timestamp=data.get('timestamp', datetime.now()).isoformat(),
+                                    symbol=symbol,
+                                    last_update_id=0,  # WebSocket doesn't provide update ID
+                                    exchange=st.session_state.get('live_connector_name', 'unknown'),
+                                    bids=list(orderbook.bids) if orderbook.bids else [],
+                                    asks=list(orderbook.asks) if orderbook.asks else []
+                                )
+                                st.session_state.lob_recorder.add_snapshot(snapshot)
+                                # Log first few recordings
+                                if items_processed < 3:
+                                    log_ws(f"✓ LOB recorded for {symbol}: {len(snapshot.bids)} bids, {len(snapshot.asks)} asks")
+                            except Exception as e:
+                                log_ws(f"✗ LOB recording failed for {symbol}: {e}", "ERROR")
+                    
                     # Always update WebSocket status (even if data was throttled)
                     current_status = st.session_state.live_ws_status.get(symbol, {})
                     st.session_state.live_ws_status[symbol] = {
@@ -734,7 +845,7 @@ def fetch_rest_polling():
                 if hasattr(connector, 'fetch_orderbook_sync'):
                     ob = connector.fetch_orderbook_sync(symbol)
                 elif hasattr(connector, 'fetch_orderbook'):
-                    ob = connector.fetch_orderbook(symbol)
+                    ob = connector.fetch_orderbook(symbol)  # type: ignore[attr-defined]
                 else:
                     st.warning(f"Connector {connector_name} doesn't support orderbook fetching")
                     continue
@@ -756,6 +867,14 @@ def fetch_rest_polling():
                     # Keep buffer size manageable
                     if len(st.session_state.live_data_buffer) > 1000:
                         st.session_state.live_data_buffer = st.session_state.live_data_buffer[-1000:]
+                    
+                    # Record full LOB if enabled
+                    if st.session_state.get('lob_enabled') and isinstance(ob, dict):
+                        try:
+                            lob_snapshot = parse_binance_orderbook(ob, symbol, connector_name)
+                            st.session_state.lob_recorder.add_snapshot(lob_snapshot)
+                        except Exception as e:
+                            pass  # Silent fail for LOB recording
                     
                     # Execute strategy if enabled
                     if st.session_state.get('live_executor'):
@@ -794,64 +913,273 @@ def extract_top_of_book(ob) -> tuple:
     return 0.0, 0.0
 
 def execute_strategy_on_tick(data_point: Dict):
-    """Execute strategy logic on new market data"""
+    """Execute strategy logic on new market data with virtual portfolio"""
     
     executor = st.session_state.get('live_executor')
-    if not executor:
-        return
+    portfolio = st.session_state.get('virtual_portfolio')
     
-    # Simple strategy execution placeholder
-    # In production, this would implement full strategy logic
+    if not executor or not portfolio:
+        return
     
     symbol = data_point['symbol']
     mid_price = data_point['mid']
+    strategy_name = st.session_state.get('live_strategy', 'Unknown')
     
-    # Example: Simple mean reversion check
+    # Adapt parameters based on regime if HMM is active
+    params = st.session_state.get('live_strategy_params', {})
+    hmm_detector = st.session_state.get('hmm_regime_detector')
+    
+    if hmm_detector and hmm_detector.state_sequence is not None:
+        buffer = st.session_state.live_data_buffer
+        recent_returns = pd.DataFrame([d for d in buffer[-100:]])['mid'].pct_change().dropna().values
+        
+        if len(recent_returns) > 0:
+            current_regime = hmm_detector.predict_regime(recent_returns)
+            params = hmm_detector.get_regime_parameters(current_regime, params)
+    
+    # Example: Mean reversion strategy with virtual portfolio execution
     buffer = st.session_state.live_data_buffer
     symbol_data = [d for d in buffer if d['symbol'] == symbol]
     
-    if len(symbol_data) > 60:  # Need enough data
-        prices = [d['mid'] for d in symbol_data[-60:]]
+    if len(symbol_data) > int(params.get('lookback', 60)):
+        lookback = int(params.get('lookback', 60))
+        prices = [d['mid'] for d in symbol_data[-lookback:]]
         mean = np.mean(prices)
         std = np.std(prices)
         
         if std > 0:
             z_score = (mid_price - mean) / std
+            entry_threshold = params.get('entry_z', 2.0)
+            exit_threshold = params.get('exit_z', 0.5)
             
-            # Simple signal logic
-            if abs(z_score) > 2.0 and symbol not in executor.positions:
-                # Generate signal
-                side = 'sell' if z_score > 0 else 'buy'
-                qty = 1.0
+            # Check if we have a position
+            has_position = symbol in portfolio.positions
+            
+            # Entry signal
+            if abs(z_score) > entry_threshold and not has_position:
+                side = 'SELL' if z_score > 0 else 'BUY'
                 
-                # Log trade (not executed, just logged)
-                trade = {
-                    'timestamp': datetime.now(),
-                    'symbol': symbol,
-                    'side': side,
-                    'qty': qty,
-                    'price': mid_price,
-                    'z_score': z_score,
-                    'status': 'signal'
-                }
+                # Determine position size based on Kelly criterion or fixed fraction
+                position_size_pct = params.get('position_size', 0.1)  # 10% of portfolio
+                max_position_value = portfolio.cash * position_size_pct
+                quantity = max_position_value / mid_price
                 
-                st.session_state.trade_log.append(trade)
+                if quantity > 0:
+                    # Execute virtual trade
+                    trade = portfolio.execute_trade(
+                        symbol=symbol,
+                        asset_type='crypto',  # Detect from symbol
+                        action=side,
+                        quantity=quantity,
+                        price=mid_price,
+                        strategy=strategy_name,
+                        notes=f"Entry signal: z={z_score:.2f}"
+                    )
+                    
+                    if trade:
+                        # Log trade
+                        if 'trade_log' not in st.session_state:
+                            st.session_state.trade_log = []
+                        
+                        st.session_state.trade_log.append({
+                            'timestamp': trade.timestamp,
+                            'symbol': symbol,
+                            'side': side,
+                            'qty': quantity,
+                            'price': mid_price,
+                            'z_score': z_score,
+                            'status': 'executed',
+                            'strategy': strategy_name
+                        })
+            
+            # Exit signal
+            elif abs(z_score) < exit_threshold and has_position:
+                position = portfolio.positions[symbol]
+                
+                # Close position
+                side = 'SELL' if position.quantity > 0 else 'BUY'
+                
+                trade = portfolio.execute_trade(
+                    symbol=symbol,
+                    asset_type=position.asset_type,
+                    action=side,
+                    quantity=abs(position.quantity),
+                    price=mid_price,
+                    strategy=strategy_name,
+                    notes=f"Exit signal: z={z_score:.2f}"
+                )
+                
+                if trade:
+                    st.session_state.trade_log.append({
+                        'timestamp': trade.timestamp,
+                        'symbol': symbol,
+                        'side': side,
+                        'qty': abs(position.quantity),
+                        'price': mid_price,
+                        'z_score': z_score,
+                        'status': 'executed',
+                        'strategy': strategy_name,
+                        'pnl': position.unrealized_pnl
+                    })
+    
+    # Update portfolio with current prices
+    current_prices = {data_point['symbol']: data_point['mid']}
+    portfolio.update_prices(current_prices)
 
-def display_live_analytics():
-    """Display live trading analytics"""
+def display_live_analytics_and_lob():
+    """Display live trading analytics and LOB data"""
     
-    st.markdown("### Live Analytics")
+    st.markdown("### Live Analytics & Orderbook")
     
-    tab1, tab2, tab3 = st.tabs(["📊 Statistics", "📝 Trade Log", "⚡ Signals"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Statistics", 
+        "💼 Portfolio", 
+        "📝 Trade Log", 
+        "⚡ Signals", 
+        "📖 Limit Order Book"
+    ])
     
     with tab1:
         display_live_statistics()
     
     with tab2:
-        display_trade_log()
+        display_portfolio_analytics()
     
     with tab3:
+        display_trade_log()
+    
+    with tab4:
         display_live_signals()
+    
+    with tab5:
+        display_limit_order_book()
+
+def display_portfolio_analytics():
+    """Display virtual portfolio analytics"""
+    
+    portfolio = st.session_state.get('virtual_portfolio')
+    
+    if not portfolio:
+        st.info("No active portfolio")
+        return
+    
+    # Portfolio metrics
+    metrics = portfolio.get_metrics()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Total Value",
+            f"${metrics['total_value']:,.2f}",
+            delta=f"${metrics['total_pnl']:,.2f}"
+        )
+    
+    with col2:
+        st.metric(
+            "Cash",
+            f"${metrics['cash']:,.2f}",
+            delta=f"{(metrics['cash']/metrics['initial_capital']-1)*100:.1f}%"
+        )
+    
+    with col3:
+        st.metric(
+            "Positions Value",
+            f"${metrics['positions_value']:,.2f}"
+        )
+    
+    with col4:
+        st.metric(
+            "P&L %",
+            f"{metrics['total_pnl_pct']:.2f}%",
+            delta=f"${metrics['total_pnl']:,.2f}"
+        )
+    
+    # Positions table
+    st.markdown("#### Current Positions")
+    
+    positions_df = portfolio.get_positions_df()
+    
+    if not positions_df.empty:
+        # Format for display
+        positions_df['Entry Price'] = positions_df['Entry Price'].apply(lambda x: f"${x:.2f}")
+        positions_df['Current Price'] = positions_df['Current Price'].apply(lambda x: f"${x:.2f}")
+        positions_df['Market Value'] = positions_df['Market Value'].apply(lambda x: f"${x:.2f}")
+        positions_df['Cost Basis'] = positions_df['Cost Basis'].apply(lambda x: f"${x:.2f}")
+        positions_df['Unrealized P&L'] = positions_df['Unrealized P&L'].apply(lambda x: f"${x:.2f}")
+        positions_df['Unrealized P&L %'] = positions_df['Unrealized P&L %'].apply(lambda x: f"{x:.2f}%")
+        
+        st.dataframe(positions_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No open positions")
+    
+    # Performance chart
+    if len(portfolio.snapshots) > 1:
+        st.markdown("#### Portfolio Value Over Time")
+        
+        timestamps = [s.timestamp for s in portfolio.snapshots]
+        values = [s.total_value for s in portfolio.snapshots]
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=timestamps,
+            y=values,
+            mode='lines',
+            name='Portfolio Value',
+            line=dict(color='#4ECDC4', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(78, 205, 196, 0.1)'
+        ))
+        
+        # Add initial capital line
+        fig.add_hline(
+            y=metrics['initial_capital'],
+            line_dash="dash",
+            line_color="gray",
+            annotation_text="Initial Capital"
+        )
+        
+        fig.update_layout(
+            xaxis_title="Time",
+            yaxis_title="Portfolio Value ($)",
+            template="plotly_dark",
+            height=400,
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Export options
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("💾 Save Portfolio"):
+            portfolio.save()
+            st.success("✓ Portfolio saved")
+    
+    with col2:
+        if st.button("📤 Export for Lab"):
+            lab_format = portfolio.export_to_lab_format()
+            st.session_state['exported_portfolio'] = lab_format
+            st.success("✓ Ready for lab import")
+    
+    with col3:
+        if st.button("📊 Download Report"):
+            # Create report
+            report = {
+                'metrics': metrics,
+                'positions': positions_df.to_dict('records') if not positions_df.empty else [],
+                'trades': portfolio.get_trades_df().to_dict('records')
+            }
+            
+            st.download_button(
+                "Download JSON",
+                data=json.dumps(report, indent=2, default=str),
+                file_name=f"portfolio_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+
 
 def display_live_statistics():
     """Display live statistics"""
@@ -1168,6 +1496,567 @@ def display_live_signals():
             st.warning("⏸️ **NEUTRAL** - No strong signal. Consider waiting for better setup.")
         
         st.markdown("---")
+
+def display_limit_order_book():
+    """Display comprehensive Limit Order Book data and analytics"""
+    
+    if not st.session_state.get('lob_enabled'):
+        st.info("📖 Limit Order Book recording is not active. Start live feed to begin recording.")
+        
+        st.markdown("""
+        ### What is Limit Order Book (LOB) Data?
+        
+        The **Limit Order Book** shows all pending buy and sell orders at different price levels:
+        
+        - **Bids** (Buy Orders): Prices buyers are willing to pay
+        - **Asks** (Sell Orders): Prices sellers are asking
+        - **Depth**: Volume available at each price level
+        - **Spread**: Difference between best bid and ask
+        
+        ### Features:
+        - 📊 Multi-level orderbook visualization (20+ levels)
+        - 📈 LOB heatmaps and depth charts
+        - 📉 Real-time imbalance metrics
+        - 💰 Market impact analysis
+        - 📥 Export LOB data for analysis
+        
+        Inspired by: [pfei-sa/binance-LOB](https://github.com/pfei-sa/binance-LOB)
+        """)
+        return
+    
+    recorder = st.session_state.get('lob_recorder')
+    if not recorder:
+        st.warning("LOB recorder not initialized")
+        return
+    
+    symbols = st.session_state.get('live_symbols', [])
+    if not symbols:
+        st.info("No symbols selected")
+        return
+    
+    # Symbol selector
+    selected_symbol = st.selectbox("Select Symbol for LOB View", symbols, key="lob_symbol_selector")
+    
+    # Strip connector prefix if present (e.g., "BINANCE:BTCUSDT" -> "BTCUSDT")
+    lookup_symbol = selected_symbol.split(':')[-1] if ':' in selected_symbol else selected_symbol
+    
+    # Get current orderbook
+    current_book = recorder.get_current_book(lookup_symbol)
+    
+    if not current_book:
+        st.info(f"⏳ Waiting for orderbook data for {selected_symbol}...")
+        return
+    
+    # LOB Tabs
+    lob_tab1, lob_tab2, lob_tab3, lob_tab4 = st.tabs([
+        "📊 Orderbook Levels",
+        "📈 LOB Analytics",
+        "🔥 Heatmap",
+        "💾 Export Data"
+    ])
+    
+    with lob_tab1:
+        display_orderbook_levels(current_book, recorder, lookup_symbol)
+    
+    with lob_tab2:
+        display_lob_analytics(recorder, lookup_symbol)
+    
+    with lob_tab3:
+        display_lob_heatmap(recorder, lookup_symbol)
+    
+    with lob_tab4:
+        display_lob_export(recorder, lookup_symbol)
+
+
+def display_orderbook_levels(book: OrderBookSnapshot, recorder: LOBRecorder, symbol: str):
+    """Display current orderbook levels in a table format"""
+    
+    st.markdown(f"### 📖 {symbol} Orderbook Levels")
+    
+    # Calculate analytics for current book
+    analytics = recorder.calculate_analytics(book)
+    
+    # Display key metrics
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("Best Bid", f"${analytics.best_bid:.2f}")
+    with col2:
+        st.metric("Best Ask", f"${analytics.best_ask:.2f}")
+    with col3:
+        st.metric("Spread", f"${analytics.spread_abs:.4f}", 
+                 delta=f"{analytics.spread_bps:.1f} bps")
+    with col4:
+        st.metric("Mid Price", f"${analytics.mid_price:.2f}")
+    with col5:
+        imbalance_pct = analytics.volume_imbalance * 100
+        st.metric("Imbalance", f"{imbalance_pct:+.1f}%",
+                 delta="Bullish" if imbalance_pct > 5 else "Bearish" if imbalance_pct < -5 else "Neutral")
+    
+    st.markdown("---")
+    
+    # Display orderbook as two-column table
+    col_asks, col_bids = st.columns(2)
+    
+    with col_asks:
+        st.markdown("#### 🔴 Asks (Sell Orders)")
+        
+        if book.asks:
+            # Reverse asks so highest price is at top
+            asks_reversed = list(reversed(book.asks[:15]))
+            
+            asks_data = []
+            cumulative_vol = 0
+            for level in asks_reversed:
+                price, quantity = level if isinstance(level, tuple) else (level.price, level.quantity)  # type: ignore[attr-defined]
+                cumulative_vol += quantity * price
+                asks_data.append({
+                    'Price ($)': price,
+                    'Quantity': quantity,
+                    'Total ($)': quantity * price,
+                    'Cumulative ($)': cumulative_vol
+                })
+            
+            asks_df = pd.DataFrame(asks_data)
+            
+            st.dataframe(
+                asks_df.style.format({
+                    'Price ($)': '{:.2f}',
+                    'Quantity': '{:.4f}',
+                    'Total ($)': '{:,.2f}',
+                    'Cumulative ($)': '{:,.2f}'
+                }).background_gradient(subset=['Total ($)'], cmap='Reds'),
+                use_container_width=True,
+                hide_index=True,
+                height=400
+            )
+        else:
+            st.info("No ask orders")
+    
+    with col_bids:
+        st.markdown("#### 🟢 Bids (Buy Orders)")
+        
+        if book.bids:
+            bids_data = []
+            cumulative_vol = 0
+            for level in book.bids[:15]:
+                price, quantity = level if isinstance(level, tuple) else (level.price, level.quantity)  # type: ignore[attr-defined]
+                cumulative_vol += quantity * price
+                bids_data.append({
+                    'Price ($)': price,
+                    'Quantity': quantity,
+                    'Total ($)': quantity * price,
+                    'Cumulative ($)': cumulative_vol
+                })
+            
+            bids_df = pd.DataFrame(bids_data)
+            
+            st.dataframe(
+                bids_df.style.format({
+                    'Price ($)': '{:.2f}',
+                    'Quantity': '{:.4f}',
+                    'Total ($)': '{:,.2f}',
+                    'Cumulative ($)': '{:,.2f}'
+                }).background_gradient(subset=['Total ($)'], cmap='Greens'),
+                use_container_width=True,
+                hide_index=True,
+                height=400
+            )
+        else:
+            st.info("No bid orders")
+    
+    # Depth visualization
+    st.markdown("---")
+    st.markdown("#### 📊 Order Book Depth Visualization")
+    
+    if book.bids and book.asks:
+        fig = go.Figure()
+        
+        # Prepare bid data (cumulative)
+        bid_prices = [level[0] if isinstance(level, tuple) else level.price for level in book.bids]  # type: ignore[attr-defined]
+        bid_volumes = [level[1] * level[0] if isinstance(level, tuple) else level.quantity * level.price for level in book.bids]  # type: ignore[attr-defined]
+        bid_cumulative = np.cumsum(bid_volumes)
+        
+        # Prepare ask data (cumulative)
+        ask_prices = [level[0] if isinstance(level, tuple) else level.price for level in book.asks]  # type: ignore[attr-defined]
+        ask_volumes = [level[1] * level[0] if isinstance(level, tuple) else level.quantity * level.price for level in book.asks]  # type: ignore[attr-defined]
+        ask_cumulative = np.cumsum(ask_volumes)
+        
+        # Plot bids
+        fig.add_trace(go.Scatter(
+            x=bid_prices,
+            y=bid_cumulative,
+            mode='lines',
+            name='Bid Depth',
+            fill='tozeroy',
+            fillcolor='rgba(0, 255, 0, 0.2)',
+            line=dict(color='green', width=2)
+        ))
+        
+        # Plot asks
+        fig.add_trace(go.Scatter(
+            x=ask_prices,
+            y=ask_cumulative,
+            mode='lines',
+            name='Ask Depth',
+            fill='tozeroy',
+            fillcolor='rgba(255, 0, 0, 0.2)',
+            line=dict(color='red', width=2)
+        ))
+        
+        # Add mid price line
+        fig.add_vline(
+            x=analytics.mid_price,
+            line_dash="dash",
+            line_color="cyan",
+            annotation_text=f"Mid: ${analytics.mid_price:.2f}",
+            annotation_position="top"
+        )
+        
+        fig.update_layout(
+            title="Cumulative Order Book Depth",
+            xaxis_title="Price ($)",
+            yaxis_title="Cumulative Volume ($)",
+            template="plotly_dark",
+            height=400,
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True, key=f"depth_{symbol}")
+
+
+def display_lob_analytics(recorder: LOBRecorder, symbol: str):
+    """Display LOB analytics over time"""
+    
+    st.markdown(f"### 📈 {symbol} LOB Analytics")
+    
+    analytics_list = recorder.get_analytics(symbol, n=500)
+    
+    if len(analytics_list) < 2:
+        st.info("⏳ Collecting analytics data... (need at least 2 data points)")
+        return
+    
+    # Convert to DataFrame
+    df = pd.DataFrame([analytics_to_dict(a) for a in analytics_list])
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    
+    # Display current metrics
+    latest = analytics_list[-1]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Spread (bps)", f"{latest.spread_bps:.2f}")
+        st.metric("Bid Depth (0.1%)", f"${latest.bid_depth_1:,.0f}")
+    
+    with col2:
+        st.metric("Volume Imbalance", f"{latest.volume_imbalance*100:+.1f}%")
+        st.metric("Ask Depth (0.1%)", f"${latest.ask_depth_1:,.0f}")
+    
+    with col3:
+        st.metric("Market Impact ($10k)", f"{latest.market_impact_10k:.2f} bps")
+        st.metric("Bid Depth (1%)", f"${latest.bid_depth_10:,.0f}")
+    
+    with col4:
+        st.metric("Effective Spread", f"{latest.effective_spread_bps:.2f} bps")
+        st.metric("Ask Depth (1%)", f"${latest.ask_depth_10:,.0f}")
+    
+    st.markdown("---")
+    
+    # Time series plots
+    st.markdown("#### 📊 Analytics Over Time")
+    
+    # Create subplots
+    fig = make_subplots(
+        rows=3, cols=2,
+        subplot_titles=(
+            'Spread (bps)', 'Volume Imbalance',
+            'Bid/Ask Depth (0.1%)', 'Market Impact ($10k)',
+            'Mid Price', 'Effective Spread (bps)'
+        ),
+        vertical_spacing=0.1
+    )
+    
+    # Spread
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['spread_bps'], name='Spread', line=dict(color='cyan')),
+        row=1, col=1
+    )
+    
+    # Imbalance
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['volume_imbalance']*100, name='Imbalance', line=dict(color='orange')),
+        row=1, col=2
+    )
+    
+    # Depth
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['bid_depth_1'], name='Bid Depth', line=dict(color='green')),
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['ask_depth_1'], name='Ask Depth', line=dict(color='red')),
+        row=2, col=1
+    )
+    
+    # Market Impact
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['market_impact_10k'], name='Impact', line=dict(color='purple')),
+        row=2, col=2
+    )
+    
+    # Mid Price
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['mid_price'], name='Mid Price', line=dict(color='white')),
+        row=3, col=1
+    )
+    
+    # Effective Spread
+    fig.add_trace(
+        go.Scatter(x=df['timestamp'], y=df['effective_spread_bps'], name='Eff. Spread', line=dict(color='pink')),
+        row=3, col=2
+    )
+    
+    fig.update_layout(
+        height=900,
+        showlegend=False,
+        template="plotly_dark",
+        hovermode='x unified'
+    )
+    
+    fig.update_yaxes(title_text="bps", row=1, col=1)
+    fig.update_yaxes(title_text="%", row=1, col=2)
+    fig.update_yaxes(title_text="$ Volume", row=2, col=1)
+    fig.update_yaxes(title_text="bps", row=2, col=2)
+    fig.update_yaxes(title_text="$", row=3, col=1)
+    fig.update_yaxes(title_text="bps", row=3, col=2)
+    
+    st.plotly_chart(fig, use_container_width=True, key=f"analytics_{symbol}")
+    
+    # Statistics table
+    st.markdown("#### 📋 Summary Statistics")
+    
+    summary_stats = {
+        'Metric': [
+            'Avg Spread (bps)',
+            'Avg Volume Imbalance (%)',
+            'Avg Market Impact ($10k)',
+            'Avg Bid Depth (0.1%)',
+            'Avg Ask Depth (0.1%)',
+            'Total Bid Levels',
+            'Total Ask Levels'
+        ],
+        'Value': [
+            f"{df['spread_bps'].mean():.2f}",
+            f"{df['volume_imbalance'].mean()*100:+.2f}",
+            f"{df['market_impact_10k'].mean():.2f} bps",
+            f"${df['bid_depth_1'].mean():,.0f}",
+            f"${df['ask_depth_1'].mean():,.0f}",
+            f"{df['bid_levels'].mean():.1f}",
+            f"{df['ask_levels'].mean():.1f}"
+        ]
+    }
+    
+    st.dataframe(pd.DataFrame(summary_stats), use_container_width=True, hide_index=True)
+
+
+def display_lob_heatmap(recorder: LOBRecorder, symbol: str):
+    """Display LOB heatmap visualization"""
+    
+    st.markdown(f"### 🔥 {symbol} Order Book Heatmap")
+    
+    st.info("📊 Heatmap shows order book evolution over time. Darker colors = higher volume.")
+    
+    # Get recent snapshots
+    snapshots = list(recorder.snapshots[symbol])[-50:]  # Last 50 snapshots
+    
+    if len(snapshots) < 2:
+        st.warning("Need at least 2 snapshots to generate heatmap. Keep recording...")
+        return
+    
+    # Extract price levels and volumes
+    # Convert ISO string timestamps to datetime objects
+    from dateutil import parser as date_parser
+    times = []
+    for s in snapshots:
+        if isinstance(s.timestamp, str):
+            times.append(date_parser.parse(s.timestamp))
+        else:
+            times.append(s.timestamp)
+    
+    # Find price range
+    all_prices = []
+    for s in snapshots:
+        all_prices.extend([b[0] for b in s.bids[:10]])  # b[0] is price
+        all_prices.extend([a[0] for a in s.asks[:10]])  # a[0] is price
+    
+    if not all_prices:
+        st.warning("No price data available")
+        return
+    
+    min_price = min(all_prices)
+    max_price = max(all_prices)
+    price_range = max_price - min_price
+    
+    # Create price bins
+    n_bins = 50
+    price_bins = np.linspace(min_price - price_range*0.1, max_price + price_range*0.1, n_bins)
+    
+    # Build heatmap matrix
+    heatmap_data = np.zeros((n_bins, len(snapshots)))
+    
+    for t_idx, snapshot in enumerate(snapshots):
+        # Aggregate volume at each price bin
+        for bid in snapshot.bids[:10]:
+            price, quantity = bid  # Unpack tuple
+            bin_idx = np.digitize(price, price_bins) - 1
+            if 0 <= bin_idx < n_bins:
+                heatmap_data[bin_idx, t_idx] += quantity * price
+        
+        for ask in snapshot.asks[:10]:
+            price, quantity = ask  # Unpack tuple
+            bin_idx = np.digitize(price, price_bins) - 1
+            if 0 <= bin_idx < n_bins:
+                heatmap_data[bin_idx, t_idx] -= quantity * price  # Negative for asks
+    
+    # Create heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=heatmap_data,
+        x=[t.strftime("%H:%M:%S") for t in times],
+        y=[f"${p:.2f}" for p in price_bins],
+        colorscale='RdYlGn',
+        zmid=0,
+        colorbar=dict(title="Volume ($)")
+    ))
+    
+    fig.update_layout(
+        title="Order Book Heatmap (Green=Bids, Red=Asks)",
+        xaxis_title="Time",
+        yaxis_title="Price",
+        template="plotly_dark",
+        height=600
+    )
+    
+    st.plotly_chart(fig, use_container_width=True, key=f"heatmap_{symbol}")
+    
+    st.caption("💡 Tip: Look for patterns like walls, gaps, or shifting liquidity zones")
+
+
+def display_lob_export(recorder: LOBRecorder, symbol: str):
+    """Export LOB data and analytics"""
+    
+    st.markdown(f"### 💾 Export {symbol} LOB Data")
+    
+    st.markdown("""
+    Export orderbook data and analytics for further analysis:
+    - **Analytics CSV**: Time series of LOB metrics
+    - **Snapshots JSON**: Full orderbook snapshots
+    - **Summary Report**: Statistical summary
+    """)
+    
+    # Export analytics
+    analytics_df = recorder.export_to_csv(symbol)
+    
+    if analytics_df.empty:
+        st.warning("No data available to export yet")
+        return
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("Data Points", f"{len(analytics_df):,}")
+        st.metric("Time Range", f"{(analytics_df['timestamp'].max() - analytics_df['timestamp'].min()).total_seconds():.0f}s")
+    
+    with col2:
+        st.metric("Avg Spread", f"{analytics_df['spread_bps'].mean():.2f} bps")
+        st.metric("Avg Imbalance", f"{analytics_df['volume_imbalance'].mean()*100:+.1f}%")
+    
+    st.markdown("---")
+    
+    # Download buttons
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Analytics CSV
+        csv_data = analytics_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📊 Download Analytics CSV",
+            data=csv_data,
+            file_name=f"{symbol}_lob_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col2:
+        # Snapshots JSON
+        snapshots = list(recorder.snapshots[symbol])
+        snapshots_json = json.dumps([snapshot_to_dict(s) for s in snapshots], indent=2)
+        st.download_button(
+            label="📖 Download Snapshots JSON",
+            data=snapshots_json.encode('utf-8'),
+            file_name=f"{symbol}_lob_snapshots_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    
+    with col3:
+        # Summary report
+        summary = f"""
+LOB Analysis Report for {symbol}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+=== SUMMARY STATISTICS ===
+Data Points: {len(analytics_df)}
+Time Range: {analytics_df['timestamp'].min()} to {analytics_df['timestamp'].max()}
+
+=== SPREAD METRICS ===
+Avg Spread: {analytics_df['spread_bps'].mean():.2f} bps
+Min Spread: {analytics_df['spread_bps'].min():.2f} bps
+Max Spread: {analytics_df['spread_bps'].max():.2f} bps
+Std Spread: {analytics_df['spread_bps'].std():.2f} bps
+
+=== IMBALANCE METRICS ===
+Avg Volume Imbalance: {analytics_df['volume_imbalance'].mean()*100:+.2f}%
+Avg Depth Imbalance (0.1%): {analytics_df['depth_imbalance_1'].mean()*100:+.2f}%
+Avg Depth Imbalance (0.5%): {analytics_df['depth_imbalance_5'].mean()*100:+.2f}%
+
+=== LIQUIDITY METRICS ===
+Avg Market Impact ($10k): {analytics_df['market_impact_10k'].mean():.2f} bps
+Avg Effective Spread: {analytics_df['effective_spread_bps'].mean():.2f} bps
+Avg Bid Depth (0.1%): ${analytics_df['bid_depth_1'].mean():,.2f}
+Avg Ask Depth (0.1%): ${analytics_df['ask_depth_1'].mean():,.2f}
+
+=== ORDERBOOK STRUCTURE ===
+Avg Bid Levels: {analytics_df['bid_levels'].mean():.1f}
+Avg Ask Levels: {analytics_df['ask_levels'].mean():.1f}
+Avg Total Bid Volume: ${analytics_df['total_bid_volume'].mean():,.2f}
+Avg Total Ask Volume: ${analytics_df['total_ask_volume'].mean():,.2f}
+"""
+        
+        st.download_button(
+            label="📋 Download Summary Report",
+            data=summary.encode('utf-8'),
+            file_name=f"{symbol}_lob_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    
+    # Preview data
+    st.markdown("---")
+    st.markdown("#### 👀 Data Preview")
+    
+    st.dataframe(
+        analytics_df.tail(100).style.format({
+            'spread_bps': '{:.2f}',
+            'spread_abs': '{:.4f}',
+            'mid_price': '{:.2f}',
+            'volume_imbalance': '{:+.3f}',
+            'market_impact_10k': '{:.2f}'
+        }),
+        use_container_width=True,
+        height=400
+    )
+
 
 # Execute the render function when page is loaded
 if __name__ == "__main__":

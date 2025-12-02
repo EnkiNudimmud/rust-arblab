@@ -2,8 +2,6 @@
 // Based on "Which Free Lunch Would You Like Today, Sir?" and QM2024_3_Affine_models.ipynb
 // Reference: Bourgey, F. (2024). Rough Volatility Workshop - Affine Models
 
-use std::f64::consts::PI;
-
 /// Mittag-Leffler function E_{α,β}(z) using series expansion
 /// For rough Heston kernel calculations
 pub fn mittag_leffler_two(z: f64, alpha: f64, beta: f64) -> f64 {
@@ -202,7 +200,7 @@ pub fn atm_skew(char_func: &RoughHestonCharFunc, tau: f64) -> f64 {
 }
 
 /// Skew-stickiness ratio (SSR)
-pub fn skew_stickiness_ratio(char_func: &RoughHestonCharFunc, tau: f64) -> f64 {
+pub fn skew_stickiness_ratio(char_func: &RoughHestonCharFunc, _tau: f64) -> f64 {
     // SSR = β / S where β is the sticky-delta coefficient
     // For rough Heston: SSR ≈ (1 + α) / 2
     

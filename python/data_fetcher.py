@@ -230,6 +230,8 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
             "Yahoo Finance provides FREE stock data with 1-minute intraday resolution."
         )
     
+    import streamlit as st
+    
     # Map interval names
     yf_interval_map = {
         "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
@@ -242,17 +244,56 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
     end_dt = pd.to_datetime(end)
     days_range = (end_dt - start_dt).days
     
-    # Use helper function to validate date range
-    if validate_date_range:
-        _, warning = validate_date_range(yf_interval, start, end)
-        if warning:
-            print(warning)
+    # Check Yahoo Finance limitations and warn user
+    if yf_interval in ["1m", "5m", "15m", "30m"] and days_range > 60:
+        st.warning(
+            f"⚠️ Yahoo Finance limits {yf_interval} data to max 60 days. "
+            f"Requested: {days_range} days. Will fetch last 60 days only. "
+            f"For longer history, use 1h or 1d interval."
+        )
+    elif yf_interval == "1h" and days_range > 730:
+        st.warning(
+            f"⚠️ Yahoo Finance limits 1h data to max ~730 days (2 years). "
+            f"Requested: {days_range} days ({days_range/365:.1f} years). "
+            f"Will fetch last 730 days only. For full history, use 1d interval."
+        )
     
     all_data = []
     failed_symbols = []
     
+    # Create progress bar and status immediately
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    status_text.text(f"🚀 Starting to fetch {len(symbols)} symbols from Yahoo Finance...")
+    
+    # Track timing for ETA
+    start_time = time.time()
+    completion_times = []
+    
     for i, symbol in enumerate(symbols, 1):
-        print(f"📊 Fetching {symbol} ({i}/{len(symbols)})...")
+        symbol_start = time.time()
+        
+        # Update progress bar
+        progress = (i - 1) / len(symbols)
+        progress_bar.progress(progress)
+        
+        # Calculate ETA
+        if completion_times:
+            avg_time = sum(completion_times) / len(completion_times)
+            remaining = len(symbols) - (i - 1)
+            eta_seconds = remaining * avg_time
+            
+            if eta_seconds < 60:
+                eta_str = f"~{max(1, int(eta_seconds))}s remaining"
+            else:
+                eta_str = f"~{int(eta_seconds/60)}m {int(eta_seconds%60)}s remaining"
+        else:
+            eta_str = "Calculating..."
+        
+        status_text.text(
+            f"⏳ Fetching {i-1}/{len(symbols)} symbols from Yahoo Finance... "
+            f"({progress*100:.0f}%) - {eta_str} - Current: {symbol}"
+        )
         
         retry_count = 0
         max_retries = 3
@@ -260,20 +301,49 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
         
         while retry_count < max_retries and not success:
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(symbol)  # type: ignore[union-attr]
+                df = pd.DataFrame()
                 
-                # Use different methods based on interval
-                if yf_interval in ["1m", "5m", "15m", "30m", "1h"]:
-                    # For intraday, be more specific with period
+                # Use different methods based on interval and Yahoo's limitations
+                if yf_interval in ["1m", "5m", "15m", "30m"]:
+                    # Short-term intraday: use period-based approach (limited history)
                     if days_range <= 7:
                         df = ticker.history(period="7d", interval=yf_interval)
                     elif days_range <= 60:
                         df = ticker.history(period="60d", interval=yf_interval)
                     else:
+                        # Yahoo Finance limitation: max 60 days for these intervals
+                        df = ticker.history(period="60d", interval=yf_interval)
+                elif yf_interval == "1h":
+                    # 1h data: Yahoo allows max ~730 days (2 years)
+                    if days_range <= 730:
                         df = ticker.history(start=start, end=end, interval=yf_interval)
+                    else:
+                        # Use max period and truncate to requested range
+                        df = ticker.history(period="730d", interval=yf_interval)
                 else:
-                    # For daily and above, use date range
-                    df = ticker.history(start=start, end=end, interval=yf_interval)
+                    # For daily and above, try period-based first (more reliable)
+                    # Map days to appropriate period
+                    if days_range <= 5:
+                        df = ticker.history(period="5d", interval=yf_interval)
+                    elif days_range <= 30:
+                        df = ticker.history(period="1mo", interval=yf_interval)
+                    elif days_range <= 90:
+                        df = ticker.history(period="3mo", interval=yf_interval)
+                    elif days_range <= 180:
+                        df = ticker.history(period="6mo", interval=yf_interval)
+                    elif days_range <= 365:
+                        df = ticker.history(period="1y", interval=yf_interval)
+                    elif days_range <= 730:
+                        df = ticker.history(period="2y", interval=yf_interval)
+                    elif days_range <= 1825:
+                        df = ticker.history(period="5y", interval=yf_interval)
+                    else:
+                        df = ticker.history(period="max", interval=yf_interval)
+                    
+                    # If period-based failed or returned empty, try date range
+                    if df.empty:
+                        df = ticker.history(start=start, end=end, interval=yf_interval)
                 
                 if not df.empty:
                     # Filter to exact date range requested (handle timezone-aware timestamps)
@@ -304,16 +374,17 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
                         df = df[required_cols]
                         
                         all_data.append(df)
-                        print(f"   ✅ {symbol}: {len(df)} bars fetched")
                         success = True
                     else:
-                        print(f"   ⚠️  {symbol}: No data in requested date range")
                         failed_symbols.append((symbol, "No data in date range"))
                         success = True  # Don't retry if date range is the issue
                 else:
-                    print(f"   ⚠️  {symbol}: No data available")
                     failed_symbols.append((symbol, "No data available from Yahoo Finance"))
                     success = True  # Don't retry if symbol doesn't exist
+                
+                # Track completion time
+                symbol_time = time.time() - symbol_start
+                completion_times.append(symbol_time)
                 
                 # Rate limiting: be nice to Yahoo's servers
                 time.sleep(0.5)
@@ -322,11 +393,34 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
                 retry_count += 1
                 if retry_count < max_retries:
                     wait_time = retry_count * 2  # Exponential backoff
-                    print(f"   ⚠️  {symbol}: Error (attempt {retry_count}/{max_retries}), retrying in {wait_time}s...")
+                    status_text.text(
+                        f"⚠️ {symbol}: Retry {retry_count}/{max_retries} in {wait_time}s... "
+                        f"({i-1}/{len(symbols)} completed)"
+                    )
                     time.sleep(wait_time)
                 else:
-                    print(f"   ❌ {symbol}: Failed after {max_retries} attempts - {str(e)}")
                     failed_symbols.append((symbol, str(e)))
+                    # Track completion time even for failures
+                    symbol_time = time.time() - symbol_start
+                    completion_times.append(symbol_time)
+    
+    # Final progress update
+    progress_bar.progress(1.0)
+    
+    # Show summary
+    if failed_symbols:
+        error_summary = "\n  • ".join([f"{sym}: {err}" for sym, err in failed_symbols[:10]])
+        if len(failed_symbols) > 10:
+            error_summary += f"\n  • ... and {len(failed_symbols) - 10} more"
+        st.warning(f"⚠️ {len(failed_symbols)} symbol(s) failed:\n{error_summary}")
+    
+    success_msg = f"✅ Successfully fetched {len(all_data)}/{len(symbols)} symbols"
+    if len(all_data) < len(symbols):
+        success_msg += f" ({len(symbols) - len(all_data)} failed)"
+    status_text.success(success_msg)
+    time.sleep(2)
+    status_text.empty()
+    progress_bar.empty()
     
     # Provide detailed feedback
     if failed_symbols:

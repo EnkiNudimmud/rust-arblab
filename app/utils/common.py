@@ -157,12 +157,12 @@ def clean_price_data(df: pd.DataFrame) -> pd.DataFrame:
     
     # Remove zero or negative prices
     if 'close' in df.columns:
-        df = df[df['close'] > 0]
+        df = df[df['close'] > 0]  # type: ignore[assignment]
     
     # Remove outliers (prices that jump more than 50% in one period)
     if 'close' in df.columns and len(df) > 1:
         returns = df['close'].pct_change()
-        df = df[abs(returns) < 0.5]
+        df = df[abs(returns) < 0.5]  # type: ignore[assignment]
     
     return df
 

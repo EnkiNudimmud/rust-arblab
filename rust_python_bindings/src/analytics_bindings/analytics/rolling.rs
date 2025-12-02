@@ -39,10 +39,12 @@ impl RollingStd {
         Self { ddof }
     }
     
+    #[allow(dead_code)]
     pub fn unbiased() -> Self {
         Self::new(1)
     }
     
+    #[allow(dead_code)]
     pub fn biased() -> Self {
         Self::new(0)
     }

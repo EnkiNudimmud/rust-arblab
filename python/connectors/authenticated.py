@@ -57,7 +57,7 @@ class AuthenticatedBinance:
         # Delegate public data to Rust connector if available
         if RUST_AVAILABLE:
             try:
-                self._rust_conn = rust_connector.get_connector("binance")
+                self._rust_conn = rust_connector.get_connector("binance")  # type: ignore[union-attr]
             except Exception as e:
                 logger.warning(f"Rust connector failed, using pure Python: {e}")
                 self._rust_conn = None
@@ -109,7 +109,7 @@ class AuthenticatedBinance:
     def get_account_info(self) -> Dict[str, Any]:
         """Authenticated endpoint: account info."""
         endpoint = "/api/v3/account"
-        params = {"timestamp": int(time.time() * 1000)}
+        params: dict = {"timestamp": int(time.time() * 1000)}  # type: ignore[type-arg]
         params["signature"] = self._sign_request(params)
         
         headers = {"X-MBX-APIKEY": self.api_key}
@@ -120,7 +120,7 @@ class AuthenticatedBinance:
     def get_open_orders(self, symbol: Optional[str] = None) -> list:
         """Authenticated endpoint: open orders."""
         endpoint = "/api/v3/openOrders"
-        params = {"timestamp": int(time.time() * 1000)}
+        params: dict = {"timestamp": int(time.time() * 1000)}  # type: ignore[type-arg]
         if symbol:
             params["symbol"] = symbol.upper()
         params["signature"] = self._sign_request(params)
@@ -182,7 +182,7 @@ class AuthenticatedCoinbase:
         # Delegate public data to Rust connector if available
         if RUST_AVAILABLE:
             try:
-                self._rust_conn = rust_connector.get_connector("coinbase")
+                self._rust_conn = rust_connector.get_connector("coinbase")  # type: ignore[union-attr]
             except Exception as e:
                 logger.warning(f"Rust connector failed: {e}")
                 self._rust_conn = None
@@ -309,7 +309,7 @@ class AuthenticatedKraken:
         # Delegate public data to Rust connector if available
         if RUST_AVAILABLE:
             try:
-                self._rust_conn = rust_connector.get_connector("kraken")
+                self._rust_conn = rust_connector.get_connector("kraken")  # type: ignore[union-attr]
             except Exception as e:
                 logger.warning(f"Rust connector failed, using pure Python: {e}")
                 self._rust_conn = None

@@ -2,7 +2,7 @@
 // Reference: QM2024_3_Affine_models.ipynb (Bourgey, F. 2024)
 
 use pyo3::prelude::*;
-use rust_core::rough_heston::*;
+use rust_core::rough_heston::{RoughHestonParams, RoughHestonCharFunc};
 
 /// Python wrapper for rough Heston parameters
 #[pyclass]

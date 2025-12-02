@@ -290,8 +290,8 @@ class FinnhubConnector:
         try:
             import rust_connector
             return rust_connector.OrderBook(
-                bids=[[bid, 1.0]],
-                asks=[[ask, 1.0]]
+                bids=[(bid, 1.0)],  # type: ignore[arg-type]
+                asks=[(ask, 1.0)]  # type: ignore[arg-type]
             )
         except Exception:
             # Return dict fallback

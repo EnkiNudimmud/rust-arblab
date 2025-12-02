@@ -7,6 +7,11 @@ Load historical market data from multiple sources:
 - Yahoo Finance (fallback)
 - CSV upload (custom data)
 - Mock/Synthetic data (testing)
+
+Features:
+- Stackable data loading (append new queries to existing data)
+- Persistent storage to /data folder for long-living sessions
+- Rate-limit aware fetching for intraday data
 """
 
 import streamlit as st
@@ -23,6 +28,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from python.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
 from python.rust_bridge import list_connectors, get_connector
+from python.data_persistence import (
+    save_dataset, load_dataset, list_datasets, delete_dataset,
+    stack_data, generate_dataset_name, get_total_storage_size, format_size
+)
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
 from utils.data_persistence import (
     save_dataset, load_dataset, load_all_datasets, delete_dataset,
@@ -180,10 +189,91 @@ def render():
         st.session_state.historical_data = None
     if 'symbols' not in st.session_state:
         st.session_state.symbols = ["AAPL", "MSFT", "GOOGL"]  # Default symbols
+    if 'data_load_mode' not in st.session_state:
+        st.session_state.data_load_mode = "replace"  # 'replace', 'append', 'update'
     
     st.title("📊 Historical Data Loading")
     st.markdown("Load and preview market data for backtesting strategies")
     
+    # Main tabs for different sections
+    main_tab1, main_tab2 = st.tabs(["📥 Fetch Data", "💾 Saved Datasets"])
+    
+    with main_tab1:
+        render_fetch_tab()
+    
+    with main_tab2:
+        render_saved_datasets_tab()
+
+
+def render_saved_datasets_tab():
+    """Render the saved datasets management tab."""
+    st.markdown("### 💾 Saved Datasets")
+    st.markdown("Manage your persisted datasets for long-living sessions")
+    
+    # Get list of saved datasets
+    datasets = list_datasets()
+    
+    if not datasets:
+        st.info("No saved datasets yet. Fetch some data and save it to see it here.")
+        return
+    
+    # Show storage info
+    total_size = get_total_storage_size()
+    st.metric("Total Storage Used", format_size(total_size))
+    
+    # Display datasets in a table-like format
+    for ds in datasets:
+        with st.expander(f"📁 {ds.get('name', 'Unknown')}", expanded=False):
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                st.markdown(f"**Rows:** {ds.get('rows', 'N/A'):,}")
+                st.markdown(f"**Symbols:** {', '.join(ds.get('symbols', [])[:5])}{'...' if len(ds.get('symbols', [])) > 5 else ''}")
+                
+                date_range = ds.get('date_range', {})
+                if date_range:
+                    st.markdown(f"**Date Range:** {date_range.get('start', 'N/A')[:10]} to {date_range.get('end', 'N/A')[:10]}")
+            
+            with col2:
+                st.markdown(f"**Source:** {ds.get('source', 'N/A')}")
+                st.markdown(f"**Interval:** {ds.get('interval', 'N/A')}")
+                st.markdown(f"**Created:** {ds.get('created_at', 'N/A')[:10]}")
+            
+            with col3:
+                # Load button
+                if st.button("📤 Load", key=f"load_{ds['name']}", use_container_width=True):
+                    try:
+                        df, meta = load_dataset(ds['name'])
+                        
+                        # Option to stack or replace
+                        if st.session_state.historical_data is not None and st.session_state.data_load_mode == "append":
+                            st.session_state.historical_data = stack_data(
+                                st.session_state.historical_data, df, "append"
+                            )
+                            st.success(f"✅ Appended {len(df):,} rows from '{ds['name']}'")
+                        else:
+                            st.session_state.historical_data = df
+                            st.success(f"✅ Loaded {len(df):,} rows from '{ds['name']}'")
+                        
+                        # Update symbols
+                        if meta.get('symbols'):
+                            st.session_state.symbols = meta['symbols']
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to load dataset: {e}")
+                
+                # Delete button
+                if st.button("🗑️ Delete", key=f"delete_{ds['name']}", use_container_width=True):
+                    if delete_dataset(ds['name']):
+                        st.success(f"Deleted '{ds['name']}'")
+                        st.rerun()
+                    else:
+                        st.error("Failed to delete dataset")
+
+
+def render_fetch_tab():
+    """Render the data fetching tab."""
     # Quick guide
     with st.expander("💡 Quick Start Guide", expanded=False):
         col_guide1, col_guide2 = st.columns(2)
@@ -533,6 +623,56 @@ def render():
                             f"Consider using **1h** or **1d** for longer historical analysis."
                         )
             
+            # Rate-limit tips for intraday data
+            if interval == "1m" and data_source.startswith("CCXT"):
+                with st.expander("💡 Tips for Collecting 1m Intraday Data", expanded=False):
+                    st.markdown("""
+                    **📊 Free Tier Rate Limit Strategy:**
+                    
+                    Most exchanges allow ~1000 candles per request. For 1-minute data:
+                    - 1 day = ~1440 candles (24h × 60min)
+                    - 7 days = ~10,080 candles (fetched in batches)
+                    
+                    **🚀 Recommended Approach for Arbitrage Research:**
+                    1. **Start small:** Fetch 1-3 days first
+                    2. **Use Append mode:** Add more data incrementally
+                    3. **Save frequently:** Use the "Save to Disk" button after each fetch
+                    4. **Stack datasets:** Use "Load" from Saved Datasets to restore + Append new data
+                    
+                    **⏱️ Expected Fetch Times (Binance):**
+                    - 1 day, 1 symbol: ~5-10 seconds
+                    - 1 day, 10 symbols: ~30-60 seconds
+                    - 7 days, 1 symbol: ~20-40 seconds
+                    - 7 days, 10 symbols: ~3-5 minutes
+                    
+                    **💾 Persistence:**
+                    Save your data to disk after fetching. It will be available after restart.
+                    """)
+            
+            # Load mode selection
+            st.markdown("---")
+            st.markdown("#### 📦 Data Loading Mode")
+            load_mode_col1, load_mode_col2 = st.columns([2, 1])
+            
+            with load_mode_col1:
+                load_mode = st.radio(
+                    "When fetching new data:",
+                    ["Replace", "Append", "Update"],
+                    index=0,
+                    horizontal=True,
+                    help=(
+                        "**Replace:** Clear existing data and load fresh\n"
+                        "**Append:** Add new data, keep existing for overlaps\n"
+                        "**Update:** Add new data, prefer new for overlaps"
+                    )
+                )
+                st.session_state.data_load_mode = load_mode.lower()
+            
+            with load_mode_col2:
+                if st.session_state.historical_data is not None:
+                    current_rows = len(st.session_state.historical_data)
+                    st.caption(f"📊 Current: {current_rows:,} rows")
+            
             # Fetch button
             if st.button("🔄 Fetch Data", type="primary", use_container_width=True):
                 if not symbols:
@@ -555,7 +695,8 @@ def render():
                         end=end_date.isoformat(),
                         interval=interval,
                         source=internal_source,
-                        exchange_id=exchange_id if data_source.startswith("CCXT") else None
+                        exchange_id=exchange_id if data_source.startswith("CCXT") else None,
+                        load_mode=st.session_state.data_load_mode
                     )
     
     with col2:
@@ -564,17 +705,56 @@ def render():
         if st.session_state.historical_data is not None:
             df = st.session_state.historical_data
             
-            # Show stats
-            st.metric("Total Records", f"{len(df):,}")
-            st.metric("Symbols", len(df['symbol'].unique()))
+            # Reset index if MultiIndex for display
+            if isinstance(df.index, pd.MultiIndex):
+                df_display = df.reset_index()
+            else:
+                df_display = df
             
-            if 'timestamp' in df.columns:
-                date_range = f"{df['timestamp'].min().date()} to {df['timestamp'].max().date()}"
+            # Show stats
+            st.metric("Total Records", f"{len(df_display):,}")
+            if 'symbol' in df_display.columns:
+                st.metric("Symbols", len(df_display['symbol'].unique()))
+            
+            if 'timestamp' in df_display.columns:
+                date_range = f"{df_display['timestamp'].min().date()} to {df_display['timestamp'].max().date()}"
                 st.metric("Date Range", date_range)
             
             # Data quality
-            missing_pct = (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
+            missing_pct = (df_display.isnull().sum().sum() / (len(df_display) * len(df_display.columns))) * 100
             st.metric("Missing Data", f"{missing_pct:.2f}%")
+            
+            st.markdown("---")
+            st.markdown("### 💾 Save Data")
+            
+            # Save dataset button
+            save_name = st.text_input(
+                "Dataset Name",
+                value=generate_dataset_name(
+                    st.session_state.symbols if st.session_state.symbols else ["unknown"],
+                    st.session_state.get('interval', '1h'),
+                    st.session_state.get('data_source', 'manual')
+                ),
+                help="Name for the saved dataset"
+            )
+            
+            if st.button("💾 Save to Disk", use_container_width=True, type="secondary"):
+                try:
+                    metadata = {
+                        "source": st.session_state.get('data_source', 'unknown'),
+                        "interval": st.session_state.get('interval', 'unknown'),
+                        "symbols": st.session_state.symbols,
+                    }
+                    if st.session_state.get('date_range'):
+                        metadata["date_range"] = {
+                            "start": st.session_state.date_range[0],
+                            "end": st.session_state.date_range[1]
+                        }
+                    
+                    path = save_dataset(df, save_name, metadata)
+                    st.success(f"✅ Saved to: {path}")
+                except Exception as e:
+                    st.error(f"Failed to save: {e}")
             
             # Clear data button
             if st.button("🗑️ Clear Data", use_container_width=True):
@@ -610,9 +790,9 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             # For CCXT, pass exchange_id through params
             if source == 'ccxt' and exchange_id:
                 from python.data_fetcher import _fetch_ccxt
-                df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
+                new_df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
             else:
-                df = fetch_intraday_data(
+                new_df = fetch_intraday_data(
                     symbols=symbols,
                     start=start,
                     end=end,

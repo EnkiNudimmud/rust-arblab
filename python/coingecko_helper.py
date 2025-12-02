@@ -12,6 +12,8 @@ from typing import List, Dict, Optional
 import time
 import logging
 
+from python.retry_utils import RetryConfig, make_retriable_request
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +26,7 @@ class CoinGeckoAPI:
     - Historical OHLCV data
     - Multiple cryptocurrencies
     - Rate limit: 10-50 calls/minute (free tier)
+    - Automatic retry with exponential backoff on failures
     """
     
     BASE_URL = "https://api.coingecko.com/api/v3"
@@ -47,17 +50,46 @@ class CoinGeckoAPI:
         'BCH': 'bitcoin-cash'
     }
     
-    def __init__(self):
-        """Initialize CoinGecko API client."""
+    def __init__(self, retry_config: Optional[RetryConfig] = None):
+        """
+        Initialize CoinGecko API client.
+        
+        Args:
+            retry_config: Optional retry configuration. Defaults to conservative
+                         settings suitable for CoinGecko's rate limits.
+        """
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
         })
+        # Use conservative retry config by default for CoinGecko's rate limits
+        self.retry_config = retry_config or RetryConfig.conservative()
+    
+    def _make_request(self, url: str, params: Optional[Dict] = None, timeout: int = 10) -> requests.Response:
+        """
+        Make an HTTP request with automatic retry on failure.
+        
+        Args:
+            url: URL to request
+            params: Optional query parameters
+            timeout: Request timeout in seconds
+            
+        Returns:
+            requests.Response object
+        """
+        return make_retriable_request(
+            self.session,
+            'GET',
+            url,
+            config=self.retry_config,
+            params=params,
+            timeout=timeout,
+        )
     
     def ping(self) -> bool:
         """Test API connectivity."""
         try:
-            response = self.session.get(f"{self.BASE_URL}/ping", timeout=5)
+            response = self._make_request(f"{self.BASE_URL}/ping", timeout=5)
             return response.status_code == 200
         except Exception as e:
             logger.error(f"CoinGecko ping failed: {e}")
@@ -91,7 +123,7 @@ class CoinGeckoAPI:
                 'include_last_updated_at': 'true'
             }
             
-            response = self.session.get(url, params=params, timeout=10)
+            response = self._make_request(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             
@@ -139,7 +171,7 @@ class CoinGeckoAPI:
                 'days': days
             }
             
-            response = self.session.get(url, params=params, timeout=15)
+            response = self._make_request(url, params=params, timeout=15)
             response.raise_for_status()
             data = response.json()
             
@@ -190,7 +222,7 @@ class CoinGeckoAPI:
                 'interval': interval if days > 90 else 'hourly'
             }
             
-            response = self.session.get(url, params=params, timeout=15)
+            response = self._make_request(url, params=params, timeout=15)
             response.raise_for_status()
             data = response.json()
             
@@ -251,7 +283,7 @@ class CoinGeckoAPI:
                 'include_market_cap': 'true'
             }
             
-            response = self.session.get(url, params=params, timeout=10)
+            response = self._make_request(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             
@@ -286,7 +318,7 @@ class CoinGeckoAPI:
             url = f"{self.BASE_URL}/search"
             params = {'query': query}
             
-            response = self.session.get(url, params=params, timeout=10)
+            response = self._make_request(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             

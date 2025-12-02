@@ -26,6 +26,29 @@ except Exception as e:
     logging.getLogger(__name__).warning(f"Could not import Finnhub helper: {e}")
 
 try:
+    from python.alpha_vantage_helper import (
+        fetch_intraday as av_fetch_intraday,
+        fetch_daily as av_fetch_daily,
+        check_rate_limit,
+        get_remaining_calls
+    )
+    AV_AVAILABLE = True
+except ImportError:
+    av_fetch_intraday = None
+    av_fetch_daily = None
+    check_rate_limit = None
+    get_remaining_calls = None
+    AV_AVAILABLE = False
+except Exception as e:
+    av_fetch_intraday = None
+    av_fetch_daily = None
+    check_rate_limit = None
+    get_remaining_calls = None
+    AV_AVAILABLE = False
+    import logging
+    logging.getLogger(__name__).warning(f"Could not import Alpha Vantage helper: {e}")
+
+try:
     import yfinance as yf
     from python.yfinance_helper import validate_date_range
     YF_AVAILABLE = True
@@ -83,6 +106,8 @@ def fetch_intraday_data(
         return _fetch_ccxt(symbols, start, end, interval)
     elif source == "finnhub":
         return _fetch_finnhub(symbols, start, end, interval)
+    elif source == "alpha_vantage":
+        return _fetch_alpha_vantage(symbols, start, end, interval)
     elif source == "yfinance":
         return _fetch_yfinance(symbols, start, end, interval)
     else:
@@ -502,6 +527,134 @@ def _fetch_finnhub(symbols: List[str], start: str, end: str, interval: str) -> p
             f"  • No API key required for public data\n"
             f"  • Better coverage for crypto markets"
         )
+    
+    combined = pd.concat(all_data, ignore_index=True)
+    combined = combined.set_index(['timestamp', 'symbol']).sort_index()
+    return combined
+
+
+def _fetch_alpha_vantage(symbols: List[str], start: str, end: str, interval: str) -> pd.DataFrame:
+    """Fetch data from Alpha Vantage with rate limiting."""
+    if not AV_AVAILABLE or av_fetch_intraday is None:
+        raise ImportError(
+            "Alpha Vantage helper not available. This could be due to:\n"
+            "1. Missing api_keys.properties file\n"
+            "2. Invalid ALPHA_VANTAGE_API_KEY in api_keys.properties\n"
+            "3. Missing requests library\n"
+            "Please check your configuration and try 'Yahoo Finance' or 'CCXT' instead."
+        )
+    
+    # Check rate limits before starting
+    can_call, message = check_rate_limit()  # type: ignore
+    if not can_call:
+        raise RuntimeError(
+            f"⚠️ Alpha Vantage rate limit exceeded: {message}\n\n"
+            f"Free tier limitations:\n"
+            f"  • 25 API calls per day\n"
+            f"  • 5 API calls per minute\n"
+            f"  • Limit resets at midnight UTC\n\n"
+            f"💡 Alternatives:\n"
+            f"  • Use Yahoo Finance (unlimited, no API key)\n"
+            f"  • Use CCXT for crypto (unlimited, no API key)\n"
+            f"  • Wait for rate limit reset\n"
+            f"  • Upgrade to paid Alpha Vantage plan"
+        )
+    
+    # Get remaining calls
+    daily_remaining, minute_remaining = get_remaining_calls()  # type: ignore
+    
+    # Warn if fetching too many symbols
+    if len(symbols) > daily_remaining:
+        raise RuntimeError(
+            f"⚠️ Too many symbols requested!\n"
+            f"Requested: {len(symbols)} symbols\n"
+            f"Available: {daily_remaining} API calls remaining today\n\n"
+            f"💡 Solutions:\n"
+            f"  • Reduce number of symbols to {daily_remaining} or less\n"
+            f"  • Use saved datasets from previous fetches\n"
+            f"  • Switch to Yahoo Finance or CCXT\n"
+            f"  • Wait until tomorrow for limit reset"
+        )
+    
+    if len(symbols) > minute_remaining:
+        print(
+            f"⏳ Note: Fetching {len(symbols)} symbols will take at least "
+            f"{(len(symbols) - minute_remaining) * 12} seconds due to rate limiting (5 calls/minute max)"
+        )
+    
+    # Map interval to Alpha Vantage format
+    av_interval_map = {
+        '1m': '1min',
+        '5m': '5min',
+        '15m': '15min',
+        '30m': '30min',
+        '1h': '60min',
+        '60m': '60min',
+    }
+    av_interval = av_interval_map.get(interval, '5min')
+    
+    # Use daily endpoint for daily data
+    use_daily = interval in ['1d', 'daily']
+    
+    all_data = []
+    
+    for i, symbol in enumerate(symbols):
+        try:
+            # Check rate limit before each call
+            can_call, message = check_rate_limit()  # type: ignore
+            if not can_call:
+                print(f"⚠️ Rate limit reached after {i} symbols: {message}")
+                break
+            
+            if use_daily:
+                df = av_fetch_daily(symbol, outputsize='compact')  # type: ignore
+            else:
+                df = av_fetch_intraday(symbol, interval=av_interval)  # type: ignore
+            
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                # Alpha Vantage helper returns: timestamp, open, high, low, close, volume
+                df['symbol'] = symbol
+                all_data.append(df[['timestamp', 'symbol', 'open', 'high', 'low', 'close', 'volume']])
+                print(f"✅ Fetched {len(df)} points for {symbol} ({i+1}/{len(symbols)})")
+            else:
+                print(f"⚠️ No data returned for {symbol}")
+            
+            # Rate limiting: wait 12 seconds between calls (5 calls/minute max)
+            if i < len(symbols) - 1:
+                print(f"⏳ Waiting 12 seconds (rate limit: 5 calls/minute)...")
+                time.sleep(12)
+                
+        except RuntimeError as e:
+            # Rate limit or other runtime errors
+            if "Rate limit" in str(e):
+                print(f"❌ Rate limit reached after {i} symbols")
+                break
+            else:
+                print(f"Warning: Failed to fetch {symbol}: {e}")
+        except Exception as e:
+            print(f"Warning: Failed to fetch {symbol} from Alpha Vantage: {e}")
+    
+    if not all_data:
+        raise ValueError(
+            f"❌ Failed to fetch data from Alpha Vantage for symbols: {symbols}\n"
+            f"Possible reasons:\n"
+            f"  • Invalid API key in api_keys.properties\n"
+            f"  • Symbols not available (use stock tickers like 'AAPL', 'MSFT')\n"
+            f"  • Rate limits exceeded (25 calls/day, 5 calls/minute)\n"
+            f"  • Invalid date range or interval\n\n"
+            f"💡 Recommended alternatives:\n"
+            f"  • Yahoo Finance: unlimited stock data, no API key\n"
+            f"  • CCXT: unlimited crypto data, no API key\n"
+            f"  • Reduce number of symbols and try again"
+        )
+    
+    # Update session state with API call count
+    try:
+        import streamlit as st
+        if 'av_calls_today' in st.session_state:
+            st.session_state.av_calls_today += len(all_data)
+    except:
+        pass  # Not in Streamlit context
     
     combined = pd.concat(all_data, ignore_index=True)
     combined = combined.set_index(['timestamp', 'symbol']).sort_index()

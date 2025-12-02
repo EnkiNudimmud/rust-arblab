@@ -20,6 +20,7 @@ connector_binance = { path = "../rust_core/connectors/binance" }
 connector_kraken = { path = "../rust_core/connectors/kraken" }
 connector_coinbase = { path = "../rust_core/connectors/coinbase" }
 connector_coingecko = { path = "../rust_core/connectors/coingecko" }
+# connector_alpha_vantage = { path = "../rust_core/connectors/alpha_vantage" }  # Using Python helper directly
 serde_json = "1.0"
 log = "0.4"
 env_logger = "0.10"

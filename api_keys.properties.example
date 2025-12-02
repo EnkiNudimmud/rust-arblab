@@ -8,6 +8,10 @@
 # Finnhub API Key (get free key at https://finnhub.io/register)
 FINNHUB_API_KEY=
 
+# Alpha Vantage API Key (get free key at https://www.alphavantage.co/support/#api-key)
+# Free tier: 25 API calls per day, 5 calls per minute
+ALPHA_VANTAGE_API_KEY=
+
 # Binance API Credentials (for authenticated endpoints)
 BINANCE_API_KEY=
 BINANCE_API_SECRET=

@@ -601,122 +601,133 @@ with tab4:
         if 'historical_data' in st.session_state and st.session_state.historical_data is not None:
             data = st.session_state.historical_data
             
-            # Get symbols
+            # Get symbols from loaded data
             if isinstance(data, dict):
-                available_symbols = list(data.keys())[:5]  # Limit to 5
+                available_symbols = list(data.keys())
+            elif isinstance(data, pd.DataFrame):
+                if 'symbol' in data.columns:
+                    available_symbols = sorted(data['symbol'].unique().tolist())
+                else:
+                    # Single asset data - use a generic name
+                    available_symbols = ['Asset_1']
             else:
-                available_symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
+                st.error("⚠️ Unsupported data format. Please reload data from Data Loader.")
+                available_symbols = []
             
-            selected_assets = st.multiselect(
-                "Select assets for portfolio",
-                available_symbols,
-                default=available_symbols[:3] if len(available_symbols) >= 3 else available_symbols
-            )
-            
-            if len(selected_assets) < 2:
-                st.warning("⚠️ Select at least 2 assets for portfolio optimization")
+            if len(available_symbols) == 0:
+                st.warning("⚠️ No symbols found in loaded data. Please load data from Data Loader first.")
             else:
-                # Choose computation method
-                use_rust = RUST_SIG_AVAILABLE
-                if not use_rust:
-                    st.info("💡 Using Python implementation (slower). Rust backend available after rebuild.")
-                    
-                if st.button("🚀 Compute Signature-Based Portfolio", type="primary"):
-                    with st.spinner("Computing signatures and optimizing with Rust backend..." if use_rust else "Computing signatures and optimizing..."):
-                        # Simplified demo (full version in notebook)
-                        n_assets = len(selected_assets)
+                selected_assets = st.multiselect(
+                    "Select assets for portfolio",
+                    available_symbols,
+                    default=available_symbols[:min(5, len(available_symbols))],
+                    help=f"{len(available_symbols)} assets available from loaded data"
+                )
+                
+                if len(selected_assets) < 2:
+                    st.warning("⚠️ Select at least 2 assets for portfolio optimization")
+                else:
+                    # Choose computation method
+                    use_rust = RUST_SIG_AVAILABLE
+                    if not use_rust:
+                        st.info("💡 Using Python implementation (slower). Rust backend available after rebuild.")
                         
-                        # Generate sample returns (in production, use real data)
-                        np.random.seed(42)
-                        sample_returns = np.random.randn(100, n_assets) * 0.02
-                        sample_prices = 100 * np.exp(np.cumsum(sample_returns, axis=0))
-                        
-                        # Use Rust backend if available for signature computation
-                        if use_rust:
-                            try:
-                                from python.signature_methods import SignaturePortfolio
-                                
-                                # Initialize signature portfolio optimizer
-                                sig_portfolio = SignaturePortfolio(
-                                    signature_level=2,  # Truncate at level 2 for speed
-                                    risk_aversion=risk_aversion
-                                )
-                                
-                                # Optimize using Rust implementation (much faster!)
-                                optimal_weights = sig_portfolio.optimize_portfolio(
-                                    sample_returns.T,  # Shape: (n_assets, n_timesteps)
-                                    allow_short=False
-                                )
-                                
-                                # Compute metrics
-                                portfolio_returns = sample_returns @ optimal_weights
-                                metrics = sig_portfolio.compute_metrics(portfolio_returns)
-                                
-                                # Display results immediately
-                                st.success("✓ Optimization complete (Rust-accelerated)!")
-                                
-                                col_a, col_b, col_c, col_d = st.columns(4)
-                                with col_a:
-                                    st.metric("Total Return", f"{metrics['total_return']*100:.2f}%")
-                                with col_b:
-                                    st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.3f}")
-                                with col_c:
-                                    st.metric("Volatility", f"{metrics['volatility']*100:.2f}%")
-                                with col_d:
-                                    st.metric("Max Drawdown", f"{metrics['max_drawdown']*100:.2f}%")
-                                
-                                # Portfolio weights
-                                weights_df = pd.DataFrame({
-                                    'Asset': selected_assets,
-                                    'Weight (%)': optimal_weights * 100
-                                })
-                                
-                                st.markdown("##### Optimal Weights (Signature-Based)")
-                                st.dataframe(weights_df, use_container_width=True)
-                                
-                                # Visualize
-                                fig = go.Figure(data=[
-                                    go.Bar(x=selected_assets, y=optimal_weights * 100,
-                                          marker_color=['#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA'][:n_assets])
-                                ])
-                                
-                                fig.update_layout(
-                                    title="Signature-Based Portfolio Weights",
-                                    xaxis_title="Asset",
-                                    yaxis_title="Weight (%)",
-                                    template="plotly_dark",
-                                    showlegend=False
-                                )
-                                
-                                st.plotly_chart(fig, use_container_width=True)
-                                
-                                # Performance visualization
-                                cumulative_returns = np.cumprod(1 + portfolio_returns) - 1
-                                
-                                fig_perf = go.Figure()
-                                fig_perf.add_trace(go.Scatter(
-                                    x=list(range(len(cumulative_returns))),
-                                    y=cumulative_returns * 100,
-                                    mode='lines',
-                                    name='Portfolio',
-                                    line=dict(color='#4ECDC4', width=2)
-                                ))
-                                
-                                fig_perf.update_layout(
-                                    title="Cumulative Returns",
-                                    xaxis_title="Time",
-                                    yaxis_title="Return (%)",
-                                    template="plotly_dark",
-                                    hovermode='x unified'
-                                )
-                                
-                                st.plotly_chart(fig_perf, use_container_width=True)
-                                
-                                st.info("🎓 Full implementation with optimal stopping in notebook")
-                                
-                            except Exception as e:
-                                st.error(f"Rust computation failed: {e}. Falling back to Python...")
-                                use_rust = False
+                    if st.button("🚀 Compute Signature-Based Portfolio", type="primary"):
+                        with st.spinner("Computing signatures and optimizing with Rust backend..." if use_rust else "Computing signatures and optimizing..."):
+                            # Simplified demo (full version in notebook)
+                            n_assets = len(selected_assets)
+                            
+                            # Generate sample returns (in production, use real data)
+                            np.random.seed(42)
+                            sample_returns = np.random.randn(100, n_assets) * 0.02
+                            sample_prices = 100 * np.exp(np.cumsum(sample_returns, axis=0))
+                            
+                            # Use Rust backend if available for signature computation
+                            if use_rust:
+                                try:
+                                    from python.signature_methods import SignaturePortfolio
+                                    
+                                    # Initialize signature portfolio optimizer
+                                    sig_portfolio = SignaturePortfolio(
+                                        signature_level=2,  # Truncate at level 2 for speed
+                                        risk_aversion=risk_aversion
+                                    )
+                                    
+                                    # Optimize using Rust implementation (much faster!)
+                                    optimal_weights = sig_portfolio.optimize_portfolio(
+                                        sample_returns.T,  # Shape: (n_assets, n_timesteps)
+                                        allow_short=False
+                                    )
+                                    
+                                    # Compute metrics
+                                    portfolio_returns = sample_returns @ optimal_weights
+                                    metrics = sig_portfolio.compute_metrics(portfolio_returns)
+                                    
+                                    # Display results immediately
+                                    st.success("✓ Optimization complete (Rust-accelerated)!")
+                                    
+                                    col_a, col_b, col_c, col_d = st.columns(4)
+                                    with col_a:
+                                        st.metric("Total Return", f"{metrics['total_return']*100:.2f}%")
+                                    with col_b:
+                                        st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.3f}")
+                                    with col_c:
+                                        st.metric("Volatility", f"{metrics['volatility']*100:.2f}%")
+                                    with col_d:
+                                        st.metric("Max Drawdown", f"{metrics['max_drawdown']*100:.2f}%")
+                                    
+                                    # Portfolio weights
+                                    weights_df = pd.DataFrame({
+                                        'Asset': selected_assets,
+                                        'Weight (%)': optimal_weights * 100
+                                    })
+                                    
+                                    st.markdown("##### Optimal Weights (Signature-Based)")
+                                    st.dataframe(weights_df, use_container_width=True)
+                                    
+                                    # Visualize
+                                    fig = go.Figure(data=[
+                                        go.Bar(x=selected_assets, y=optimal_weights * 100,
+                                              marker_color=['#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA'][:n_assets])
+                                    ])
+                                    
+                                    fig.update_layout(
+                                        title="Signature-Based Portfolio Weights",
+                                        xaxis_title="Asset",
+                                        yaxis_title="Weight (%)",
+                                        template="plotly_dark",
+                                        showlegend=False
+                                    )
+                                    
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    
+                                    # Performance visualization
+                                    cumulative_returns = np.cumprod(1 + portfolio_returns) - 1
+                                    
+                                    fig_perf = go.Figure()
+                                    fig_perf.add_trace(go.Scatter(
+                                        x=list(range(len(cumulative_returns))),
+                                        y=cumulative_returns * 100,
+                                        mode='lines',
+                                        name='Portfolio',
+                                        line=dict(color='#4ECDC4', width=2)
+                                    ))
+                                    
+                                    fig_perf.update_layout(
+                                        title="Cumulative Returns",
+                                        xaxis_title="Time",
+                                        yaxis_title="Return (%)",
+                                        template="plotly_dark",
+                                        hovermode='x unified'
+                                    )
+                                    
+                                    st.plotly_chart(fig_perf, use_container_width=True)
+                                    
+                                    st.info("🎓 Full implementation with optimal stopping in notebook")
+                                    
+                                except Exception as e:
+                                    st.error(f"Rust computation failed: {e}. Falling back to Python...")
+                                    use_rust = False
                         
                         if not use_rust:
                             # Fallback to Python implementation

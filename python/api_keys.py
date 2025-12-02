@@ -70,6 +70,10 @@ def get_finnhub_key() -> Optional[str]:
     return get_api_key('FINNHUB_API_KEY')
 
 
+def get_alpha_vantage_key() -> Optional[str]:
+    return get_api_key('ALPHA_VANTAGE_API_KEY')
+
+
 def get_binance_credentials() -> tuple[Optional[str], Optional[str]]:
     return (get_api_key('BINANCE_API_KEY'), get_api_key('BINANCE_API_SECRET'))
 

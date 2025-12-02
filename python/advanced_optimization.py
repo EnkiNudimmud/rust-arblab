@@ -23,6 +23,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Try to import Rust optimizers
+try:
+    import rust_connector as rust_optimizers
+    RUST_AVAILABLE = True
+except ImportError:
+    RUST_AVAILABLE = False
+    rust_optimizers = None
+
 
 @dataclass
 class ParameterSpace:
@@ -59,9 +67,9 @@ class HMMRegimeDetector:
             n_states: Number of hidden states (market regimes)
         """
         self.n_states = n_states
-        self.transition_matrix = None
-        self.emission_params = None
-        self.state_sequence = None
+        self.transition_matrix: Optional[np.ndarray] = None
+        self.emission_params: Optional[List] = None  # Can be list or dict
+        self.state_sequence: Optional[np.ndarray] = None
         
     def fit(self, returns: np.ndarray, n_iterations: int = 100):
         """
@@ -74,7 +82,7 @@ class HMMRegimeDetector:
         # Try Rust implementation first
         if RUST_AVAILABLE:
             try:
-                hmm_params = rust_optimizers.fit_hmm(
+                hmm_params = rust_optimizers.fit_hmm(  # type: ignore
                     returns.tolist(),
                     n_states=self.n_states,
                     n_bins=10,
@@ -86,7 +94,7 @@ class HMMRegimeDetector:
                 self.emission_params = hmm_params['emission_matrix']
                 
                 # Decode state sequence
-                self.state_sequence = rust_optimizers.viterbi_decode(
+                self.state_sequence = rust_optimizers.viterbi_decode(  # type: ignore
                     returns.tolist(),
                     hmm_params,
                     n_bins=10
@@ -148,13 +156,13 @@ class HMMRegimeDetector:
         # t=1 to T-1
         for t in range(1, n_obs):
             for s in range(self.n_states):
-                alpha[t, s] = np.sum(alpha[t-1, :] * self.transition_matrix[:, s]) * \
-                              self._emission_prob(returns[t], s)
+                alpha[t, s] = np.sum(alpha[t-1, :] * self.transition_matrix[:, s]) * self._emission_prob(returns[t], s)  # type: ignore
         
         return alpha
     
     def _backward(self, returns: np.ndarray) -> np.ndarray:
         """Backward algorithm"""
+        assert self.transition_matrix is not None, "Model not fitted"
         n_obs = len(returns)
         beta = np.zeros((n_obs, self.n_states))
         
@@ -179,6 +187,7 @@ class HMMRegimeDetector:
     
     def _compute_xi(self, returns: np.ndarray, alpha: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """Compute P(state_t, state_t+1 | observations)"""
+        assert self.transition_matrix is not None, "Model not fitted"
         n_obs = len(returns)
         xi = np.zeros((n_obs - 1, self.n_states, self.n_states))
         
@@ -195,6 +204,8 @@ class HMMRegimeDetector:
     
     def _update_parameters(self, returns: np.ndarray, gamma: np.ndarray, xi: np.ndarray):
         """M-step: Update transition and emission parameters"""
+        assert self.transition_matrix is not None, "Model not fitted"
+        assert self.emission_params is not None, "Model not fitted"
         # Update transition matrix
         for i in range(self.n_states):
             for j in range(self.n_states):
@@ -210,7 +221,7 @@ class HMMRegimeDetector:
     
     def _emission_prob(self, observation: float, state: int) -> float:
         """Emission probability: P(observation | state)"""
-        mean, var = self.emission_params[state]
+        mean, var = self.emission_params[state]  # type: ignore
         return norm.pdf(observation, mean, np.sqrt(var))
     
     def _viterbi(self, returns: np.ndarray) -> np.ndarray:
@@ -227,7 +238,7 @@ class HMMRegimeDetector:
         # Recursion
         for t in range(1, n_obs):
             for s in range(self.n_states):
-                candidates = delta[t-1, :] + np.log(self.transition_matrix[:, s] + 1e-10)
+                candidates = delta[t-1, :] + np.log(self.transition_matrix[:, s] + 1e-10)  # type: ignore
                 psi[t, s] = np.argmax(candidates)
                 delta[t, s] = candidates[psi[t, s]] + np.log(self._emission_prob(returns[t], s) + 1e-10)
         
@@ -250,8 +261,7 @@ class HMMRegimeDetector:
         # Compute probabilities for each state
         probs = np.zeros(self.n_states)
         for s in range(self.n_states):
-            probs[s] = self.transition_matrix[last_state, s] * \
-                      self._emission_prob(recent_returns[-1], s)
+            probs[s] = self.transition_matrix[last_state, s] * self._emission_prob(recent_returns[-1], s)  # type: ignore
         
         return np.argmax(probs)
     
@@ -264,7 +274,7 @@ class HMMRegimeDetector:
         - Bear market (negative returns): Defensive, tighter stops
         - Sideways (low volatility): Mean reversion focus
         """
-        mean, var = self.emission_params[regime]
+        mean, var = self.emission_params[regime]  # type: ignore
         volatility = np.sqrt(var)
         
         adjusted_params = base_params.copy()

@@ -82,8 +82,8 @@ def test_websocket_data_flow():
             return True
         else:
             snapshot = connector.latest_snapshot()
-            if snapshot and hasattr(snapshot, 'bids') and snapshot.bids:
-                print(f"   ✅ Snapshot cached (bid: {snapshot.bids[0][0]})")
+            if isinstance(snapshot, dict) and snapshot.get('bids'):
+                print(f"   ✅ Snapshot cached (bid: {snapshot['bids'][0][0]})")
                 return True
             else:
                 print("   ❌ No updates received and no snapshot")
@@ -117,19 +117,18 @@ def test_data_extraction():
         
         if snapshot:
             # Test extraction logic
-            if hasattr(snapshot, 'bids') and hasattr(snapshot, 'asks'):
-                if snapshot.bids and snapshot.asks:
-                    bid = float(snapshot.bids[0][0])
-                    ask = float(snapshot.asks[0][0])
-                    mid = (bid + ask) / 2
-                    spread = ask - bid
-                    
-                    print(f"   ✓ Bid: ${bid:,.2f}")
-                    print(f"   ✓ Ask: ${ask:,.2f}")
-                    print(f"   ✓ Mid: ${mid:,.2f}")
-                    print(f"   ✓ Spread: ${spread:.2f}")
-                    print("   ✅ Data extraction successful")
-                    return True
+            if isinstance(snapshot, dict) and snapshot.get('bids') and snapshot.get('asks'):
+                bid = float(snapshot['bids'][0][0])
+                ask = float(snapshot['asks'][0][0])
+                mid = (bid + ask) / 2
+                spread = ask - bid
+                
+                print(f"   ✓ Bid: ${bid:,.2f}")
+                print(f"   ✓ Ask: ${ask:,.2f}")
+                print(f"   ✓ Mid: ${mid:,.2f}")
+                print(f"   ✓ Spread: ${spread:.2f}")
+                print("   ✅ Data extraction successful")
+                return True
         
         print("   ❌ No data available for extraction")
         return False

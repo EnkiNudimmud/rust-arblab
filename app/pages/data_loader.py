@@ -368,6 +368,7 @@ def render_fetch_tab():
                 "CCXT - Crypto Exchanges (FREE! ⭐)", 
                 "Yahoo Finance", 
                 "Finnhub (API)", 
+                "Alpha Vantage (API - FREE 25 calls/day)",
                 "Upload CSV", 
                 "Mock/Synthetic"
             ],
@@ -391,6 +392,59 @@ def render_fetch_tab():
             st.info(
                 f"✅ Using {exchange_id.title()} - FREE public data, no API key needed!\\n"
                 f"Supports second-level historical data for crypto pairs."
+            )
+        
+        # Alpha Vantage rate limit warnings
+        if data_source.startswith("Alpha Vantage"):
+            # Initialize rate limit tracking in session state
+            if 'av_calls_today' not in st.session_state:
+                st.session_state.av_calls_today = 0
+                st.session_state.av_last_reset = datetime.now().date()
+            
+            # Reset daily counter if new day
+            if st.session_state.av_last_reset < datetime.now().date():
+                st.session_state.av_calls_today = 0
+                st.session_state.av_last_reset = datetime.now().date()
+            
+            # Display rate limit status
+            calls_remaining = 25 - st.session_state.av_calls_today
+            
+            if calls_remaining > 15:
+                st.info(
+                    f"📊 **Alpha Vantage Free Tier Status:**\\n"
+                    f"✅ {calls_remaining}/25 API calls remaining today\\n"
+                    f"⏱️ Rate limit: 5 calls/minute (12 sec between calls)\\n"
+                    f"💡 Upgrade at alphavantage.co for more calls"
+                )
+            elif calls_remaining > 5:
+                st.warning(
+                    f"⚠️ **Alpha Vantage Free Tier Status:**\\n"
+                    f"🔶 {calls_remaining}/25 API calls remaining today\\n"
+                    f"⏱️ Rate limit: 5 calls/minute (12 sec between calls)\\n"
+                    f"💡 Use wisely - limit resets at midnight UTC"
+                )
+            elif calls_remaining > 0:
+                st.error(
+                    f"🚨 **Alpha Vantage Free Tier Status:**\\n"
+                    f"🔴 Only {calls_remaining}/25 API calls left today!\\n"
+                    f"⏱️ Rate limit: 5 calls/minute (12 sec between calls)\\n"
+                    f"⚠️ Daily limit resets at midnight UTC"
+                )
+            else:
+                st.error(
+                    f"🚫 **Alpha Vantage Daily Limit Reached!**\\n"
+                    f"❌ 0/25 API calls remaining\\n"
+                    f"⏰ Limit resets at midnight UTC\\n"
+                    f"💡 Use Yahoo Finance or CCXT as alternative"
+                )
+            
+            # Show recommendation for symbol limits
+            st.info(
+                "💡 **Free Tier Tips:**\\n"
+                "• Fetch 1-5 symbols at a time to stay within limits\\n"
+                "• Use 'compact' output (last 100 points)\\n"
+                "• Save datasets for reuse to avoid re-fetching\\n"
+                "• Consider Yahoo Finance for unlimited stock data"
             )
         
         # Symbol selection
@@ -683,6 +737,7 @@ def render_fetch_tab():
                         'ccxt': 'ccxt',
                         'yahoo': 'yfinance',
                         'finnhub': 'finnhub',
+                        'alpha': 'alpha_vantage',
                         'mock': 'synthetic',
                         'upload': 'synthetic'
                     }
@@ -771,6 +826,11 @@ def render_fetch_tab():
               - Best for crypto trading strategies
             - **Yahoo Finance**: Free historical data (stocks & major crypto)
             - **Finnhub**: Real-time & historical via API (requires key)
+            - **Alpha Vantage**: FREE 25 API calls/day (stocks, forex, crypto)
+              - ⚠️ Free tier: 5 calls/minute, 25 calls/day
+              - Real-time quotes (15-20 min delay)
+              - Intraday & daily historical data
+              - Requires free API key from alphavantage.co
             - **CSV Upload**: Custom data files
             - **Mock**: Synthetic data for testing
             """)

@@ -33,7 +33,7 @@ def test_rest_polling():
                     ob = connector.fetch_orderbook_sync(symbol)
                     
                     # Extract bid/ask
-                    if ob and ob.get('bids') and ob.get('asks'):
+                    if ob and isinstance(ob, dict) and ob.get('bids') and ob.get('asks'):
                         bid = ob['bids'][0][0]
                         ask = ob['asks'][0][0]
                         mid = (bid + ask) / 2
@@ -133,7 +133,10 @@ def test_websocket_streaming():
         
         print("Stopping stream...")
         if hasattr(connector, 'stop_stream'):
-            connector.stop_stream(symbol)
+            try:
+                connector.stop_stream(symbol)  # type: ignore
+            except:
+                pass  # Ignore errors on cleanup
         
         if len(received_data) > 0:
             print(f"\n✓ WebSocket: Received {len(received_data)} updates")
@@ -172,7 +175,7 @@ def test_multiple_symbols():
         for symbol in symbols:
             try:
                 ob = connector.fetch_orderbook_sync(symbol)
-                if ob and ob.get('bids') and ob.get('asks'):
+                if ob and isinstance(ob, dict) and ob.get('bids') and ob.get('asks'):
                     bid = ob['bids'][0][0]
                     ask = ob['asks'][0][0]
                     results[symbol] = {'bid': bid, 'ask': ask, 'status': 'ok'}

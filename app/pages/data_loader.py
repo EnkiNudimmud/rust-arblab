@@ -251,7 +251,7 @@ def render_saved_datasets_tab():
             
             with col3:
                 # Load button
-                if st.button("📤 Load", key=f"load_{ds['name']}", use_container_width=True):
+                if st.button("📤 Load", key=f"saved_load_{ds['name']}", use_container_width=True):
                     try:
                         result: tuple[pd.DataFrame, dict] = load_dataset(ds['name'])  # type: ignore
                         df, meta = result
@@ -275,7 +275,7 @@ def render_saved_datasets_tab():
                         st.error(f"Failed to load dataset: {e}")
                 
                 # Delete button
-                if st.button("🗑️ Delete", key=f"delete_{ds['name']}", use_container_width=True):
+                if st.button("🗑️ Delete", key=f"saved_delete_{ds['name']}", use_container_width=True):
                     if delete_dataset(ds['name']):
                         st.success(f"Deleted '{ds['name']}'")
                         st.rerun()
@@ -346,7 +346,7 @@ def render_fetch_tab():
                         )
                     
                     with col_ds2:
-                        if st.button("📂 Load", key=f"load_{dataset['name']}", use_container_width=True):
+                        if st.button("📂 Load", key=f"fetch_load_{dataset['name']}", use_container_width=True):
                             df = load_dataset(dataset['name'])
                             if df is not None:
                                 st.session_state.historical_data = df
@@ -355,7 +355,7 @@ def render_fetch_tab():
                                 st.rerun()
                     
                     with col_ds3:
-                        if st.button("🗑️ Delete", key=f"delete_{dataset['name']}", use_container_width=True):
+                        if st.button("🗑️ Delete", key=f"fetch_delete_{dataset['name']}", use_container_width=True):
                             if delete_dataset(dataset['name']):
                                 st.success(f"✅ Deleted {dataset['name']}")
                                 st.rerun()

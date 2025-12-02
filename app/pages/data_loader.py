@@ -243,7 +243,8 @@ def render_saved_datasets_tab():
                 # Load button
                 if st.button("📤 Load", key=f"load_{ds['name']}", use_container_width=True):
                     try:
-                        df, meta = load_dataset(ds['name'])
+                        result: tuple[pd.DataFrame, dict] = load_dataset(ds['name'])  # type: ignore
+                        df, meta = result
                         
                         # Option to stack or replace
                         if st.session_state.historical_data is not None and st.session_state.data_load_mode == "append":
@@ -751,7 +752,7 @@ def render_fetch_tab():
                         interval=interval,
                         source=internal_source,
                         exchange_id=exchange_id if data_source.startswith("CCXT") else None,
-                        load_mode=st.session_state.data_load_mode
+                        save_mode=st.session_state.data_load_mode
                     )
     
     with col2:
@@ -800,14 +801,21 @@ def render_fetch_tab():
                         "interval": st.session_state.get('interval', 'unknown'),
                         "symbols": st.session_state.symbols,
                     }
+                    date_range_tuple = None
                     if st.session_state.get('date_range'):
-                        metadata["date_range"] = {
-                            "start": st.session_state.date_range[0],
-                            "end": st.session_state.date_range[1]
-                        }
+                        date_range_tuple = (
+                            st.session_state.date_range[0],
+                            st.session_state.date_range[1]
+                        )
                     
-                    path = save_dataset(df, save_name, metadata)
-                    st.success(f"✅ Saved to: {path}")
+                    save_dataset(
+                        df, save_name,
+                        symbols=st.session_state.symbols or [],
+                        source=metadata.get('source', 'unknown'),
+                        date_range=date_range_tuple,
+                        append=False
+                    )
+                    st.success(f"✅ Saved as '{save_name}'")
                 except Exception as e:
                     st.error(f"Failed to save: {e}")
             
@@ -861,10 +869,10 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
                 )
             
             # Reset index to make it easier to work with
-            if isinstance(df.index, pd.MultiIndex):
-                df = df.reset_index()
+            if isinstance(new_df.index, pd.MultiIndex):
+                new_df = new_df.reset_index()
             
-            st.session_state.historical_data = df
+            st.session_state.historical_data = new_df
             st.session_state.symbols = symbols
             st.session_state.data_source = source
             st.session_state.date_range = (start, end)
@@ -874,13 +882,18 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             if exchange_id:
                 dataset_name = f"{exchange_id}_{dataset_name}"
             
-            append_mode = (save_mode == "append")
-            if save_dataset(df, dataset_name, symbols, display_source, (start, end), append=append_mode):
-                save_msg = "appended to existing dataset" if append_mode else "saved"
-                st.info(f"💾 Data {save_msg} as '{dataset_name}'")
+            # Auto-save dataset
+            save_dataset(
+                new_df, dataset_name,
+                symbols=symbols,
+                source=display_source,
+                date_range=(start, end),
+                append=(save_mode == "append")
+            )
+            st.info(f"💾 Data saved as '{dataset_name}'")
             
-            st.success(f"✅ Successfully loaded {len(df):,} records for {len(symbols)} symbols")
-            return df
+            st.success(f"✅ Successfully loaded {len(new_df):,} records for {len(symbols)} symbols")
+            return new_df
             
         except Exception as e:
             st.error(f"Failed to fetch data: {e}")

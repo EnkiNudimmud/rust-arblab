@@ -1,10 +1,34 @@
-use connectors_common::errors::ConnectorError;
 use connectors_common::retry::{with_retry, RetryConfig};
 use connectors_common::types::MarketTick;
 use log::info;
 use reqwest::Client;
-use std::time::Duration;
 use tokio::time::{sleep, Duration as TokioDuration};
+
+async fn fetch_price_once(
+    client: &Client,
+    url: &str,
+    id: &str,
+    vs: &str,
+    pair: &str,
+) -> Result<MarketTick, connectors_common::errors::ConnectorError> {
+    let resp = client.get(url).send().await
+        .map_err(|e| connectors_common::errors::ConnectorError::Network(e.to_string()))?;
+    let json: serde_json::Value = resp.json().await
+        .map_err(|e| connectors_common::errors::ConnectorError::Parse(e.to_string()))?;
+    
+    let price = json[id][vs].as_f64()
+        .ok_or_else(|| connectors_common::errors::ConnectorError::Parse(
+            format!("Failed to parse price for {}/{}", id, vs)
+        ))?;
+    
+    Ok(MarketTick {
+        exchange: "coingecko".to_string(),
+        pair: pair.to_string(),
+        bid: price,
+        ask: price,
+        ts: chrono::Utc::now().timestamp_millis() as u128,
+    })
+}
 
 pub async fn run_coingecko_poll(tx: tokio::sync::mpsc::Sender<MarketTick>, pairs: Vec<String>, interval_ms: u64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client = Client::new();

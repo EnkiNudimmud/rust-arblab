@@ -55,7 +55,7 @@ with tab1:
     if st.button("🚀 Simulate Paths", type="primary"):
         with st.spinner("Simulating rough volatility paths..."):
             try:
-                from python.rough_heston import simulate_rough_heston
+                from python.rough_heston import simulate_rough_heston  # type: ignore[import-not-found]
                 
                 # Simulate paths
                 dt = T / 252

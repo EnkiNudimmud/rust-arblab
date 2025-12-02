@@ -316,7 +316,7 @@ with st.expander("📉 **Mean Reversion Strategy**", expanded=False):
     **Z-Score Calculation:**
     """)
     st.latex(r"Z = \frac{P_t - \mu}{\sigma}")
-    st.markdown("""
+    st.markdown(r"""
     Where:
     - $P_t$ = Current price
     - $\mu$ = Moving average (mean)
@@ -358,7 +358,7 @@ with st.expander("📊 **Portfolio Optimization (Markowitz)**", expanded=False):
     st.markdown("**Sharpe Ratio:**")
     st.latex(r"SR = \frac{R_p - R_f}{\sigma_p}")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
     - $w_i$ = Weight of asset $i$
     - $R_i$ = Expected return of asset $i$
@@ -397,7 +397,7 @@ with st.expander("🌊 **Rough Heston Model**", expanded=False):
     st.markdown("**Rough Volatility Process:**")
     st.latex(r"V_t = V_0 + \frac{1}{\Gamma(\alpha)} \int_0^t (t-s)^{\alpha-1} \kappa(\theta - V_s)ds + \xi \int_0^t (t-s)^{\alpha-1} \sqrt{V_s} dW_s^V")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
     - $S_t$ = Asset price
     - $V_t$ = Instantaneous variance
@@ -445,7 +445,7 @@ with st.expander("🌀 **Chiarella Model (Agent-Based)**", expanded=False):
     st.markdown("*Noise Traders (random):*")
     st.latex(r"D_t^n = \epsilon_t \sim \mathcal{N}(0, \sigma_n^2)")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
     - $P^*$ = Fundamental value
     - $\gamma_f$, $\gamma_c$ = Agent aggressiveness parameters
@@ -517,7 +517,7 @@ with st.expander("📈 **PCA Arbitrage**", expanded=False):
     """)
     st.latex(r"\Sigma = V \Lambda V^T")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
     - $\Sigma$ = Covariance matrix of returns
     - $V$ = Eigenvectors (principal components)
@@ -598,7 +598,7 @@ with st.expander("💱 **Market Making**", expanded=False):
     st.markdown("**Spread Optimization:**")
     st.latex(r"\delta^* = \gamma \sigma^2 (T-t) + \frac{2}{\gamma} \ln(1 + \frac{\gamma}{k})")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
     - $s$ = Mid price
     - $\delta$ = Half-spread

@@ -409,7 +409,7 @@ fn cvar_drift_uncertainty(
 }
 
 /// Register portfolio drift uncertainty functions with Python module
-pub fn register_portfolio_drift(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_portfolio_drift(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPortfolioResult>()?;
     m.add_class::<PyLiquidationResult>()?;
     m.add_class::<PyTransitionResult>()?;

@@ -265,7 +265,7 @@ def fetch_ohlcv_range(
     while current_since < end_ms and iteration < max_iterations:
         iteration += 1
         try:
-            df_chunk = fetch_ohlcv_data(exchange, symbol, timeframe, current_since, max_per_request)
+            df_chunk = fetch_ohlcv_data(exchange, symbol, timeframe, current_since, max_per_request or 1000)
             
             if df_chunk.empty:
                 logger.warning(f"No more data available from {current_since}")
@@ -304,6 +304,9 @@ def fetch_ohlcv_range(
     ]
     
     logger.info(f"Successfully fetched {len(df_combined)} total candles")
+    # Ensure DataFrame return type
+    if isinstance(df_combined, pd.Series):
+        return pd.DataFrame(df_combined)
     return df_combined
 
 

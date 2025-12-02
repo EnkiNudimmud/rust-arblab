@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::time::{sleep, Duration as TokioDuration};
 use log::info;
 
-pub async fn run_coingecko_poll(mut tx: tokio::sync::mpsc::Sender<MarketTick>, pairs: Vec<String>, interval_ms: u64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_coingecko_poll(tx: tokio::sync::mpsc::Sender<MarketTick>, pairs: Vec<String>, interval_ms: u64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client = Client::new();
     let interval = TokioDuration::from_millis(interval_ms);
     loop {

@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use rust_core::options::{BlackScholesOption, DeltaHedgingStrategy, Greeks};
+use rust_core::options::{BlackScholesOption, DeltaHedgingStrategy};
 
 #[pyclass(name = "BlackScholesOption")]
 #[derive(Clone)]
@@ -155,7 +155,7 @@ impl PyDeltaHedgingStrategy {
     }
 }
 
-pub fn register_options(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_options(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyBlackScholesOption>()?;
     m.add_class::<PyDeltaHedgingStrategy>()?;
     

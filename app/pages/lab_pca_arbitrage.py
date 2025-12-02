@@ -69,12 +69,12 @@ with tab1:
     st.markdown("### Principal Component Analysis")
     
     # Prepare data
-    if 'symbol' in data.columns:
+    if data is not None and 'symbol' in data.columns:
         # Long format - pivot to wide
         price_data = data.pivot(index='timestamp', columns='symbol', values='close')
-    else:
+    elif data is not None:
         # Already wide format
-        price_data = data.select_dtypes(include=[np.number])
+        price_data = data.select_dtypes(include=[np.number]) if data is not None else pd.DataFrame()
     
     # Calculate returns
     returns = price_data.pct_change().dropna()
@@ -416,14 +416,14 @@ with tab4:
                 
                 # Construct factor portfolio (top 5 positive, top 5 negative)
                 top_assets = np.argsort(np.abs(loadings))[-5:]
-                factor_portfolio = returns.iloc[:, top_assets].mean(axis=1)
+                factor_portfolio = returns.iloc[:, top_assets].mean(axis=1)  # type: ignore[call-overload]
                 
                 # Apply signals
                 strategy_returns = signals.shift(1) * factor_portfolio
                 
                 # Calculate metrics
                 cumulative_strategy = (1 + strategy_returns).cumprod()
-                cumulative_buy_hold = (1 + factor_portfolio).cumprod()
+                cumulative_buy_hold = (1 + factor_portfolio).cumprod()  # type: ignore[attr-defined]
                 
                 total_return = cumulative_strategy.iloc[-1] - 1
                 buy_hold_return = cumulative_buy_hold.iloc[-1] - 1

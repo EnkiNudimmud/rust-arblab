@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::PyDict;
 use rust_core::signature_portfolio;
 
 /// Compute path signature up to specified level
@@ -124,7 +124,7 @@ fn randomized_signature_features(
 }
 
 /// Register signature portfolio functions with Python module
-pub fn register_signature_portfolio(py: Python, parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_signature_portfolio(_py: Python, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_function(wrap_pyfunction!(compute_signature, parent)?)?;
     parent.add_function(wrap_pyfunction!(compute_log_signature, parent)?)?;
     parent.add_function(wrap_pyfunction!(expected_signature, parent)?)?;

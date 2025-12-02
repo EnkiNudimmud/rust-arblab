@@ -86,7 +86,7 @@ impl OrderBookSide {
         let mut fills = Vec::new();
         if let Some(queue) = self.levels.get_mut(&OrderedFloat(price)) {
             while qty > 0.0 {
-                if let Some(mut o) = queue.front().cloned() {
+                if let Some(o) = queue.front().cloned() {
                     let take = Qty::min(o.qty, qty);
                     filled += take;
                     cost += take * price;

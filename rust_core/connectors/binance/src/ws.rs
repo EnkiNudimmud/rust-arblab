@@ -1,12 +1,12 @@
 use connectors_common::types::MarketTick;
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::connect_async;
 use tungstenite::Message;
 use serde_json::Value;
 use log::{info, warn};
 
-pub async fn run_binance_ws(mut tx: Sender<MarketTick>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_binance_ws(tx: Sender<MarketTick>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = "wss://stream.binance.com:9443/ws/!miniTicker@arr";
     info!("Connecting to {}", url);
     let (ws_stream, _) = connect_async(url).await?;

@@ -2,16 +2,16 @@
 # Async-aware bridge that prefers the Rust implementation when available.
 # Presents the same API used by the Streamlit UI and notebooks.
 
-from typing import Any, List
+from typing import Any, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 try:
-    import rust_connector  # type: ignore
+    import rust_connector  # type: ignore[import-not-found]
     RUST_AVAILABLE = True
     logger.info("rust_connector available")
 except Exception as e:
-    rust_connector = None
+    rust_connector = None  # type: ignore[assignment]
     RUST_AVAILABLE = False
     logger.warning("rust_connector not available: %s", e)
 
@@ -21,14 +21,12 @@ def list_connectors() -> List[str]:
     
     if RUST_AVAILABLE and hasattr(rust_connector, "list_connectors"):
         try:
-            base_connectors = rust_connector.list_connectors()
+            base_connectors = rust_connector.list_connectors()  # type: ignore[union-attr]
         except Exception:
             logger.exception("rust list_connectors failed")
     
     # Add authenticated and external connectors
     return base_connectors + ["binance_auth", "coinbase_auth", "kraken_auth", "finnhub"]
-
-from typing import Optional
 
 
 def get_connector(name: str, api_key: Optional[str] = None, api_secret: Optional[str] = None, 
@@ -65,7 +63,7 @@ def get_connector(name: str, api_key: Optional[str] = None, api_secret: Optional
     # Standard Rust connectors
     if RUST_AVAILABLE and hasattr(rust_connector, "get_connector"):
         try:
-            conn = rust_connector.get_connector(name)
+            conn = rust_connector.get_connector(name)  # type: ignore[union-attr]
             # Best-effort: try setting credentials if the Rust-side connector exposes a setter.
             if api_key or api_secret:
                 try:
@@ -121,7 +119,7 @@ def get_connector(name: str, api_key: Optional[str] = None, api_secret: Optional
 def compute_dex_cex_arbitrage(ob_cex: Any, ob_dex: Any, fee_cex: float = 0.001, fee_dex: float = 0.002):
     if RUST_AVAILABLE and hasattr(rust_connector, "compute_dex_cex_arbitrage"):
         try:
-            return rust_connector.compute_dex_cex_arbitrage(ob_cex, ob_dex, fee_cex, fee_dex)
+            return rust_connector.compute_dex_cex_arbitrage(ob_cex, ob_dex, fee_cex, fee_dex)  # type: ignore[union-attr]
         except Exception:
             logger.exception("rust compute_dex_cex_arbitrage failed")
     # fallback python

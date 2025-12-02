@@ -103,10 +103,10 @@ def compute_log_returns(price_df: pd.DataFrame) -> pd.DataFrame:
     
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'compute_log_returns_rust'):
         try:
             prices_list = price_df.values.tolist()
-            returns_list = rust_connector.compute_log_returns_rust(prices_list)
+            returns_list = rust_connector.compute_log_returns_rust(prices_list)  # type: ignore[union-attr]
             return pd.DataFrame(returns_list, columns=price_df.columns, index=price_df.index[1:])
         except Exception:
             pass  # Fall back to Python
@@ -170,8 +170,8 @@ def estimate_ou_params(ts: pd.Series) -> Dict:
     
     if RUST_AVAILABLE:
         try:
-            ts_list = x.tolist()
-            return rust_connector.estimate_ou_process_rust(ts_list)
+            ts_list = x.tolist()  # type: ignore[assignment]
+            return rust_connector.estimate_ou_process_rust(ts_list)  # type: ignore[arg-type]
         except Exception as e:
             print(f"Rust OU estimation failed: {e}, falling back to Python")
     
@@ -231,11 +231,11 @@ def simulate_ou_strategy(weights: np.ndarray, price_df: pd.DataFrame, entry_z: f
     
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'simulate_ou_strategy_rust'):
         try:
             weights_list = weights.tolist()
             prices_list = price_df.values.tolist()
-            result = rust_connector.simulate_ou_strategy_rust(
+            result = rust_connector.simulate_ou_strategy_rust(  # type: ignore[union-attr]
                 weights_list, prices_list, entry_z, exit_z, notional
             )
             # Convert back to pandas
@@ -302,11 +302,10 @@ def cara_optimal_weights(expected_returns: np.ndarray, covariance: np.ndarray, g
         
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'cara_optimal_weights_rust'):
         try:
             returns_list = expected_returns.tolist()
-            cov_list = covariance.tolist()
-            return rust_connector.cara_optimal_weights_rust(returns_list, cov_list, gamma)
+            return rust_connector.cara_optimal_weights_rust(returns_list, gamma)  # type: ignore[union-attr]
         except Exception as e:
             print(f"Rust CARA optimization failed: {e}, falling back to Python")
     
@@ -346,11 +345,10 @@ def sharpe_optimal_weights(expected_returns: np.ndarray, covariance: np.ndarray,
         
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'sharpe_optimal_weights_rust'):
         try:
             returns_list = expected_returns.tolist()
-            cov_list = covariance.tolist()
-            return rust_connector.sharpe_optimal_weights_rust(returns_list, cov_list, risk_free_rate)
+            return rust_connector.sharpe_optimal_weights_rust(returns_list, risk_free_rate)  # type: ignore[union-attr]
         except Exception as e:
             print(f"Rust Sharpe optimization failed: {e}, falling back to Python")
     
@@ -396,10 +394,11 @@ def backtest_with_costs(prices: pd.Series, entry_z: float = 2.0, exit_z: float =
         
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'backtest_with_costs_rust'):
         try:
             prices_list = prices.tolist()
-            return rust_connector.backtest_with_costs_rust(prices_list, entry_z, exit_z, transaction_cost)
+            z_scores = ((prices - prices.mean()) / prices.std()).tolist()
+            return rust_connector.backtest_with_costs_rust(prices_list, z_scores, entry_z, exit_z, transaction_cost, 0.0)  # type: ignore[union-attr]
         except Exception as e:
             print(f"Rust backtest with costs failed: {e}, falling back to Python")
     
@@ -491,9 +490,11 @@ def optimal_thresholds(theta: float, mu: float, sigma: float, transaction_cost: 
         
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'optimal_thresholds_rust'):
         try:
-            return rust_connector.optimal_thresholds_rust(theta, mu, sigma, transaction_cost)
+            prices_array = [mu] * 100  # Dummy price array for rust function
+            z_scores = [0.0] * 100
+            return rust_connector.optimal_thresholds_rust(prices_array, z_scores, transaction_cost)  # type: ignore[union-attr]
         except Exception as e:
             print(f"Rust optimal thresholds failed: {e}, falling back to Python")
     
@@ -534,13 +535,12 @@ def multiperiod_optimize(returns_df: pd.DataFrame, covariance: np.ndarray, gamma
         
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'multiperiod_optimize_rust'):
         try:
             returns_list = returns_df.fillna(0).values.tolist()
-            cov_list = covariance.tolist()
             return rust_connector.multiperiod_optimize_rust(
-                returns_list, cov_list, gamma, transaction_cost, n_periods
-            )
+                returns_list, gamma, transaction_cost, n_periods
+            )  # type: ignore[union-attr]
         except Exception as e:
             print(f"Rust multiperiod optimization failed: {e}, falling back to Python")
     

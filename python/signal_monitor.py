@@ -310,7 +310,7 @@ class SignalMonitor:
     def _save_alert_to_file(self, alert: Alert):
         """Save alert to JSON file."""
         try:
-            path = Path(self.alert_file)
+            path = Path(self.alert_file)  # type: ignore[arg-type]
             path.parent.mkdir(parents=True, exist_ok=True)
             
             # Append to file

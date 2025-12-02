@@ -65,7 +65,7 @@ def bs_price(S, K, T, r, D, sigma, is_call=True):
     else:
         return K * np.exp(-r*T) * norm_cdf(-d2) - S * np.exp(-D*T) * norm_cdf(-d1)
 
-def bs_delta(S, K, T, r, D, sigma, is_call=True):
+def bs_delta(S, K, T, r, D, sigma, is_call=True):  # type: ignore[no-redef]
     """Black-Scholes Delta"""
     if T <= 0:
         return 1.0 if (is_call and S > K) else (-1.0 if (not is_call and S < K) else 0.0)
@@ -77,7 +77,7 @@ def bs_delta(S, K, T, r, D, sigma, is_call=True):
     else:
         return -np.exp(-D*T) * norm_cdf(-d1)
 
-def bs_gamma(S, K, T, r, D, sigma):
+def bs_gamma(S, K, T, r, D, sigma):  # type: ignore[no-redef]
     """Black-Scholes Gamma (same for call and put)"""
     if T <= 0:
         return 0.0
@@ -85,7 +85,7 @@ def bs_gamma(S, K, T, r, D, sigma):
     d1 = bs_d1(S, K, T, r, D, sigma)
     return np.exp(-D*T) * norm_pdf(d1) / (S * sigma * np.sqrt(T))
 
-def bs_vega(S, K, T, r, D, sigma):
+def bs_vega(S, K, T, r, D, sigma):  # type: ignore[no-redef]
     """Black-Scholes Vega (per 1% volatility change)"""
     if T <= 0:
         return 0.0

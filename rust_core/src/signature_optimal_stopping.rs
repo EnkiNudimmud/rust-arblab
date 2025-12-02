@@ -4,7 +4,7 @@
 pub fn stopping_index(path: &[f64], win: usize, th: f64) -> usize {
     if path.is_empty() { return 0; }
     let n = path.len();
-    let mut best = n-1;
+    let best = n-1;
     for t in win..n {
         let w = &path[t-win..t];
         let x0 = w[0];

@@ -52,17 +52,17 @@ if st.session_state.historical_data is None or st.session_state.historical_data.
 data = st.session_state.historical_data
 
 # Handle multi-index data structure from data loader
-if isinstance(data.index, pd.MultiIndex):
+if data is not None and isinstance(data.index, pd.MultiIndex):
     # Reset index to get symbol and timestamp as columns
     data = data.reset_index()
 
 # Get list of unique symbols
-if 'symbol' in data.columns:
+if data is not None and 'symbol' in data.columns:
     available_symbols = data['symbol'].unique().tolist()
     st.success(f"✅ Data loaded: {len(data)} records, {len(available_symbols)} symbols")
 else:
-    available_symbols = [col for col in data.columns if col not in ['Date', 'date', 'timestamp', 'open', 'high', 'low', 'close', 'volume']]
-    st.success(f"✅ Data loaded: {len(data)} records, {len(available_symbols)} assets")
+    available_symbols = [col for col in data.columns if col not in ['Date', 'date', 'timestamp', 'open', 'high', 'low', 'close', 'volume']] if data is not None else []
+    st.success(f"✅ Data loaded: {len(data) if data is not None else 0} records, {len(available_symbols)} assets")
 
 # Sidebar parameters
 with st.sidebar:
@@ -95,13 +95,13 @@ with tab1:
     st.markdown("### Z-Score Mean Reversion Analysis")
     
     # Extract price data for selected symbol
-    if 'symbol' in data.columns:
+    if data is not None and 'symbol' in data.columns:
         # Multi-symbol data structure
         symbol_data = data[data['symbol'] == selected_symbol].copy()
         if 'timestamp' in symbol_data.columns:
             symbol_data = symbol_data.set_index('timestamp').sort_index()
         prices = symbol_data['close'].dropna()
-    elif selected_symbol in data.columns:
+    elif data is not None and selected_symbol in data.columns:
         # Single-column data structure
         prices = data[selected_symbol].dropna()
     else:
@@ -113,7 +113,7 @@ with tab1:
         st.stop()
     
     # Ensure prices are numeric
-    prices = pd.to_numeric(prices, errors='coerce').dropna()
+    prices = pd.to_numeric(prices, errors='coerce').dropna()  # type: ignore[union-attr]
     
     if len(prices) < window:
         st.error(f"Not enough data points. Need at least {window} points, got {len(prices)}")
@@ -194,8 +194,8 @@ with tab2:
         try:
             from python.meanrev import engle_granger_test
             
-            prices1 = data[selected_symbol].dropna()
-            prices2 = data[symbol2].dropna()
+            prices1 = data[selected_symbol].dropna() if data is not None else pd.Series()
+            prices2 = data[symbol2].dropna() if data is not None else pd.Series()
             
             # Align data
             common_idx = prices1.index.intersection(prices2.index)
@@ -316,7 +316,7 @@ with tab3:
                     rolling_std = pd.Series(prices).rolling(lookback).std().values
                     
                     # Z-score
-                    z_scores = (prices - rolling_mean) / (rolling_std + 1e-8)
+                    z_scores = (prices - rolling_mean) / (rolling_std + 1e-8)  # type: ignore[operator]
                     
                     # Generate signals
                     positions = np.zeros(len(prices))

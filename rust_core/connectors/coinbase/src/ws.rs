@@ -6,7 +6,7 @@ use tungstenite::Message;
 use serde_json::Value;
 use log::{info, warn};
 
-pub async fn run_coinbase_ws(mut tx: Sender<MarketTick>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_coinbase_ws(tx: Sender<MarketTick>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = "wss://ws-feed.pro.coinbase.com";
     info!("Connecting to {}", url);
     let (ws_stream, _) = connect_async(url).await?;

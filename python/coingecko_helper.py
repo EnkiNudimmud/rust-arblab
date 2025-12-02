@@ -218,11 +218,12 @@ class CoinGeckoAPI:
             # Calculate OHLC from close prices (approximation)
             # For better accuracy, use get_historical_ohlc
             df['open'] = df['close'].shift(1)
-            df['high'] = df[['open', 'close']].max(axis=1) * 1.002  # Approximate
-            df['low'] = df[['open', 'close']].min(axis=1) * 0.998   # Approximate
+            df['high'] = df[['open', 'close']].max(axis=1) * 1.002  # type: ignore[call-overload]  # Approximate
+            df['low'] = df[['open', 'close']].min(axis=1) * 0.998   # type: ignore[call-overload]  # Approximate
             df['open'] = df['open'].fillna(df['close'])
             
-            return df[['open', 'high', 'low', 'close', 'volume']]
+            result = df[['open', 'high', 'low', 'close', 'volume']]
+            return result if isinstance(result, pd.DataFrame) else pd.DataFrame(result)
             
         except Exception as e:
             logger.error(f"Failed to fetch market chart for {symbol}: {e}")

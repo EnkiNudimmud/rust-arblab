@@ -287,7 +287,7 @@ pub fn portfolio_transition(
     let mut trading_rates = Vec::with_capacity(n_steps);
     
     // Compute difference to rebalance
-    let mut delta: Vec<f64> = target_weights.iter()
+    let delta: Vec<f64> = target_weights.iter()
         .zip(initial_weights.iter())
         .map(|(t, i)| t - i)
         .collect();

@@ -538,8 +538,12 @@ def compute_pairs_trading(data: Dict, symbol_1: str, symbol_2: str, params: Dict
         
         # Cointegration test
         try:
-            coint_result = meanrev.cointegration_test(prices.iloc[:, 0], prices.iloc[:, 1])
-            p_value = coint_result.get('p_value', 1.0)
+            # Use Rust implementation if available
+            if hasattr(meanrev, 'cointegration_test_rust'):
+                coint_result = meanrev.cointegration_test_rust(prices.iloc[:, 0].tolist(), prices.iloc[:, 1].tolist())  # type: ignore[attr-defined]
+                p_value = coint_result.get('p_value', 1.0)
+            else:
+                p_value = 1.0
         except:
             p_value = 1.0
         
@@ -552,7 +556,7 @@ def compute_pairs_trading(data: Dict, symbol_1: str, symbol_2: str, params: Dict
             'beta': beta,
             'intercept': c,
             'p_value': p_value,
-            'trades': trades.sum() / 2  # Each trade involves entry + exit
+            'trades': (trades.sum() if hasattr(trades, 'sum') else 0) // 2  # type: ignore[operator] # Each trade involves entry + exit
         }
     
     except Exception as e:
@@ -1246,8 +1250,11 @@ def get_date_range_str(data) -> str:
         # Check if there's a timestamp column
         if 'timestamp' in data.columns:
             timestamps = pd.to_datetime(data['timestamp'])
-            start = timestamps.min().strftime("%Y-%m-%d")
-            end = timestamps.max().strftime("%Y-%m-%d")
+            start_ts = timestamps.min()  # type: ignore[call-overload]
+            end_ts = timestamps.max()  # type: ignore[call-overload]
+            # Access the Timestamp value directly (it's not callable)
+            start = pd.Timestamp(start_ts).strftime("%Y-%m-%d") if not pd.isna(start_ts) else "N/A"
+            end = pd.Timestamp(end_ts).strftime("%Y-%m-%d") if not pd.isna(end_ts) else "N/A"
             return f"{start} to {end}"
         
         # Check if index is datetime

@@ -301,7 +301,7 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
         
         while retry_count < max_retries and not success:
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(symbol)  # type: ignore[union-attr]
                 df = pd.DataFrame()
                 
                 # Use different methods based on interval and Yahoo's limitations

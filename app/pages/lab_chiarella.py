@@ -692,7 +692,7 @@ with tab3:
                     fundamental = pd.Series(fundamental).bfill().values
                     
                     # Compute mispricing and trend
-                    mispricing = prices - fundamental
+                    mispricing = prices - fundamental  # type: ignore[operator]
                     mispricing_pct = mispricing / fundamental
                     
                     # Estimate trend (moving average of returns)
@@ -703,7 +703,7 @@ with tab3:
                     Lambda = (active_beta_c * active_gamma) / (active_beta_f * 0.2) if active_beta_f > 0 else 1.0
                     
                     # Compute rolling volatility
-                    rolling_vol = pd.Series(returns).rolling(20).std().fillna(0).values * 100  # As percentage
+                    rolling_vol = pd.Series(returns).rolling(20).std().fillna(0).values * 100  # type: ignore[operator] # As percentage
                     
                     # Regime detection
                     regimes = []
@@ -949,7 +949,7 @@ with tab3:
                     
                     # Trend
                     fig.add_trace(
-                        go.Scatter(x=df.index, y=trend * 100, name='Trend',
+                        go.Scatter(x=df.index, y=trend * 100, name='Trend',  # type: ignore[operator]
                                  line={'color': 'orange', 'width': 2}),
                         row=3, col=1
                     )

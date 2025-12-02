@@ -67,16 +67,16 @@ with tab1:
     st.markdown("### Multi-Timeframe Trend Analysis")
     
     # Prepare data
-    if 'symbol' in data.columns:
+    if data is not None and 'symbol' in data.columns:
         available_symbols = data['symbol'].unique().tolist()
         selected_symbol = st.selectbox("Select Asset", available_symbols)
         symbol_data = data[data['symbol'] == selected_symbol].copy()
         symbol_data = symbol_data.set_index('timestamp')
         prices = symbol_data['close']
     else:
-        available_symbols = [col for col in data.columns if col not in ['timestamp', 'date', 'Date']]
-        selected_symbol = st.selectbox("Select Asset", available_symbols)
-        prices = data[selected_symbol]
+        available_symbols = [col for col in data.columns if col not in ['timestamp', 'date', 'Date']] if data is not None else []
+        selected_symbol = st.selectbox("Select Asset", available_symbols) if available_symbols else "BTC"
+        prices = data[selected_symbol] if data is not None and selected_symbol in data.columns else pd.Series()
     
     st.info(f"📊 Analyzing {selected_symbol} with {len(prices)} data points")
     
@@ -171,14 +171,14 @@ with tab2:
     st.markdown("### Breakout Detection")
     
     # Prepare data
-    if 'symbol' in data.columns:
+    if data is not None and 'symbol' in data.columns:
         symbol_data = data[data['symbol'] == selected_symbol].copy()
         symbol_data = symbol_data.set_index('timestamp')
         prices = symbol_data['close']
         high = symbol_data['high'] if 'high' in symbol_data.columns else prices
         low = symbol_data['low'] if 'low' in symbol_data.columns else prices
     else:
-        prices = data[selected_symbol]
+        prices = data[selected_symbol] if data is not None else pd.Series()
         high = prices
         low = prices
     

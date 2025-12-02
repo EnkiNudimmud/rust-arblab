@@ -69,15 +69,15 @@ with tab1:
     st.markdown("### Bid-Ask Spread Analysis")
     
     # Prepare data
-    if 'symbol' in data.columns:
+    if data is not None and 'symbol' in data.columns:
         available_symbols = data['symbol'].unique().tolist()
         selected_symbol = st.selectbox("Select Asset", available_symbols)
         symbol_data = data[data['symbol'] == selected_symbol].copy()
         symbol_data = symbol_data.set_index('timestamp')
     else:
-        available_symbols = [col for col in data.columns if col not in ['timestamp', 'date', 'Date']]
-        selected_symbol = st.selectbox("Select Asset", available_symbols)
-        symbol_data = pd.DataFrame(data[selected_symbol])
+        available_symbols = [col for col in data.columns if col not in ['timestamp', 'date', 'Date']] if data is not None else []
+        selected_symbol = st.selectbox("Select Asset", available_symbols) if available_symbols else "BTC"
+        symbol_data = pd.DataFrame(data[selected_symbol]) if data is not None else pd.DataFrame()
         symbol_data.columns = ['close']
     
     # Extract or estimate bid/ask

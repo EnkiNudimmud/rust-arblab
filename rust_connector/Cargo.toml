@@ -14,8 +14,8 @@ pyo3 = { version = "0.21", features = ["extension-module", "abi3-py38"] }
 
 # Tokio + websockets
 tokio = { version = "1.37", features = ["rt-multi-thread", "macros", "time", "sync"] }
-tokio-tungstenite = "0.20"
-tungstenite = "0.20"
+tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
+tungstenite = { version = "0.20", features = ["native-tls"] }
 futures-util = "0.3"
 
 # HTTP / JSON / logging

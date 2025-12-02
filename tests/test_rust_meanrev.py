@@ -40,7 +40,7 @@ try:
     # Test 4: Backtest
     print("\n=== Testing Backtest ===")
     prices_bt = [100 + 10*np.sin(i/10) + np.random.randn() for i in range(100)]
-    result = rust_connector.backtest_strategy_rust(prices_bt, 2.0, 0.5)
+    result = rust_connector.backtest_strategy_rust(prices_bt, 2.0, 0.5, 0.5)  # type: ignore
     print(f"Returns shape: {len(result['returns'])}")
     print(f"Positions shape: {len(result['positions'])}")
     print(f"Final PnL: {result['pnl'][-1]:.2f}")

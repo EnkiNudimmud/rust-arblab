@@ -49,7 +49,7 @@ def test_finnhub_connector():
         print(f"Fetching quote for {test_symbol}...")
         ob = connector.fetch_orderbook_sync(test_symbol)
         
-        if ob and ob.get('bids') and ob.get('asks'):
+        if ob and isinstance(ob, dict) and ob.get('bids') and ob.get('asks'):
             bid = ob['bids'][0][0]
             ask = ob['asks'][0][0]
             print(f"✓ Quote fetched: bid={bid:.2f}, ask={ask:.2f}, spread={ask-bid:.4f}")
@@ -137,7 +137,8 @@ def test_websocket_stream():
         time.sleep(5)
         
         # Stop stream
-        connector.stop_stream()
+        if hasattr(connector, 'stop_stream'):
+            connector.stop_stream()  # type: ignore
         
         if len(received_data) > 0:
             print(f"✓ WebSocket test passed: received {len(received_data)} updates")

@@ -40,7 +40,7 @@ print("="*70)
 
 try:
     start = time.time()
-    corr_rust = hft_py.analytics.compute_correlation_matrix(returns)
+    corr_rust = rust_connector.compute_correlation_matrix(returns)  # type: ignore
     rust_time = time.time() - start
     print(f"✓ Rust correlation matrix computed in {rust_time:.4f}s")
     print(f"  Shape: {corr_rust.shape}")
@@ -75,7 +75,7 @@ print("TEST 2: Covariance Matrix")
 print("="*70)
 
 try:
-    cov_rust = hft_py.analytics.compute_covariance_matrix(returns, unbiased=True)
+    cov_rust = rust_connector.compute_covariance_matrix(returns, unbiased=True)  # type: ignore
     print(f"✓ Rust covariance matrix computed")
     print(f"  Shape: {cov_rust.shape}")
     print(f"  Diagonal min/max: {np.diag(cov_rust).min():.6f} / {np.diag(cov_rust).max():.6f}")
@@ -103,7 +103,7 @@ try:
     series = prices[:, 0]  # First asset
     window = 20
     
-    rolling_mean_rust = hft_py.analytics.compute_rolling_mean(series, window)
+    rolling_mean_rust = rust_connector.compute_rolling_mean(series, window)  # type: ignore
     print(f"✓ Rust rolling mean computed")
     print(f"  Input length: {len(series)}, Output length: {len(rolling_mean_rust)}")
     print(f"  First {window-1} values are NaN: {np.isnan(rolling_mean_rust[:window-1]).all()}")
@@ -127,7 +127,7 @@ try:
     series = prices[:, 0]
     window = 20
     
-    zscores_rust = hft_py.analytics.compute_rolling_zscores(series, window)
+    zscores_rust = rust_connector.compute_rolling_zscores(series, window)  # type: ignore
     print(f"✓ Rust rolling z-scores computed")
     print(f"  Length: {len(zscores_rust)}")
     print(f"  Non-NaN values: {(~np.isnan(zscores_rust)).sum()}")
@@ -151,11 +151,11 @@ print("="*70)
 try:
     series = returns[:, 0]
     
-    mean_rust = hft_py.analytics.compute_mean(series)
-    std_rust = hft_py.analytics.compute_std(series, ddof=1)
-    var_rust = hft_py.analytics.compute_variance(series, ddof=1)
-    skew_rust = hft_py.analytics.compute_skewness(series)
-    kurt_rust = hft_py.analytics.compute_kurtosis(series, excess=True)
+    mean_rust = rust_connector.compute_mean(series)  # type: ignore
+    std_rust = rust_connector.compute_std(series, ddof=1)  # type: ignore
+    var_rust = rust_connector.compute_variance(series, ddof=1)  # type: ignore
+    skew_rust = rust_connector.compute_skewness(series)  # type: ignore
+    kurt_rust = rust_connector.compute_kurtosis(series, excess=True)  # type: ignore
     
     print(f"✓ Statistical metrics computed:")
     print(f"  Mean: {mean_rust:.8f} (NumPy: {series.mean():.8f})")
@@ -186,7 +186,7 @@ try:
     y = prices[:, 1]
     window = 20
     
-    rolling_corr = hft_py.analytics.compute_rolling_correlation(x, y, window)
+    rolling_corr = rust_connector.compute_rolling_correlation(x, y, window)  # type: ignore
     print(f"✓ Rust rolling correlation computed")
     print(f"  Length: {len(rolling_corr)}")
     print(f"  Non-NaN values: {(~np.isnan(rolling_corr)).sum()}")
@@ -209,7 +209,7 @@ returns_large = np.random.randn(1000, n_assets_large) * 0.02
 print(f"Testing with {n_assets_large} assets, {1000} periods")
 
 start = time.time()
-corr_rust_large = hft_py.analytics.compute_correlation_matrix(returns_large)
+corr_rust_large = rust_connector.compute_correlation_matrix(returns_large)  # type: ignore
 rust_time_large = time.time() - start
 
 start = time.time()

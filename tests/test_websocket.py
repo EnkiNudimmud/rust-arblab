@@ -41,7 +41,8 @@ def test_websocket_binance():
             time.sleep(1)
             snapshot = connector.latest_snapshot()
             if snapshot:
-                print(f"  {i+1}s: Latest snapshot has data: bid={snapshot.bids[0][0] if snapshot.bids else 'N/A'}")
+                bid_price = snapshot.get('bids', [[]])[0][0] if isinstance(snapshot, dict) and snapshot.get('bids') else 'N/A'
+                print(f"  {i+1}s: Latest snapshot has data: bid={bid_price}")
                 if i >= 3 and len(updates_received) > 0:
                     break
         
@@ -51,8 +52,8 @@ def test_websocket_binance():
             return True
         else:
             snapshot = connector.latest_snapshot()
-            if snapshot and snapshot.bids and snapshot.asks:
-                print(f"\n✓ WebSocket connected and snapshot cached (bid={snapshot.bids[0][0]}, ask={snapshot.asks[0][0]})")
+            if isinstance(snapshot, dict) and snapshot.get('bids') and snapshot.get('asks'):
+                print(f"\n✓ WebSocket connected and snapshot cached (bid={snapshot['bids'][0][0]}, ask={snapshot['asks'][0][0]})")
                 return True
             else:
                 print("\n❌ FAILED: No updates received and no snapshot available")
@@ -102,7 +103,7 @@ def test_websocket_kraken():
             return True
         else:
             snapshot = connector.latest_snapshot()
-            if snapshot and snapshot.bids and snapshot.asks:
+            if isinstance(snapshot, dict) and snapshot.get('bids') and snapshot.get('asks'):
                 print(f"\n✓ WebSocket connected and snapshot cached")
                 return True
             else:

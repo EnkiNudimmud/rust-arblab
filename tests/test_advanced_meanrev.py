@@ -40,9 +40,7 @@ covariance = np.outer(volatilities, volatilities) * correlation
 
 if RUST_AVAILABLE:
     start = time.time()
-    result_rust = rust_connector.cara_optimal_weights_rust(
-        expected_returns.tolist(), covariance.tolist(), gamma=2.0
-    )
+    result_rust = rust_connector.cara_optimal_weights_rust(expected_returns.tolist(), covariance.tolist(), 2.0)  # type: ignore
     rust_time = time.time() - start
     print(f"⚡ Rust CARA weights: {[f'{w:.4f}' for w in result_rust['weights']]}")
     print(f"   Expected return: {result_rust['expected_return']:.4f}")
@@ -66,9 +64,7 @@ print("\n=== Test 2: Risk-Adjusted Portfolio Weights (Sharpe Maximization) ===")
 
 if RUST_AVAILABLE:
     start = time.time()
-    result_rust = rust_connector.sharpe_optimal_weights_rust(
-        expected_returns.tolist(), covariance.tolist(), risk_free_rate=0.02
-    )
+    result_rust = rust_connector.sharpe_optimal_weights_rust(expected_returns.tolist(), covariance.tolist(), 0.02)  # type: ignore
     rust_time = time.time() - start
     print(f"⚡ Rust Sharpe weights: {[f'{w:.4f}' for w in result_rust['weights']]}")
     print(f"   Sharpe ratio: {result_rust['sharpe_ratio']:.4f}")
@@ -95,8 +91,10 @@ prices = pd.Series([100 + 10*np.sin(i/10) + np.random.randn() for i in range(100
 
 if RUST_AVAILABLE:
     start = time.time()
+    # Calculate z-scores for the backtest
+    z_scores = (prices - prices.mean()) / prices.std()
     result_rust = rust_connector.backtest_with_costs_rust(
-        prices.tolist(), entry_z=2.0, exit_z=0.5, transaction_cost=0.001
+        prices.tolist(), z_scores.tolist(), 2.0, 0.5, 0.001, 0.0
     )
     rust_time = time.time() - start
     print(f"⚡ Rust backtest with costs:")
@@ -127,7 +125,7 @@ mu = 100.0   # Long-term mean
 sigma = 5.0  # Volatility
 
 if RUST_AVAILABLE:
-    result_rust = rust_connector.optimal_thresholds_rust(theta, mu, sigma, transaction_cost=0.001)
+    result_rust = rust_connector.optimal_thresholds_rust(theta, mu, sigma, 0.001)  # type: ignore
     print(f"⚡ Rust optimal thresholds:")
     print(f"   Entry threshold: {result_rust['optimal_entry']:.2f} σ")
     print(f"   Exit threshold: {result_rust['optimal_exit']:.2f} σ")
@@ -148,10 +146,7 @@ returns_df = pd.DataFrame(returns_data, columns=[f'Asset{i}' for i in range(5)])
 
 if RUST_AVAILABLE:
     start = time.time()
-    result_rust = rust_connector.multiperiod_optimize_rust(
-        returns_data.tolist(), covariance.tolist(), 
-        gamma=2.0, transaction_cost=0.001, n_periods=5
-    )
+    result_rust = rust_connector.multiperiod_optimize_rust(returns_data.tolist(), covariance.tolist(), 2.0, 0.001, 5)  # type: ignore
     rust_time = time.time() - start
     print(f"⚡ Rust multi-period optimization:")
     print(f"   Number of rebalancing periods: {len(result_rust['weights_sequence'])}")

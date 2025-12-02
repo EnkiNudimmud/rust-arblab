@@ -58,10 +58,10 @@ for i in range(10):
         print(f"   [{i+1}s] ✓ Snapshot available")
         # Try to parse it
         try:
-            if hasattr(snapshot, 'bids') and hasattr(snapshot, 'asks'):
-                if snapshot.bids and snapshot.asks:
-                    bid = float(snapshot.bids[0][0])
-                    ask = float(snapshot.asks[0][0])
+            if isinstance(snapshot, dict):
+                if snapshot.get('bids') and snapshot.get('asks'):
+                    bid = float(snapshot['bids'][0][0])
+                    ask = float(snapshot['asks'][0][0])
                     print(f"          Bid: {bid:.2f}, Ask: {ask:.2f}, Spread: {ask-bid:.2f}")
         except Exception as e:
             print(f"          (Could not parse: {e})")

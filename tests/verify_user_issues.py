@@ -113,7 +113,8 @@ def test_websocket_capability():
             print("2. Testing WebSocket connection (2 sec)...")
             connector.start_stream("AAPL", callback)
             time.sleep(2)
-            connector.stop_stream()
+            if hasattr(connector, 'stop_stream'):
+                connector.stop_stream()  # type: ignore
             
             if len(received) > 0:
                 print(f"   ✓ Received {len(received)} WebSocket updates")

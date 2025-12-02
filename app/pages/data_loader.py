@@ -227,7 +227,8 @@ def render_saved_datasets_tab():
             col1, col2, col3 = st.columns([2, 1, 1])
             
             with col1:
-                rows = ds.get('rows', 'N/A')
+                # Handle both 'rows' and 'row_count' for compatibility
+                rows = ds.get('rows') or ds.get('row_count', 'N/A')
                 rows_str = f"{rows:,}" if isinstance(rows, (int, float)) else rows
                 st.markdown(f"**Rows:** {rows_str}")
                 st.markdown(f"**Symbols:** {', '.join(ds.get('symbols', [])[:5])}{'...' if len(ds.get('symbols', [])) > 5 else ''}")

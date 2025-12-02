@@ -13,8 +13,42 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from typing import Dict, List
+from typing import Dict, List, Optional
 from datetime import datetime
+
+try:
+    from python.virtual_portfolio import VirtualPortfolio, load_portfolio, list_portfolios
+except ImportError:
+    list_portfolios = lambda: []
+    VirtualPortfolio = None
+    load_portfolio = None
+
+try:
+    from python.advanced_optimization import (
+        HMMRegimeDetector,
+        MCMCOptimizer,
+        MLEOptimizer,
+        InformationTheoryOptimizer,
+        MultiStrategyOptimizer,
+        ParameterSpace,
+        OptimizationResult
+    )
+except ImportError:
+    HMMRegimeDetector = None
+    MCMCOptimizer = None
+    MLEOptimizer = None
+    InformationTheoryOptimizer = None
+    MultiStrategyOptimizer = None
+    ParameterSpace = None
+    OptimizationResult = None
+
+# Available strategies dictionary
+AVAILABLE_STRATEGIES = {
+    'Mean Reversion': 'meanrev',
+    'Statistical Arbitrage': 'stat_arb',
+    'Pairs Trading': 'pairs',
+    'Market Making': 'market_making'
+}
 
 def configure_virtual_portfolio():
     """Configure virtual portfolio settings"""
@@ -64,7 +98,10 @@ def configure_virtual_portfolio():
         # Show portfolio summary
         if 'virtual_portfolio' in st.session_state:
             portfolio = st.session_state.virtual_portfolio
-            metrics = portfolio.get_metrics()
+            if portfolio is not None and hasattr(portfolio, 'get_metrics'):
+                metrics = portfolio.get_metrics()
+            else:
+                metrics = {'total_value': 0, 'cash': 0, 'total_pnl': 0, 'total_pnl_pct': 0}
             
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -435,15 +472,24 @@ def optimize_multi_strategy_allocation():
         )
         
         # Simplified parameter spaces
-        strategy_params = {
-            strat: [
-                ParameterSpace('entry_z', (1.5, 3.0)),
-                ParameterSpace('lookback', (40, 100))
-            ]
-            for strat in config['strategies']
-        }
+        if ParameterSpace is not None:
+            strategy_params = {
+                strat: [
+                    ParameterSpace('entry_z', (1.5, 3.0)),
+                    ParameterSpace('lookback', (40, 100))
+                ]
+                for strat in config['strategies']
+            }
+        else:
+            strategy_params = {
+                strat: [
+                    {'name': 'entry_z', 'bounds': (1.5, 3.0)},
+                    {'name': 'lookback', 'bounds': (40, 100)}
+                ]
+                for strat in config['strategies']
+            }
         
-        result = optimizer.optimize(historical_data, strategy_params)
+        result = optimizer.optimize(historical_data, strategy_params)  # type: ignore
         
         st.session_state.multi_strategy_optimal = result
         st.success("✓ Multi-strategy optimization complete")
@@ -456,8 +502,11 @@ def optimize_multi_strategy_allocation():
         st.error(f"Multi-strategy optimization failed: {e}")
 
 
-def plot_optimization_convergence(result: OptimizationResult):
+def plot_optimization_convergence(result):
     """Plot optimization convergence"""
+    if result is None or not hasattr(result, 'convergence_history'):
+        st.warning("No convergence data available")
+        return
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(

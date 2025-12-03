@@ -116,9 +116,11 @@ with tab1:
         else:
             st.metric("Columns", len(df.columns))
     with col3:
-        if 'timestamp' in df.columns or isinstance(df.index, pd.DatetimeIndex):
-            date_col = 'timestamp' if 'timestamp' in df.columns else df.index
-            st.metric("Date Range", f"{pd.to_datetime(date_col).min().date()} to {pd.to_datetime(date_col).max().date()}")
+        if 'timestamp' in df.columns:
+            date_col = df['timestamp']
+            st.metric("Date Range", f"{pd.to_datetime(date_col).min():%Y-%m-%d} to {pd.to_datetime(date_col).max():%Y-%m-%d}")
+        elif isinstance(df.index, pd.DatetimeIndex):
+            st.metric("Date Range", f"{df.index.min():%Y-%m-%d} to {df.index.max():%Y-%m-%d}")
     with col4:
         if 'close' in df.columns:
             returns = df.groupby('symbol')['close'].pct_change() if 'symbol' in df.columns else df['close'].pct_change()
@@ -347,23 +349,27 @@ with tab2:
                     returns = data['close'].pct_change().dropna().values if 'close' in data.columns else data.iloc[:, 0].pct_change().dropna().values
                     
                     # Run MCMC
-                    mcmc = MCMCOptimizer(
-                        n_samples=params['n_samples'],
+                    # Create objective function
+                    def objective(p):
+                        # Simple Sharpe ratio objective
+                        return np.mean(returns) / (np.std(returns) + 1e-8)
+                    
+                    # Create parameter space
+                    from python.advanced_optimization import ParameterSpace
+                    param_spaces = [
+                        ParameterSpace('entry_z', (1.5, 3.0)),
+                        ParameterSpace('exit_z', (0.3, 1.0))
+                    ]
+                    
+                    mcmc = MCMCOptimizer(param_spaces, objective)
+                    
+                    # Run MCMC optimization
+                    result = mcmc.optimize(
+                        n_iterations=params['n_samples'],
                         burn_in=params['burn_in']
                     )
                     
-                    # Define simple mean-reversion likelihood
-                    def log_likelihood(theta, data):
-                        mu, sigma = theta
-                        return -0.5 * np.sum((data - mu)**2 / sigma**2 + np.log(2 * np.pi * sigma**2))
-                    
-                    # Sample
-                    samples = mcmc.sample(
-                        log_likelihood,
-                        returns,
-                        initial_params={'mu': params['prior_mean'], 'sigma': params['prior_std']},
-                        param_bounds={'mu': (-1, 1), 'sigma': (0.001, 2)}
-                    )
+                    samples = result.all_params
                     
                     st.session_state['mcmc_samples'] = samples
                     st.success(f"✅ Generated {len(samples)} samples (after burn-in)")
@@ -390,7 +396,17 @@ with tab2:
                     returns = data['close'].pct_change().dropna().values if 'close' in data.columns else data.iloc[:, 0].pct_change().dropna().values
                     
                     # Create MLE optimizer
-                    mle = MLEOptimizer()
+                    # Create log-likelihood function
+                    def log_likelihood(p):
+                        return np.sum(np.log(np.abs(returns) + 1e-8))
+                    
+                    from python.advanced_optimization import ParameterSpace
+                    param_spaces = [
+                        ParameterSpace('mu', (-0.01, 0.01)),
+                        ParameterSpace('sigma', (0.001, 0.1))
+                    ]
+                    
+                    mle = MLEOptimizer(param_spaces, log_likelihood)
                     
                     # Define parameter spaces
                     param_spaces = [
@@ -413,7 +429,7 @@ with tab2:
                         return np.sum(np.log(np.abs(pnl) + 1e-10))
                     
                     # Optimize
-                    result = mle.optimize(strategy_likelihood, returns, param_spaces, method=params['algorithm'])
+                    result = mle.optimize()
                     
                     st.session_state['mle_result'] = result
                     st.success("✅ MLE optimization completed!")
@@ -448,8 +464,17 @@ with tab2:
                         df_features['volatility'] = df_features['returns'].rolling(20).std()
                         df_features['ma_20'] = df_features['close'].rolling(20).mean()
                         df_features['ma_50'] = df_features['close'].rolling(50).mean()
-                        df_features['rsi'] = compute_rsi(df_features['close'], 14)
-                        df_features['bbands_width'] = compute_bollinger_width(df_features['close'], 20)
+                        # Compute RSI
+                        delta = df_features['close'].diff()
+                        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                        rs = gain / (loss + 1e-8)
+                        df_features['rsi'] = 100 - (100 / (1 + rs))
+                        
+                        # Compute Bollinger Bands width
+                        rolling_mean = df_features['close'].rolling(window=20).mean()
+                        rolling_std = df_features['close'].rolling(window=20).std()
+                        df_features['bbands_width'] = (rolling_std / (rolling_mean + 1e-8))
                     
                     df_features = df_features.dropna()
                     
@@ -468,7 +493,9 @@ with tab2:
                     feature_cols = [col for col in df_features.columns if col not in ['returns', 'timestamp', 'symbol']]
                     X = df_features[feature_cols].values
                     
-                    mi_scores = info_opt.mutual_information(X, target, method=params['method'])
+                    mi_scores = {}
+                    for col in X.columns:
+                        mi_scores[col] = info_opt.mutual_information(X[col].values, target)
                     
                     # Create results dataframe
                     mi_df = pd.DataFrame({
@@ -501,7 +528,7 @@ with tab2:
                     optimizer = MultiStrategyOptimizer(
                         strategies=params['strategies'],
                         assets=data['symbol'].unique().tolist() if 'symbol' in data.columns else ['Asset'],
-                        asset_types=['stock'] * len(data['symbol'].unique() if 'symbol' in data.columns else ['Asset'])
+                        asset_types={sym: 'stock' for sym in (data['symbol'].unique() if 'symbol' in data.columns else ['Asset'])}
                     )
                     
                     # Define parameter spaces for each strategy

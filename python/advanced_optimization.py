@@ -28,12 +28,15 @@ try:
     import rust_connector as rust_conn
     RUST_AVAILABLE = hasattr(rust_conn, 'optimization')
     if RUST_AVAILABLE:
-        rust_optimizers = rust_conn.optimization
+        rust_optimizers = getattr(rust_conn, 'optimization', None)
+        logger.info("✓ Rust optimization module loaded successfully")
     else:
         rust_optimizers = None
-except ImportError:
+        logger.warning("✗ Rust optimization module not found in rust_connector")
+except ImportError as e:
     RUST_AVAILABLE = False
     rust_optimizers = None
+    logger.warning(f"✗ Could not import rust_connector: {e}")
 
 
 @dataclass
@@ -510,6 +513,18 @@ class InformationTheoryOptimizer:
         Returns:
             Mutual information value
         """
+        # Use Rust implementation if available
+        if RUST_AVAILABLE and rust_optimizers is not None:
+            try:
+                return rust_optimizers.mutual_information(
+                    x.tolist(), 
+                    y.tolist(), 
+                    bins
+                )
+            except Exception as e:
+                logger.warning(f"Rust MI failed, falling back to Python: {e}")
+        
+        # Python fallback
         # Discretize if continuous
         x_discrete = np.digitize(x, np.linspace(x.min(), x.max(), bins))
         y_discrete = np.digitize(y, np.linspace(y.min(), y.max(), bins))
@@ -544,6 +559,14 @@ class InformationTheoryOptimizer:
         
         H(X) = -∑ p(x) log p(x)
         """
+        # Use Rust implementation if available
+        if RUST_AVAILABLE and rust_optimizers is not None:
+            try:
+                return rust_optimizers.shannon_entropy(x.tolist(), bins)
+            except Exception as e:
+                logger.warning(f"Rust entropy failed, falling back to Python: {e}")
+        
+        # Python fallback
         counts, _ = np.histogram(x, bins=bins)
         probs = counts / len(x)
         probs = probs[probs > 0]  # Remove zeros

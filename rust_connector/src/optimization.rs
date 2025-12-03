@@ -472,6 +472,211 @@ pub fn mutual_information(
     Ok(mi)
 }
 
+/// Differential Evolution optimizer
+#[pyfunction]
+pub fn differential_evolution(
+    objective_fn: &Bound<'_, PyAny>,
+    bounds: Vec<(f64, f64)>,
+    popsize: usize,
+    maxiter: usize,
+    f: f64,  // mutation factor
+    cr: f64, // crossover probability
+) -> PyResult<(Vec<f64>, f64)> {
+    let mut rng = thread_rng();
+    let n_params = bounds.len();
+    let pop_size = popsize * n_params;
+    
+    // Initialize population
+    let mut population: Vec<Vec<f64>> = (0..pop_size)
+        .map(|_| {
+            bounds.iter()
+                .map(|(low, high)| {
+                    let uniform = Uniform::new(*low, *high);
+                    uniform.sample(&mut rng)
+                })
+                .collect()
+        })
+        .collect();
+    
+    // Evaluate initial population
+    let mut fitness: Vec<f64> = population
+        .iter()
+        .map(|ind| {
+            objective_fn
+                .call1((ind.clone(),))
+                .and_then(|r| r.extract::<f64>())
+                .unwrap_or(f64::INFINITY)
+        })
+        .collect();
+    
+    // Find initial best
+    let mut best_idx = fitness
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .map(|(idx, _)| idx)
+        .unwrap_or(0);
+    
+    // Evolution loop
+    for _iter in 0..maxiter {
+        for i in 0..pop_size {
+            // Select three random individuals (different from i)
+            let mut indices: Vec<usize> = (0..pop_size).filter(|&idx| idx != i).collect();
+            let uniform_idx = Uniform::new(0, indices.len());
+            
+            let a_idx = indices[uniform_idx.sample(&mut rng)];
+            indices.retain(|&x| x != a_idx);
+            let b_idx = indices[uniform_idx.sample(&mut rng) % indices.len()];
+            indices.retain(|&x| x != b_idx);
+            let c_idx = indices[uniform_idx.sample(&mut rng) % indices.len()];
+            
+            // Mutation: v = a + f * (b - c)
+            let mut mutant: Vec<f64> = (0..n_params)
+                .map(|j| {
+                    let v = population[a_idx][j] + f * (population[b_idx][j] - population[c_idx][j]);
+                    v.max(bounds[j].0).min(bounds[j].1)
+                })
+                .collect();
+            
+            // Crossover
+            let uniform_prob = Uniform::new(0.0, 1.0);
+            let j_rand = uniform_idx.sample(&mut rng) % n_params;
+            let mut trial = population[i].clone();
+            
+            for j in 0..n_params {
+                if uniform_prob.sample(&mut rng) < cr || j == j_rand {
+                    trial[j] = mutant[j];
+                }
+            }
+            
+            // Selection
+            let trial_fitness = objective_fn
+                .call1((trial.clone(),))
+                .and_then(|r| r.extract::<f64>())
+                .unwrap_or(f64::INFINITY);
+            
+            if trial_fitness < fitness[i] {
+                population[i] = trial;
+                fitness[i] = trial_fitness;
+                
+                if trial_fitness < fitness[best_idx] {
+                    best_idx = i;
+                }
+            }
+        }
+    }
+    
+    Ok((population[best_idx].clone(), fitness[best_idx]))
+}
+
+/// Grid search optimizer
+#[pyfunction]
+pub fn grid_search(
+    objective_fn: &Bound<'_, PyAny>,
+    bounds: Vec<(f64, f64)>,
+    n_points: usize,
+) -> PyResult<(Vec<f64>, f64)> {
+    let n_params = bounds.len();
+    
+    // Generate grid points for each dimension
+    let grids: Vec<Vec<f64>> = bounds
+        .iter()
+        .map(|(low, high)| {
+            (0..n_points)
+                .map(|i| low + (high - low) * i as f64 / (n_points - 1) as f64)
+                .collect()
+        })
+        .collect();
+    
+    let mut best_params = vec![0.0; n_params];
+    let mut best_score = f64::NEG_INFINITY;
+    
+    // Recursive grid traversal
+    fn evaluate_grid(
+        objective_fn: &Bound<'_, PyAny>,
+        grids: &[Vec<f64>],
+        current: &mut Vec<f64>,
+        depth: usize,
+        best_params: &mut Vec<f64>,
+        best_score: &mut f64,
+    ) {
+        if depth == grids.len() {
+            // Evaluate current point
+            if let Ok(result) = objective_fn.call1((current.clone(),)) {
+                if let Ok(score) = result.extract::<f64>() {
+                    if score > *best_score {
+                        *best_score = score;
+                        *best_params = current.clone();
+                    }
+                }
+            }
+            return;
+        }
+        
+        for &value in &grids[depth] {
+            current.push(value);
+            evaluate_grid(objective_fn, grids, current, depth + 1, best_params, best_score);
+            current.pop();
+        }
+    }
+    
+    let mut current = Vec::new();
+    evaluate_grid(
+        objective_fn,
+        &grids,
+        &mut current,
+        0,
+        &mut best_params,
+        &mut best_score,
+    );
+    
+    Ok((best_params, best_score))
+}
+
+/// Shannon entropy calculation
+#[pyfunction]
+pub fn shannon_entropy(x: Vec<f64>, n_bins: usize) -> PyResult<f64> {
+    let n = x.len();
+    if n == 0 {
+        return Ok(0.0);
+    }
+    
+    // Find min/max
+    let x_min = x.iter().cloned().fold(f64::INFINITY, f64::min);
+    let x_max = x.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    
+    if (x_max - x_min).abs() < 1e-10 {
+        return Ok(0.0);
+    }
+    
+    // Bin the data
+    let bin_counts: Vec<usize> = x
+        .iter()
+        .map(|&val| {
+            let bin = ((val - x_min) / (x_max - x_min) * (n_bins as f64 - 1.0)) as usize;
+            bin.min(n_bins - 1)
+        })
+        .fold(vec![0; n_bins], |mut counts, bin| {
+            counts[bin] += 1;
+            counts
+        });
+    
+    // Compute entropy: H(X) = -sum(p * log(p))
+    let entropy: f64 = bin_counts
+        .iter()
+        .filter_map(|&count| {
+            if count > 0 {
+                let p = count as f64 / n as f64;
+                Some(-p * p.ln())
+            } else {
+                None
+            }
+        })
+        .sum();
+    
+    Ok(entropy)
+}
+
 /// Register optimization functions
 pub fn register_optimization_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = parent_module.py();
@@ -482,6 +687,9 @@ pub fn register_optimization_module(parent_module: &Bound<'_, PyModule>) -> PyRe
     optimization_module.add_function(wrap_pyfunction!(viterbi_decode, &optimization_module)?)?;
     optimization_module.add_function(wrap_pyfunction!(mcmc_sample, &optimization_module)?)?;
     optimization_module.add_function(wrap_pyfunction!(mutual_information, &optimization_module)?)?;
+    optimization_module.add_function(wrap_pyfunction!(differential_evolution, &optimization_module)?)?;
+    optimization_module.add_function(wrap_pyfunction!(grid_search, &optimization_module)?)?;
+    optimization_module.add_function(wrap_pyfunction!(shannon_entropy, &optimization_module)?)?;
     
     parent_module.add_submodule(&optimization_module)?;
     

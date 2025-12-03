@@ -163,7 +163,7 @@ with tab1:
                         base_config=base_config
                     )
                 else:  # Statistical Arbitrage
-                    strategy = AdaptiveStat Arb(
+                    strategy = AdaptiveStatArb(
                         n_regimes=n_regimes,
                         lookback_period=lookback_period,
                         update_frequency=update_frequency,
@@ -740,7 +740,8 @@ with tab4:
             # Correlation matrix heatmap
             st.subheader("📊 Trade Metrics Correlation")
             
-            corr_df = trade_df[['pnl', 'pnl_pct', 'holding_period', 'price']].corr()
+            numeric_cols = trade_df[['pnl', 'pnl_pct', 'holding_period', 'price']].select_dtypes(include=[np.number])
+            corr_df = numeric_cols.corr()
             
             fig = go.Figure(data=go.Heatmap(
                 z=corr_df.values,

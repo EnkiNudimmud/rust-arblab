@@ -15,6 +15,7 @@ import numpy as np
 import plotly.graph_objects as go
 from typing import Dict, List, Optional
 from datetime import datetime
+from itertools import product
 
 try:
     from python.virtual_portfolio import VirtualPortfolio, load_portfolio, list_portfolios
@@ -237,6 +238,8 @@ def configure_regime_detection():
                     
                     try:
                         if adaptive_strategy_type == "Mean Reversion":
+                            if AdaptiveMeanReversion is None:
+                                raise ImportError("AdaptiveMeanReversion not available")
                             strategy = AdaptiveMeanReversion(
                                 n_regimes=n_states,
                                 lookback_period=lookback_period,
@@ -244,6 +247,8 @@ def configure_regime_detection():
                                 base_config=base_config
                             )
                         elif adaptive_strategy_type == "Momentum":
+                            if AdaptiveMomentum is None:
+                                raise ImportError("AdaptiveMomentum not available")
                             strategy = AdaptiveMomentum(
                                 n_regimes=n_states,
                                 lookback_period=lookback_period,
@@ -251,6 +256,8 @@ def configure_regime_detection():
                                 base_config=base_config
                             )
                         else:  # Statistical Arbitrage
+                            if AdaptiveStatArb is None:
+                                raise ImportError("AdaptiveStatArb not available")
                             strategy = AdaptiveStatArb(
                                 n_regimes=n_states,
                                 lookback_period=lookback_period,
@@ -327,11 +334,23 @@ def configure_parameter_optimization():
                 "None - Use Manual Parameters",
                 "MCMC - Bayesian Sampling",
                 "MLE - Maximum Likelihood",
-                "Information Theory - Mutual Information",
+                "Information Theory - Feature Selection",
                 "Grid Search - Exhaustive",
                 "Differential Evolution"
             ]
         )
+        
+        # Show method description
+        method_descriptions = {
+            "MCMC - Bayesian Sampling": "🔬 Explores parameter space using Markov Chain Monte Carlo. Best for complex posteriors and uncertainty quantification.",
+            "MLE - Maximum Likelihood": "📊 Finds parameters that maximize likelihood of observed data. Fast and efficient for well-behaved distributions.",
+            "Information Theory - Feature Selection": "🧠 Uses mutual information to select features, then optimizes parameters. Good for high-dimensional spaces.",
+            "Grid Search - Exhaustive": "🔍 Tests all combinations in a grid. Thorough but computationally expensive.",
+            "Differential Evolution": "🧬 Evolutionary algorithm that's robust to local minima. Good for complex, non-convex objectives."
+        }
+        
+        if optimization_method in method_descriptions:
+            st.info(method_descriptions[optimization_method])
         
         if optimization_method != "None - Use Manual Parameters":
             st.markdown("**Parameter Space**")
@@ -360,14 +379,35 @@ def configure_parameter_optimization():
                         20, 200, (40, 100), 10
                     )
                     
+                    # Method-specific parameters
+                    method_params = {}
                     if "MCMC" in optimization_method:
-                        n_iterations = st.number_input(
+                        st.markdown("**MCMC Settings**")
+                        method_params['n_iterations'] = st.number_input(
                             "MCMC Iterations",
                             1000, 50000, 10000, 1000
                         )
-                        burn_in = st.number_input(
+                        method_params['burn_in'] = st.number_input(
                             "Burn-in Period",
                             100, 10000, 1000, 100
+                        )
+                    elif "Grid Search" in optimization_method:
+                        st.markdown("**Grid Search Settings**")
+                        method_params['grid_points'] = st.slider(
+                            "Points per dimension",
+                            3, 10, 5, 1
+                        )
+                        total_evals = method_params['grid_points'] ** 3
+                        st.caption(f"Total evaluations: {total_evals}")
+                    elif "Differential Evolution" in optimization_method:
+                        st.markdown("**DE Settings**")
+                        method_params['maxiter'] = st.number_input(
+                            "Max Iterations",
+                            100, 5000, 1000, 100
+                        )
+                        method_params['popsize'] = st.slider(
+                            "Population Size",
+                            5, 30, 15, 1
                         )
                     
                     submitted = st.form_submit_button("🚀 Run Optimization")
@@ -380,7 +420,8 @@ def configure_parameter_optimization():
                                     'entry_z': entry_z_range,
                                     'exit_z': exit_z_range,
                                     'lookback': lookback_range
-                                }
+                                },
+                                **method_params
                             )
             else:
                 st.warning("⚠️ Enable a strategy first to optimize parameters")
@@ -388,14 +429,57 @@ def configure_parameter_optimization():
         # Show optimization results if available
         if 'optimization_result' in st.session_state:
             result = st.session_state.optimization_result
-            st.success(f"✓ Optimization complete: Score = {result.best_score:.4f}")
+            
+            st.markdown("---")
+            st.markdown("### 🎯 Optimization Results")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Method", result.method)
+            with col2:
+                st.metric("Best Score", f"{result.best_score:.4f}")
+            with col3:
+                st.metric("Iterations", result.n_iterations)
             
             st.markdown("**Optimal Parameters**")
             params_df = pd.DataFrame([result.best_params])
             st.dataframe(params_df, use_container_width=True)
             
-            if st.button("📊 View Convergence"):
-                plot_optimization_convergence(result)
+            # Show parameter distributions for MCMC
+            if result.method == "MCMC" and len(result.all_params) > 0:
+                st.markdown("**Parameter Distributions**")
+                for param_name in result.best_params.keys():
+                    values = [p[param_name] for p in result.all_params]
+                    fig = go.Figure()
+                    fig.add_trace(go.Histogram(
+                        x=values,
+                        name=param_name,
+                        nbinsx=30,
+                        marker_color='#4ECDC4'
+                    ))
+                    fig.update_layout(
+                        title=f"Distribution of {param_name}",
+                        xaxis_title=param_name,
+                        yaxis_title="Frequency",
+                        template="plotly_dark",
+                        height=300
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            # Convergence plot
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                if result.convergence_history and len(result.convergence_history) > 0:
+                    plot_optimization_convergence(result)
+            with col2:
+                st.markdown("**Actions**")
+                if st.button("✅ Apply Parameters"):
+                    st.session_state.live_strategy_params = result.best_params
+                    st.success("Parameters applied!")
+                    st.rerun()
+                if st.button("🗑️ Clear Results"):
+                    del st.session_state.optimization_result
+                    st.rerun()
 
 
 def configure_multi_strategy_mode():
@@ -504,11 +588,12 @@ def train_hmm_model(n_states: int, lookback: int):
         st.error(f"HMM training failed: {e}")
 
 
-def run_parameter_optimization(method: str, param_ranges: Dict):
-    """Run parameter optimization"""
+def run_parameter_optimization(method: str, param_ranges: Dict, **method_params):
+    """Run parameter optimization with method-specific parameters"""
     try:
         from python.advanced_optimization import (
-            MCMCOptimizer, MLEOptimizer, ParameterSpace
+            MCMCOptimizer, MLEOptimizer, InformationTheoryOptimizer, 
+            ParameterSpace, OptimizationResult
         )
         
         # Define parameter space
@@ -555,12 +640,97 @@ def run_parameter_optimization(method: str, param_ranges: Dict):
         # Run optimization
         if "MCMC" in method:
             optimizer = MCMCOptimizer(param_spaces, objective)
-            result = optimizer.optimize(n_iterations=5000, burn_in=500)
+            n_iter = method_params.get('n_iterations', 5000)
+            burn = method_params.get('burn_in', 500)
+            result = optimizer.optimize(n_iterations=n_iter, burn_in=burn)
         elif "MLE" in method:
             def log_likelihood(params):
                 return objective(params)  # Simplified
             optimizer = MLEOptimizer(param_spaces, log_likelihood)
             result = optimizer.optimize()
+        elif "Information Theory" in method:
+            # Use Information Theory for feature selection
+            # Create features from price data
+            features_df = pd.DataFrame({
+                'returns': returns,
+                'returns_lag1': np.roll(returns, 1),
+                'returns_lag2': np.roll(returns, 2),
+                'volatility': pd.Series(returns).rolling(20).std().fillna(0).values,
+                'momentum': pd.Series(returns).rolling(10).mean().fillna(0).values
+            })
+            
+            # Select best features using mutual information
+            selected_features = InformationTheoryOptimizer.select_features(
+                features_df,
+                returns,
+                n_features=3
+            )
+            
+            st.info(f"Selected features by MI: {', '.join(selected_features)}")
+            
+            # Use MLE on selected features for parameter optimization
+            optimizer = MLEOptimizer(param_spaces, lambda p: objective(p))
+            result = optimizer.optimize()
+        elif "Grid Search" in method:
+            # Grid search implementation
+            best_score = -np.inf
+            best_params = {}
+            
+            # Create grid
+            grid_points = method_params.get('grid_points', 5)
+            grids = []
+            for param in param_spaces:
+                low, high = param.bounds
+                grids.append(np.linspace(low, high, grid_points))
+            
+            # Evaluate grid
+            with st.spinner("Running grid search..."):
+                for values in product(*grids):
+                    params = {param.name: val for param, val in zip(param_spaces, values)}
+                    score = objective(params)
+                    if score > best_score:
+                        best_score = score
+                        best_params = params
+            
+            result = OptimizationResult(
+                best_params=best_params,
+                best_score=best_score,
+                all_params=[best_params],
+                all_scores=[best_score],
+                convergence_history=[best_score],
+                method='Grid Search',
+                n_iterations=grid_points ** len(param_spaces)
+            )
+        elif "Differential Evolution" in method:
+            from scipy.optimize import differential_evolution
+            
+            bounds = [param.bounds for param in param_spaces]
+            maxiter = method_params.get('maxiter', 1000)
+            popsize = method_params.get('popsize', 15)
+            
+            def neg_objective(x):
+                params = {param.name: val for param, val in zip(param_spaces, x)}
+                return -objective(params)
+            
+            opt_result = differential_evolution(
+                neg_objective, 
+                bounds, 
+                maxiter=maxiter,
+                popsize=popsize,
+                workers=-1
+            )
+            
+            best_params = {param.name: val for param, val in zip(param_spaces, opt_result.x)}
+            
+            result = OptimizationResult(
+                best_params=best_params,
+                best_score=-opt_result.fun,
+                all_params=[best_params],
+                all_scores=[-opt_result.fun],
+                convergence_history=[],
+                method='Differential Evolution',
+                n_iterations=opt_result.nit
+            )
         else:
             st.warning("Method not yet implemented")
             return

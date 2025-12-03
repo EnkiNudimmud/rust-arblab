@@ -119,149 +119,312 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     st.header("Strategy Backtesting")
     
-    # Symbol selection
+    # Symbol selection - now supports multiple symbols
     if 'symbol' in df.columns:
         symbols = df['symbol'].unique().tolist()
-        selected_symbol = st.selectbox("Select Symbol", symbols)
-        test_data = df[df['symbol'] == selected_symbol].copy()
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            selected_symbols = st.multiselect(
+                "Select Symbol(s)",
+                symbols,
+                default=[symbols[0]] if symbols else [],
+                help="Select one or more symbols for backtesting"
+            )
+        with col2:
+            if st.button("📊 Select All"):
+                selected_symbols = symbols
+                st.rerun()
+        
+        if not selected_symbols:
+            st.warning("⚠️ Please select at least one symbol")
+            st.stop()
+        
+        test_data = df[df['symbol'].isin(selected_symbols)].copy()
+        symbol_display = ", ".join(selected_symbols) if len(selected_symbols) <= 5 else f"{len(selected_symbols)} symbols"
     else:
-        selected_symbol = "Dataset"
+        selected_symbols = ["Dataset"]
+        symbol_display = "Dataset"
         test_data = df.copy()
     
-    if 'timestamp' in test_data.columns:
+    if 'timestamp' in test_data.columns and 'symbol' not in test_data.columns:
         test_data = test_data.set_index('timestamp').sort_index()
     
-    st.markdown(f"**Testing on:** {selected_symbol} ({len(test_data)} bars)")
+    st.markdown(f"**Testing on:** {symbol_display} ({len(test_data)} bars total)")
     
     col1, col2 = st.columns([3, 1])
     
     with col1:
+        # Adjust max test period based on number of symbols for performance
+        max_test = min(len(test_data), 5000 if len(selected_symbols) == 1 else 2000)
+        default_test = min(1000 if len(selected_symbols) == 1 else 500, len(test_data))
+        
         test_period = st.slider(
             "Test Period (bars)",
             min_value=200,
-            max_value=min(len(test_data), 5000),
-            value=min(1000, len(test_data)),
-            step=100
+            max_value=max_test,
+            value=default_test,
+            step=100,
+            help=f"Reduced default for multi-symbol testing. Processing {len(selected_symbols)} symbols..."
         )
     
     with col2:
         if st.button("🚀 Run Backtest", type="primary"):
-            with st.spinner("Running adaptive strategy backtest..."):
+            progress_bar = st.progress(0, text="Initializing strategy...")
+            with st.spinner(f"Running adaptive strategy backtest on {len(selected_symbols)} symbol(s)..."):
+                # Optimize HMM update frequency for multi-symbol
+                opt_update_freq = update_frequency * len(selected_symbols) if len(selected_symbols) > 1 else update_frequency
+                
                 # Initialize strategy
+                progress_bar.progress(10, text="Creating strategy instance...")
                 if strategy_type == "Mean Reversion":
                     strategy = AdaptiveMeanReversion(
                         n_regimes=n_regimes,
                         lookback_period=lookback_period,
-                        update_frequency=update_frequency,
+                        update_frequency=opt_update_freq,
                         base_config=base_config
                     )
                 elif strategy_type == "Momentum":
                     strategy = AdaptiveMomentum(
                         n_regimes=n_regimes,
                         lookback_period=lookback_period,
-                        update_frequency=update_frequency,
+                        update_frequency=opt_update_freq,
                         base_config=base_config
                     )
                 else:  # Statistical Arbitrage
                     strategy = AdaptiveStatArb(
                         n_regimes=n_regimes,
                         lookback_period=lookback_period,
-                        update_frequency=update_frequency,
+                        update_frequency=opt_update_freq,
                         base_config=base_config
                     )
                 
-                # Run backtest
-                test_df = test_data.iloc[-test_period:].copy()
-                
-                # Initialize tracking
+                # Initialize portfolio tracking across all symbols
                 portfolio_value = 100000.0
                 cash = portfolio_value
-                position = None
-                trades = []
+                positions = {sym: None for sym in selected_symbols}
+                all_trades = []
                 equity_curve = [portfolio_value]
                 regime_history = []
                 
-                for i in range(lookback_period, len(test_df)):
-                    window = test_df.iloc[:i+1]
-                    current_price = window['close'].iloc[-1]
-                    
-                    # Generate signal
-                    current_positions = {selected_symbol: position} if position else {}
-                    signal = strategy.generate_signal(window, selected_symbol, current_positions)
-                    
-                    # Track regime
-                    current_regime = strategy.current_regime if strategy.current_regime is not None else 1
-                    regime_history.append(current_regime)
-                    
-                    # Execute signal
-                    if signal:
-                        if signal['action'] == 'open' and position is None:
-                            # Open position
-                            shares = (cash * signal['size']) / current_price
-                            position = {
-                                'side': signal['side'],
-                                'shares': shares,
-                                'entry_price': current_price,
-                                'entry_bar': i,
-                                'regime': signal['regime']
-                            }
-                            cash -= shares * current_price
-                            
-                            trades.append({
-                                'bar': i,
-                                'action': 'open',
-                                'side': signal['side'],
-                                'price': current_price,
-                                'regime': signal['regime'],
-                                'reason': signal.get('reason', 'signal')
-                            })
+                # For multi-symbol: process each symbol's data
+                if 'symbol' in test_data.columns and len(selected_symbols) > 1:
+                    # Multi-symbol backtest - OPTIMIZED
+                    # Prepare data for all symbols first
+                    symbol_dfs = {}
+                    max_bars = 0
+                    for symbol in selected_symbols:
+                        symbol_data = test_data[test_data['symbol'] == symbol].copy()
+                        if 'timestamp' in symbol_data.columns:
+                            symbol_data = symbol_data.set_index('timestamp').sort_index()
                         
-                        elif signal['action'] == 'close' and position is not None:
-                            # Close position
-                            shares = position['shares']
-                            entry_price = position['entry_price']
-                            
-                            if position['side'] == 'long':
-                                pnl = shares * (current_price - entry_price)
-                            else:  # short
-                                pnl = shares * (entry_price - current_price)
-                            
-                            cash += shares * current_price
-                            
-                            strategy.record_trade(
-                                symbol=selected_symbol,
-                                action='close',
-                                regime=position['regime'],
-                                entry_price=entry_price,
-                                exit_price=current_price,
-                                pnl=pnl
-                            )
-                            
-                            trades.append({
-                                'bar': i,
-                                'action': 'close',
-                                'price': current_price,
-                                'pnl': pnl,
-                                'pnl_pct': (pnl / (shares * entry_price)) * 100,
-                                'holding_period': i - position['entry_bar'],
-                                'regime': position['regime'],
-                                'reason': signal.get('reason', 'signal')
-                            })
-                            
-                            position = None
+                        symbol_df = symbol_data.iloc[-test_period:] if len(symbol_data) > test_period else symbol_data
+                        symbol_dfs[symbol] = symbol_df
+                        max_bars = max(max_bars, len(symbol_df))
                     
-                    # Update portfolio value
-                    if position:
-                        if position['side'] == 'long':
-                            portfolio_value = cash + position['shares'] * current_price
-                        else:  # short
-                            portfolio_value = cash + position['shares'] * (2 * position['entry_price'] - current_price)
-                    else:
+                    # Use first symbol for regime detection to avoid redundant HMM calls
+                    ref_symbol = selected_symbols[0]
+                    ref_df = symbol_dfs[ref_symbol]
+                    
+                    progress_bar.progress(20, text="Preparing data...")
+                    
+                    # Process bars for all symbols simultaneously
+                    total_bars = min(max_bars, len(ref_df)) - lookback_period
+                    for idx, i in enumerate(range(lookback_period, min(max_bars, len(ref_df)))):
+                        # Update progress every 50 bars
+                        if idx % 50 == 0:
+                            progress = min(95, 20 + int((idx / total_bars) * 75))
+                            progress_bar.progress(progress, text=f"Processing bar {idx}/{total_bars}...")
+                        
+                        # Update regime once per bar using reference symbol
+                        ref_window = ref_df.iloc[:i+1]
+                        _ = strategy.generate_signal(ref_window, ref_symbol, {ref_symbol: positions[ref_symbol]})
+                        
+                        current_regime = strategy.current_regime if strategy.current_regime is not None else 1
+                        regime_history.append(current_regime)
+                        
+                        # Process each symbol with the current regime
+                        for symbol in selected_symbols:
+                            if i >= len(symbol_dfs[symbol]):
+                                continue
+                                
+                            symbol_df = symbol_dfs[symbol]
+                            if i < lookback_period or i >= len(symbol_df):
+                                continue
+                            
+                            window = symbol_df.iloc[:i+1]
+                            current_price = window['close'].iloc[-1]
+                            
+                            # Generate signal (regime already updated above)
+                            current_positions = {symbol: positions[symbol]}
+                            signal = strategy.generate_signal(window, symbol, current_positions)
+                            
+                            # Execute signal
+                            if signal:
+                                if signal['action'] == 'open' and positions[symbol] is None:
+                                    # Open position
+                                    allocation = cash / len(selected_symbols)  # Equal allocation
+                                    shares = (allocation * signal['size']) / current_price
+                                    positions[symbol] = {
+                                        'side': signal['side'],
+                                        'shares': shares,
+                                        'entry_price': current_price,
+                                        'entry_bar': i,
+                                        'regime': signal['regime']
+                                    }
+                                    cash -= shares * current_price
+                                    
+                                    all_trades.append({
+                                        'symbol': symbol,
+                                        'bar': i,
+                                        'action': 'open',
+                                        'side': signal['side'],
+                                        'price': current_price,
+                                        'regime': signal['regime'],
+                                        'reason': signal.get('reason', 'signal')
+                                    })
+                                
+                                elif signal['action'] == 'close' and positions[symbol] is not None:
+                                    # Close position
+                                    shares = positions[symbol]['shares']
+                                    side = positions[symbol]['side']
+                                    entry_price = positions[symbol]['entry_price']
+                                    entry_bar = positions[symbol]['entry_bar']
+                                    
+                                    if side == 'long':
+                                        pnl = shares * (current_price - entry_price)
+                                    else:
+                                        pnl = shares * (entry_price - current_price)
+                                    
+                                    cash += shares * current_price
+                                    
+                                    all_trades.append({
+                                        'symbol': symbol,
+                                        'bar': i,
+                                        'action': 'close',
+                                        'side': side,
+                                        'price': current_price,
+                                        'pnl': pnl,
+                                        'pnl_pct': (pnl / (shares * entry_price)) * 100,
+                                        'holding_period': i - entry_bar,
+                                        'regime': signal['regime'],
+                                        'reason': signal.get('reason', 'signal')
+                                    })
+                                    
+                                    positions[symbol] = None
+                        
+                        # Update portfolio value once per bar
                         portfolio_value = cash
+                        for sym, pos in positions.items():
+                            if pos is not None and i < len(symbol_dfs[sym]):
+                                sym_price = symbol_dfs[sym].iloc[i]['close']
+                                if pos['side'] == 'long':
+                                    portfolio_value += pos['shares'] * sym_price
+                                else:
+                                    portfolio_value += pos['shares'] * (2 * pos['entry_price'] - sym_price)
+                        
+                        equity_curve.append(portfolio_value)
                     
-                    equity_curve.append(portfolio_value)
+                    trades = all_trades
+                    selected_symbol = selected_symbols[0]  # For compatibility with single-symbol code
+                    test_df = ref_df
+                    
+                else:
+                    # Single symbol backtest (original logic)
+                    progress_bar.progress(20, text="Preparing data...")
+                    test_df = test_data.iloc[-test_period:].copy()
+                    selected_symbol = selected_symbols[0]
+                    position = None
+                    trades = []
+                    
+                    total_bars = len(test_df) - lookback_period
+                    for idx, i in enumerate(range(lookback_period, len(test_df))):
+                        # Update progress every 50 bars
+                        if idx % 50 == 0:
+                            progress = min(95, 20 + int((idx / total_bars) * 75))
+                            progress_bar.progress(progress, text=f"Processing bar {idx}/{total_bars}...")
+                        
+                        window = test_df.iloc[:i+1]
+                        current_price = window['close'].iloc[-1]
+                        
+                        # Generate signal
+                        current_positions = {selected_symbol: position} if position else {}
+                        signal = strategy.generate_signal(window, selected_symbol, current_positions)
+                        
+                        # Track regime
+                        current_regime = strategy.current_regime if strategy.current_regime is not None else 1
+                        regime_history.append(current_regime)
+                        
+                        # Execute signal
+                        if signal:
+                            if signal['action'] == 'open' and position is None:
+                                # Open position
+                                shares = (cash * signal['size']) / current_price
+                                position = {
+                                    'side': signal['side'],
+                                    'shares': shares,
+                                    'entry_price': current_price,
+                                    'entry_bar': i,
+                                    'regime': signal['regime']
+                                }
+                                cash -= shares * current_price
+                                
+                                trades.append({
+                                    'bar': i,
+                                    'action': 'open',
+                                    'side': signal['side'],
+                                    'price': current_price,
+                                    'regime': signal['regime'],
+                                    'reason': signal.get('reason', 'signal')
+                                })
+                            
+                            elif signal['action'] == 'close' and position is not None:
+                                # Close position
+                                shares = position['shares']
+                                entry_price = position['entry_price']
+                                
+                                if position['side'] == 'long':
+                                    pnl = shares * (current_price - entry_price)
+                                else:  # short
+                                    pnl = shares * (entry_price - current_price)
+                                
+                                cash += shares * current_price
+                                
+                                strategy.record_trade(
+                                    symbol=selected_symbol,
+                                    action='close',
+                                    regime=position['regime'],
+                                    entry_price=entry_price,
+                                    exit_price=current_price,
+                                    pnl=pnl
+                                )
+                                
+                                trades.append({
+                                    'bar': i,
+                                    'action': 'close',
+                                    'price': current_price,
+                                    'pnl': pnl,
+                                    'pnl_pct': (pnl / (shares * entry_price)) * 100,
+                                    'holding_period': i - position['entry_bar'],
+                                    'regime': position['regime'],
+                                    'reason': signal.get('reason', 'signal')
+                                })
+                                
+                                position = None
+                        
+                        # Update portfolio value
+                        if position:
+                            if position['side'] == 'long':
+                                portfolio_value = cash + position['shares'] * current_price
+                            else:  # short
+                                portfolio_value = cash + position['shares'] * (2 * position['entry_price'] - current_price)
+                        else:
+                            portfolio_value = cash
+                        
+                        equity_curve.append(portfolio_value)
                 
                 # Store results
+                progress_bar.progress(100, text="Finalizing results...")
                 st.session_state['backtest_results'] = {
                     'strategy': strategy,
                     'trades': trades,
@@ -272,7 +435,8 @@ with tab1:
                     'initial_value': 100000.0
                 }
                 
-                st.success("✓ Backtest completed!")
+                progress_bar.empty()
+                st.success(f"✓ Backtest completed! Processed {len(selected_symbols)} symbol(s) with {len(trades)} trades")
     
     # Show results
     if 'backtest_results' in st.session_state:
@@ -357,8 +521,17 @@ with tab1:
             trade_df['regime_name'] = trade_df['regime'].map({
                 0: "Bear", 1: "Sideways", 2: "Bull"
             })
+            
+            # Build column list based on what's available
+            display_cols = ['bar', 'price', 'pnl', 'pnl_pct', 'holding_period', 'regime_name', 'reason']
+            if 'symbol' in trade_df.columns:
+                display_cols = ['symbol'] + display_cols
+            
+            # Only show columns that exist in the dataframe
+            display_cols = [col for col in display_cols if col in trade_df.columns]
+            
             st.dataframe(
-                trade_df[['bar', 'price', 'pnl', 'pnl_pct', 'holding_period', 'regime_name', 'reason']],
+                trade_df[display_cols],
                 use_container_width=True
             )
         else:

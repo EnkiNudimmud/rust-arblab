@@ -196,13 +196,16 @@ def render():
     st.markdown("Load and preview market data for backtesting strategies")
     
     # Main tabs for different sections
-    main_tab1, main_tab2 = st.tabs(["📥 Fetch Data", "💾 Saved Datasets"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(["📥 Fetch Data", "💾 Saved Datasets", "🔗 Merge/Append"])
     
     with main_tab1:
         render_fetch_tab()
     
     with main_tab2:
         render_saved_datasets_tab()
+    
+    with main_tab3:
+        render_merge_append_tab()
 
 
 def render_saved_datasets_tab():
@@ -282,6 +285,172 @@ def render_saved_datasets_tab():
                         st.rerun()
                     else:
                         st.error("Failed to delete dataset")
+
+
+def render_merge_append_tab():
+    """Render the merge/append datasets tab."""
+    st.markdown("### 🔗 Merge & Append Datasets")
+    st.markdown("Combine multiple datasets or add new data to existing datasets")
+    
+    # Get list of saved datasets
+    datasets = list_datasets()
+    
+    if not datasets:
+        st.info("No saved datasets available. Fetch and save data first.")
+        return
+    
+    dataset_names = [ds['name'] for ds in datasets]
+    
+    # Two modes: Merge multiple datasets, or Append to existing dataset
+    mode = st.radio(
+        "Operation Mode",
+        ["Merge Multiple Datasets", "Append New Data to Existing Dataset"],
+        help="Choose how you want to combine data"
+    )
+    
+    if mode == "Merge Multiple Datasets":
+        st.markdown("#### 🔀 Merge Multiple Datasets")
+        st.markdown("Combine two or more datasets into a new dataset. Duplicates will be removed based on symbol and timestamp.")
+        
+        # Select datasets to merge
+        selected_datasets = st.multiselect(
+            "Select datasets to merge",
+            dataset_names,
+            help="Choose 2 or more datasets to combine"
+        )
+        
+        if len(selected_datasets) < 2:
+            st.warning("⚠️ Please select at least 2 datasets to merge")
+            return
+        
+        # Show preview of what will be merged
+        st.markdown("**Preview:**")
+        preview_data = []
+        for ds_name in selected_datasets:
+            ds_info = next((ds for ds in datasets if ds['name'] == ds_name), None)
+            if ds_info:
+                preview_data.append({
+                    'Dataset': ds_name,
+                    'Rows': f"{ds_info.get('row_count', 'N/A'):,}",
+                    'Symbols': len(ds_info.get('symbols', [])),
+                    'Source': ds_info.get('source', 'N/A')
+                })
+        
+        st.dataframe(pd.DataFrame(preview_data), use_container_width=True)
+        
+        # New dataset name
+        new_dataset_name = st.text_input(
+            "New dataset name",
+            value=f"merged_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            help="Name for the merged dataset"
+        )
+        
+        # Merge button
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if st.button("🔀 Merge Datasets", type="primary", use_container_width=True):
+                with st.spinner("Merging datasets..."):
+                    if merge_datasets(selected_datasets, new_dataset_name):
+                        st.success(f"✅ Successfully merged {len(selected_datasets)} datasets into '{new_dataset_name}'")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to merge datasets")
+    
+    else:  # Append mode
+        st.markdown("#### ➕ Append New Data to Existing Dataset")
+        st.markdown("Add newly fetched data to an existing dataset. Duplicates will be removed automatically.")
+        
+        # Select target dataset
+        target_dataset = st.selectbox(
+            "Target dataset (to append to)",
+            dataset_names,
+            help="Select the dataset you want to add data to"
+        )
+        
+        # Show current dataset info
+        target_info = next((ds for ds in datasets if ds['name'] == target_dataset), None)
+        if target_info:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Current Rows", f"{target_info.get('row_count', 'N/A'):,}")
+            with col2:
+                st.metric("Symbols", len(target_info.get('symbols', [])))
+            with col3:
+                st.metric("Source", target_info.get('source', 'N/A'))
+            
+            st.markdown(f"**Symbols in dataset:** {', '.join(target_info.get('symbols', [])[:10])}{'...' if len(target_info.get('symbols', [])) > 10 else ''}")
+        
+        st.markdown("---")
+        
+        # Option 1: Append from current session data
+        st.markdown("**Option 1: Append from currently loaded data**")
+        
+        if st.session_state.historical_data is not None:
+            current_data = st.session_state.historical_data
+            st.info(f"📊 Current session has {len(current_data):,} rows of data loaded")
+            
+            if st.button("➕ Append Session Data", use_container_width=True):
+                with st.spinner("Appending data..."):
+                    # Load target dataset
+                    result = load_dataset(target_dataset)
+                    if result:
+                        target_df, target_meta = result
+                        
+                        # Combine with current data
+                        combined_df = pd.concat([target_df, current_data], ignore_index=True)
+                        
+                        # Remove duplicates
+                        if 'symbol' in combined_df.columns and 'timestamp' in combined_df.columns:
+                            combined_df = combined_df.drop_duplicates(subset=['symbol', 'timestamp'], keep='last')
+                        
+                        # Get all symbols
+                        if 'symbol' in combined_df.columns:
+                            all_symbols = combined_df['symbol'].unique().tolist()
+                        else:
+                            all_symbols = target_meta.get('symbols', [])
+                        
+                        # Save back to target dataset
+                        if save_dataset(
+                            combined_df,
+                            target_dataset,
+                            all_symbols,
+                            target_meta.get('source', 'Mixed'),
+                            target_meta.get('date_range'),
+                            append=False  # Replace with merged data
+                        ):
+                            old_row_count = target_info.get('row_count', 0) if target_info else 0
+                            new_rows = len(combined_df) - old_row_count
+                            st.success(f"✅ Added {new_rows:,} new rows to '{target_dataset}' (total: {len(combined_df):,} rows)")
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to append data")
+        else:
+            st.warning("⚠️ No data loaded in current session. Fetch data first, then append it here.")
+        
+        st.markdown("---")
+        
+        # Option 2: Append from another saved dataset
+        st.markdown("**Option 2: Append from another saved dataset**")
+        
+        source_datasets = [ds for ds in dataset_names if ds != target_dataset]
+        if source_datasets:
+            source_dataset = st.selectbox(
+                "Source dataset (to append from)",
+                source_datasets,
+                help="Select the dataset to append to the target"
+            )
+            
+            if st.button("➕ Append from Dataset", use_container_width=True):
+                with st.spinner("Appending datasets..."):
+                    # Merge the two datasets
+                    if merge_datasets([target_dataset, source_dataset], target_dataset):
+                        st.success(f"✅ Successfully appended '{source_dataset}' to '{target_dataset}'")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to append datasets")
+        else:
+            st.info("No other datasets available to append from")
 
 
 def render_fetch_tab():

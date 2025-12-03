@@ -44,7 +44,7 @@ if 'live_use_websocket' not in st.session_state:
 
 # Initialize theme mode
 if 'theme_mode' not in st.session_state:
-    st.session_state.theme_mode = 'dark'  # Default to dark mode
+    st.session_state.theme_mode = 'light'  # Default to light mode
 
 # Initialize persisted datasets cache
 if 'persisted_datasets' not in st.session_state:

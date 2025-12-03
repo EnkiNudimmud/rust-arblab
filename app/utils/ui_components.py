@@ -18,7 +18,7 @@ def toggle_theme():
 def get_theme_colors():
     """Get color scheme based on current theme"""
     if 'theme_mode' not in st.session_state:
-        st.session_state.theme_mode = 'dark'
+        st.session_state.theme_mode = 'light'
     
     if st.session_state.theme_mode == 'light':
         return {

@@ -184,7 +184,7 @@ def render():
     """Render the data loading page"""
     # Initialize session state
     if 'theme_mode' not in st.session_state:
-        st.session_state.theme_mode = 'dark'
+        st.session_state.theme_mode = 'light'
     if 'historical_data' not in st.session_state:
         st.session_state.historical_data = None
     if 'symbols' not in st.session_state:

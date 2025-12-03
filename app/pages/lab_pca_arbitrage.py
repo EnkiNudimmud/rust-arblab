@@ -33,7 +33,7 @@ render_sidebar_navigation(current_page="PCA Arbitrage Lab")
 if 'historical_data' not in st.session_state:
     st.session_state.historical_data = None
 if 'theme_mode' not in st.session_state:
-    st.session_state.theme_mode = 'dark'
+    st.session_state.theme_mode = 'light'
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = {'positions': {}, 'cash': 100000.0}
 

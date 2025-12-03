@@ -33,10 +33,8 @@ except ImportError:
 try:
     from python.signature_methods import SignaturePortfolio, RUST_AVAILABLE
     RUST_SIG_AVAILABLE = RUST_AVAILABLE
-    if RUST_AVAILABLE:
-        st.success("✅ High-performance Rust signature methods loaded")
 except ImportError as e:
-    st.warning(f"⚠️ Rust signature portfolio methods not available: {e}")
+    RUST_SIG_AVAILABLE = False
 
 st.set_page_config(page_title="Signature Methods Lab", page_icon="✍️", layout="wide")
 
@@ -629,52 +627,216 @@ with tab4:
                 else:
                     # Choose computation method
                     use_rust = RUST_SIG_AVAILABLE
-                    if not use_rust:
-                        st.info("💡 Using Python implementation (slower). Rust backend available after rebuild.")
+                    
+                    # Display backend status clearly
+                    if use_rust:
+                        st.success("✅ Rust acceleration enabled")
+                    else:
+                        st.info("💡 Using Python implementation. Rust backend not loaded.")
                         
-                    if st.button("🚀 Compute Signature-Based Portfolio", type="primary"):
-                        with st.spinner("Computing signatures and optimizing with Rust backend..." if use_rust else "Computing signatures and optimizing..."):
-                            # Simplified demo (full version in notebook)
-                            n_assets = len(selected_assets)
+                    # Use session state to prevent double-execution
+                    if 'sig_computing' not in st.session_state:
+                        st.session_state.sig_computing = False
+                        
+                    if st.button("🚀 Compute Signature-Based Portfolio", type="primary", disabled=st.session_state.sig_computing):
+                        st.session_state.sig_computing = True
+                        try:
+                            with st.spinner("Computing signatures and optimizing..." + (" (Rust-accelerated)" if use_rust else "")):
+                                # Simplified demo (full version in notebook)
+                                n_assets = len(selected_assets)
                             
-                            # Generate sample returns (in production, use real data)
-                            np.random.seed(42)
-                            sample_returns = np.random.randn(100, n_assets) * 0.02
-                            sample_prices = 100 * np.exp(np.cumsum(sample_returns, axis=0))
-                            
-                            # Use Rust backend if available for signature computation
-                            if use_rust:
-                                try:
-                                    from python.signature_methods import SignaturePortfolio
+                                # Generate sample returns (in production, use real data)
+                                np.random.seed(42)
+                                sample_returns = np.random.randn(100, n_assets) * 0.02
+                                sample_prices = 100 * np.exp(np.cumsum(sample_returns, axis=0))
+                                
+                                # Use Rust backend if available for signature computation
+                                if use_rust:
+                                    try:
+                                        from python.signature_methods import SignaturePortfolio
                                     
-                                    # Initialize signature portfolio optimizer
-                                    sig_portfolio = SignaturePortfolio(
-                                        signature_level=2,  # Truncate at level 2 for speed
-                                        risk_aversion=risk_aversion
+                                        # Initialize signature portfolio optimizer
+                                        sig_portfolio = SignaturePortfolio(
+                                            signature_level=2,  # Truncate at level 2 for speed
+                                            risk_aversion=risk_aversion
+                                        )
+                                        
+                                        # Optimize using Rust implementation (much faster!)
+                                        optimal_weights = sig_portfolio.optimize_portfolio(
+                                            sample_returns.T,  # Shape: (n_assets, n_timesteps)
+                                            allow_short=False
+                                        )
+                                        
+                                        # Compute metrics
+                                        portfolio_returns = sample_returns @ optimal_weights
+                                        metrics = sig_portfolio.compute_metrics(portfolio_returns)
+                                        
+                                        # Display results immediately
+                                        st.success("✓ Optimization complete (Rust-accelerated)!")
+                                        
+                                        col_a, col_b, col_c, col_d = st.columns(4)
+                                        with col_a:
+                                            st.metric("Total Return", f"{metrics['total_return']*100:.2f}%")
+                                        with col_b:
+                                            st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.3f}")
+                                        with col_c:
+                                            st.metric("Volatility", f"{metrics['volatility']*100:.2f}%")
+                                        with col_d:
+                                            st.metric("Max Drawdown", f"{metrics['max_drawdown']*100:.2f}%")
+                                        
+                                        # Portfolio weights
+                                        weights_df = pd.DataFrame({
+                                            'Asset': selected_assets,
+                                            'Weight (%)': optimal_weights * 100
+                                        })
+                                        
+                                        st.markdown("##### Optimal Weights (Signature-Based)")
+                                        st.dataframe(weights_df, use_container_width=True)
+                                        
+                                        # Visualize
+                                        fig = go.Figure(data=[
+                                            go.Bar(x=selected_assets, y=optimal_weights * 100,
+                                                  marker_color=['#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA'][:n_assets])
+                                        ])
+                                        
+                                        fig.update_layout(
+                                            title="Signature-Based Portfolio Weights",
+                                            xaxis_title="Asset",
+                                            yaxis_title="Weight (%)",
+                                            template="plotly_dark",
+                                            showlegend=False
+                                        )
+                                        
+                                        st.plotly_chart(fig, use_container_width=True)
+                                        
+                                        # Performance visualization
+                                        cumulative_returns = np.cumprod(1 + portfolio_returns) - 1
+                                        
+                                        fig_perf = go.Figure()
+                                        fig_perf.add_trace(go.Scatter(
+                                            x=list(range(len(cumulative_returns))),
+                                            y=cumulative_returns * 100,
+                                            mode='lines',
+                                            name='Portfolio',
+                                            line=dict(color='#4ECDC4', width=2)
+                                        ))
+                                        
+                                        fig_perf.update_layout(
+                                            title="Cumulative Returns",
+                                            xaxis_title="Time",
+                                            yaxis_title="Return (%)",
+                                            template="plotly_dark",
+                                            hovermode='x unified'
+                                        )
+                                        
+                                        st.plotly_chart(fig_perf, use_container_width=True)
+                                        
+                                        st.info("🎓 Full implementation with optimal stopping in notebook")
+                                        
+                                    except Exception as e:
+                                        st.error(f"Rust computation failed: {e}. Falling back to Python...")
+                                        use_rust = False
+                                
+                                if not use_rust:
+                                    # Fallback to Python implementation
+                                    # Compute market weights (Stochastic Portfolio Theory)
+                                    total_cap = sample_prices.sum(axis=1, keepdims=True)
+                                    market_weights = sample_prices / total_cap
+                                    
+                                    # Ranked market weights (permutation invariant)
+                                    ranked_weights = np.sort(market_weights, axis=1)[:, ::-1]
+                                    
+                                    # Compute signature features (truncated at level 2)
+                                    window = 20
+                                    sig_features_list = []
+                                    for t in range(window, len(ranked_weights)):
+                                        window_data = ranked_weights[t-window:t]
+                                        
+                                        # Level 0: constant
+                                        sig0 = 1.0
+                                        
+                                        # Level 1: linear integrals (mean increments)
+                                        increments = np.diff(window_data, axis=0)
+                                        sig1 = np.sum(increments, axis=0)  # Shape: (n_assets,)
+                                        
+                                        # Level 2: quadratic integrals (simplified covariation)
+                                        cumulative = window_data[:-1] - window_data[0]
+                                        sig2 = np.zeros((n_assets, n_assets))
+                                        for i in range(n_assets):
+                                            for j in range(n_assets):
+                                                sig2[i, j] = np.sum(cumulative[:, i] * increments[:, j])
+                                        
+                                        # Flatten to feature vector
+                                        features = np.concatenate([[sig0], sig1, sig2.flatten()])
+                                        sig_features_list.append(features)
+                                    
+                                    sig_features = np.array(sig_features_list)
+                                    
+                                    # Estimate parameters using signature-based prediction
+                                    # (In production, would train regression models)
+                                    recent_sig = sig_features[-1]
+                                    
+                                    # Simple linear prediction from signatures
+                                    mu_est = sample_returns[-window:].mean(axis=0)
+                                    Sigma_est = np.cov(sample_returns[-window:].T)
+                                    
+                                    # Path-functional portfolio weights (Type I from paper)
+                                    # π_t = τ_t * f_t + (1 - Σ τ_j * f_j)
+                                    # where f_t = θ^T * Sig(X)
+                                    
+                                    from scipy.optimize import minimize as scipy_minimize
+                                    
+                                    # Benchmark portfolio (market weights)
+                                    tau = market_weights[-1]
+                                    
+                                    # Optimize signature weights θ
+                                    sig_dim = len(recent_sig)
+                                    theta_dim = n_assets * sig_dim
+                                    
+                                    def signature_portfolio_objective(theta_flat):
+                                        theta = theta_flat.reshape(n_assets, sig_dim)
+                                        
+                                        # Compute portfolio controlling functions
+                                        f = theta @ recent_sig  # Shape: (n_assets,)
+                                        
+                                        # Portfolio weights (Type I)
+                                        w = tau * f + (1 - np.sum(tau * f))
+                                        w = np.clip(w, 0, 1)  # Long-only constraint
+                                        w = w / w.sum()  # Normalize
+                                        
+                                        # Mean-variance objective
+                                        ret = np.dot(mu_est, w)
+                                        risk = np.dot(w, np.dot(Sigma_est, w))
+                                        
+                                        # Add transaction cost penalty
+                                        if len(market_weights) > 1:
+                                            prev_w = market_weights[-2]
+                                            turnover = np.sum(np.abs(w - prev_w))
+                                            tc_penalty = transaction_cost * turnover
+                                        else:
+                                            tc_penalty = 0.0
+                                        
+                                        return -ret + (risk_aversion / 2) * risk + tc_penalty
+                                    
+                                    # Initialize near equal-weight adjustment
+                                    theta_init = np.random.randn(theta_dim) * 0.01
+                                    
+                                    result = scipy_minimize(
+                                        signature_portfolio_objective,
+                                        theta_init,
+                                        method='L-BFGS-B',
+                                        options={'maxiter': 100}
                                     )
                                     
-                                    # Optimize using Rust implementation (much faster!)
-                                    optimal_weights = sig_portfolio.optimize_portfolio(
-                                        sample_returns.T,  # Shape: (n_assets, n_timesteps)
-                                        allow_short=False
-                                    )
+                                    # Get optimal portfolio weights
+                                    theta_opt = result.x.reshape(n_assets, sig_dim)
+                                    f_opt = theta_opt @ recent_sig
+                                    optimal_weights = tau * f_opt + (1 - np.sum(tau * f_opt))
+                                    optimal_weights = np.clip(optimal_weights, 0, 1)
+                                    optimal_weights = optimal_weights / optimal_weights.sum()
                                     
-                                    # Compute metrics
-                                    portfolio_returns = sample_returns @ optimal_weights
-                                    metrics = sig_portfolio.compute_metrics(portfolio_returns)
-                                    
-                                    # Display results immediately
-                                    st.success("✓ Optimization complete (Rust-accelerated)!")
-                                    
-                                    col_a, col_b, col_c, col_d = st.columns(4)
-                                    with col_a:
-                                        st.metric("Total Return", f"{metrics['total_return']*100:.2f}%")
-                                    with col_b:
-                                        st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.3f}")
-                                    with col_c:
-                                        st.metric("Volatility", f"{metrics['volatility']*100:.2f}%")
-                                    with col_d:
-                                        st.metric("Max Drawdown", f"{metrics['max_drawdown']*100:.2f}%")
+                                    # Display results
+                                    st.success("✓ Optimization complete!")
                                     
                                     # Portfolio weights
                                     weights_df = pd.DataFrame({
@@ -682,7 +844,7 @@ with tab4:
                                         'Weight (%)': optimal_weights * 100
                                     })
                                     
-                                    st.markdown("##### Optimal Weights (Signature-Based)")
+                                    st.markdown("##### Optimal Weights")
                                     st.dataframe(weights_df, use_container_width=True)
                                     
                                     # Visualize
@@ -690,208 +852,54 @@ with tab4:
                                         go.Bar(x=selected_assets, y=optimal_weights * 100,
                                               marker_color=['#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA'][:n_assets])
                                     ])
-                                    
                                     fig.update_layout(
-                                        title="Signature-Based Portfolio Weights",
+                                        title="Optimal Portfolio Allocation",
                                         xaxis_title="Asset",
                                         yaxis_title="Weight (%)",
-                                        template="plotly_dark",
+                                        height=400,
                                         showlegend=False
                                     )
-                                    
                                     st.plotly_chart(fig, use_container_width=True)
                                     
-                                    # Performance visualization
-                                    cumulative_returns = np.cumprod(1 + portfolio_returns) - 1
+                                    # Portfolio metrics
+                                    port_return = np.dot(optimal_weights, mu_est) * 252 * 100  # Annualized %
+                                    port_risk = np.sqrt(np.dot(optimal_weights, np.dot(Sigma_est, optimal_weights))) * np.sqrt(252) * 100
+                                    sharpe = port_return / port_risk if port_risk > 0 else 0.0
                                     
-                                    fig_perf = go.Figure()
-                                    fig_perf.add_trace(go.Scatter(
-                                        x=list(range(len(cumulative_returns))),
-                                        y=cumulative_returns * 100,
-                                        mode='lines',
-                                        name='Portfolio',
-                                        line=dict(color='#4ECDC4', width=2)
-                                    ))
+                                    col_a, col_b, col_c = st.columns(3)
+                                    col_a.metric("Expected Return", f"{port_return:.2f}%", help="Annualized")
+                                    col_b.metric("Volatility", f"{port_risk:.2f}%", help="Annualized")
+                                    col_c.metric("Sharpe Ratio", f"{sharpe:.3f}")
                                     
-                                    fig_perf.update_layout(
-                                        title="Cumulative Returns",
-                                        xaxis_title="Time",
-                                        yaxis_title="Return (%)",
-                                        template="plotly_dark",
-                                        hovermode='x unified'
-                                    )
+                                    # Stopping decision (simplified)
+                                    st.markdown("##### 🛑 Optimal Stopping Analysis")
                                     
-                                    st.plotly_chart(fig_perf, use_container_width=True)
+                                    # Simulate continuation value (in production, use trained model)
+                                    continuation_value = 1.02  # Placeholder
+                                    immediate_value = 1.0 * (1 - liquidation_cost)
                                     
-                                    st.info("🎓 Full implementation with optimal stopping in notebook")
+                                    if immediate_value >= continuation_value:
+                                        st.error("🛑 **Liquidate NOW**")
+                                        st.write(f"- Immediate value: ${immediate_value:.4f}")
+                                        st.write(f"- Continuation value: ${continuation_value:.4f}")
+                                        st.write(f"- Liquidation cost: {liquidation_cost * 100}%")
+                                    else:
+                                        st.success("✓ **Continue holding**")
+                                        st.write(f"- Expected gain from holding: ${continuation_value - immediate_value:.4f}")
+                                        st.write(f"- Continuation value: ${continuation_value:.4f}")
                                     
-                                except Exception as e:
-                                    st.error(f"Rust computation failed: {e}. Falling back to Python...")
-                                    use_rust = False
-                        
-                        if not use_rust:
-                            # Fallback to Python implementation
-                            pass
-                        
-                        # Compute market weights (Stochastic Portfolio Theory)
-                        total_cap = sample_prices.sum(axis=1, keepdims=True)
-                        market_weights = sample_prices / total_cap
-                        
-                        # Ranked market weights (permutation invariant)
-                        ranked_weights = np.sort(market_weights, axis=1)[:, ::-1]
-                        
-                        # Compute signature features (truncated at level 2)
-                        window = 20
-                        sig_features_list = []
-                        for t in range(window, len(ranked_weights)):
-                            window_data = ranked_weights[t-window:t]
-                            
-                            # Level 0: constant
-                            sig0 = 1.0
-                            
-                            # Level 1: linear integrals (mean increments)
-                            increments = np.diff(window_data, axis=0)
-                            sig1 = np.sum(increments, axis=0)  # Shape: (n_assets,)
-                            
-                            # Level 2: quadratic integrals (simplified covariation)
-                            cumulative = window_data[:-1] - window_data[0]
-                            sig2 = np.zeros((n_assets, n_assets))
-                            for i in range(n_assets):
-                                for j in range(n_assets):
-                                    sig2[i, j] = np.sum(cumulative[:, i] * increments[:, j])
-                            
-                            # Flatten to feature vector
-                            features = np.concatenate([[sig0], sig1, sig2.flatten()])
-                            sig_features_list.append(features)
-                        
-                        sig_features = np.array(sig_features_list)
-                        
-                        # Estimate parameters using signature-based prediction
-                        # (In production, would train regression models)
-                        recent_sig = sig_features[-1]
-                        
-                        # Simple linear prediction from signatures
-                        mu_est = sample_returns[-window:].mean(axis=0)
-                        Sigma_est = np.cov(sample_returns[-window:].T)
-                        
-                        # Path-functional portfolio weights (Type I from paper)
-                        # π_t = τ_t * f_t + (1 - Σ τ_j * f_j)
-                        # where f_t = θ^T * Sig(X)
-                        
-                        from scipy.optimize import minimize as scipy_minimize
-                        
-                        # Benchmark portfolio (market weights)
-                        tau = market_weights[-1]
-                        
-                        # Optimize signature weights θ
-                        sig_dim = len(recent_sig)
-                        theta_dim = n_assets * sig_dim
-                        
-                        def signature_portfolio_objective(theta_flat):
-                            theta = theta_flat.reshape(n_assets, sig_dim)
-                            
-                            # Compute portfolio controlling functions
-                            f = theta @ recent_sig  # Shape: (n_assets,)
-                            
-                            # Portfolio weights (Type I)
-                            w = tau * f + (1 - np.sum(tau * f))
-                            w = np.clip(w, 0, 1)  # Long-only constraint
-                            w = w / w.sum()  # Normalize
-                            
-                            # Mean-variance objective
-                            ret = np.dot(mu_est, w)
-                            risk = np.dot(w, np.dot(Sigma_est, w))
-                            
-                            # Add transaction cost penalty
-                            if len(market_weights) > 1:
-                                prev_w = market_weights[-2]
-                                turnover = np.sum(np.abs(w - prev_w))
-                                tc_penalty = transaction_cost * turnover
-                            else:
-                                tc_penalty = 0.0
-                            
-                            return -ret + (risk_aversion / 2) * risk + tc_penalty
-                        
-                        # Initialize near equal-weight adjustment
-                        theta_init = np.random.randn(theta_dim) * 0.01
-                        
-                        result = scipy_minimize(
-                            signature_portfolio_objective,
-                            theta_init,
-                            method='L-BFGS-B',
-                            options={'maxiter': 100}
-                        )
-                        
-                        # Get optimal portfolio weights
-                        theta_opt = result.x.reshape(n_assets, sig_dim)
-                        f_opt = theta_opt @ recent_sig
-                        optimal_weights = tau * f_opt + (1 - np.sum(tau * f_opt))
-                        optimal_weights = np.clip(optimal_weights, 0, 1)
-                        optimal_weights = optimal_weights / optimal_weights.sum()
-                        
-                        # Display results
-                        st.success("✓ Optimization complete!")
-                        
-                        # Portfolio weights
-                        weights_df = pd.DataFrame({
-                            'Asset': selected_assets,
-                            'Weight (%)': optimal_weights * 100
-                        })
-                        
-                        st.markdown("##### Optimal Weights")
-                        st.dataframe(weights_df, use_container_width=True)
-                        
-                        # Visualize
-                        fig = go.Figure(data=[
-                            go.Bar(x=selected_assets, y=optimal_weights * 100,
-                                  marker_color=['#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA'][:n_assets])
-                        ])
-                        fig.update_layout(
-                            title="Optimal Portfolio Allocation",
-                            xaxis_title="Asset",
-                            yaxis_title="Weight (%)",
-                            height=400,
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Portfolio metrics
-                        port_return = np.dot(optimal_weights, mu_est) * 252 * 100  # Annualized %
-                        port_risk = np.sqrt(np.dot(optimal_weights, np.dot(Sigma_est, optimal_weights))) * np.sqrt(252) * 100
-                        sharpe = port_return / port_risk if port_risk > 0 else 0.0
-                        
-                        col_a, col_b, col_c = st.columns(3)
-                        col_a.metric("Expected Return", f"{port_return:.2f}%", help="Annualized")
-                        col_b.metric("Volatility", f"{port_risk:.2f}%", help="Annualized")
-                        col_c.metric("Sharpe Ratio", f"{sharpe:.3f}")
-                        
-                        # Stopping decision (simplified)
-                        st.markdown("##### 🛑 Optimal Stopping Analysis")
-                        
-                        # Simulate continuation value (in production, use trained model)
-                        continuation_value = 1.02  # Placeholder
-                        immediate_value = 1.0 * (1 - liquidation_cost)
-                        
-                        if immediate_value >= continuation_value:
-                            st.error("🛑 **Liquidate NOW**")
-                            st.write(f"- Immediate value: ${immediate_value:.4f}")
-                            st.write(f"- Continuation value: ${continuation_value:.4f}")
-                            st.write(f"- Liquidation cost: {liquidation_cost * 100}%")
-                        else:
-                            st.success("✓ **Continue holding**")
-                            st.write(f"- Expected gain from holding: ${continuation_value - immediate_value:.4f}")
-                            st.write(f"- Continuation value: ${continuation_value:.4f}")
-                        
-                        st.info("""
-                        💡 **Note**: This is a simplified demo. For full implementation with:
-                        - Real market data
-                        - Signature-based parameter prediction
-                        - Trained stopping model
-                        - Transaction cost tracking
-                        - Backtest validation
-                        
-                        See the Jupyter notebook: `signature_portfolio_selection.ipynb`
-                        """)
+                                    st.info("""
+                                    💡 **Note**: This is a simplified demo. For full implementation with:
+                                    - Real market data
+                                    - Signature-based parameter prediction
+                                    - Trained stopping model
+                                    - Transaction cost tracking
+                                    - Backtest validation
+                                    
+                                    See the Jupyter notebook: `signature_portfolio_selection.ipynb`
+                                    """)
+                        finally:
+                            st.session_state.sig_computing = False
         
         else:
             st.warning("⚠️ Please load historical data first")

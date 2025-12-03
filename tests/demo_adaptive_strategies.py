@@ -15,6 +15,7 @@ sys.path.insert(0, '/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from typing import cast
 from python.adaptive_strategies import AdaptiveMeanReversion, AdaptiveMomentum
 from python.advanced_optimization import RUST_AVAILABLE
 
@@ -109,7 +110,7 @@ regime_history = []
 
 # Run backtest
 for i in range(300, len(df)):
-    window = df.iloc[:i+1]
+    window = cast(pd.DataFrame, df.iloc[:i+1])
     current_price = window['close'].iloc[-1]
     
     # Generate signal
@@ -282,7 +283,7 @@ position_fixed = None
 equity_fixed = [cash_fixed]
 
 for i in range(300, len(df)):
-    window = df.iloc[:i+1]
+    window = cast(pd.DataFrame, df.iloc[:i+1])
     current_price = window['close'].iloc[-1]
     
     current_positions = {'TEST': position_fixed} if position_fixed else {}

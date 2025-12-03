@@ -348,10 +348,11 @@ def render_fetch_tab():
                     
                     with col_ds2:
                         if st.button("📂 Load", key=f"fetch_load_{dataset['name']}", use_container_width=True):
-                            df = load_dataset(dataset['name'])
-                            if df is not None:
+                            result = load_dataset(dataset['name'])
+                            if result is not None:
+                                df, meta = result
                                 st.session_state.historical_data = df
-                                st.session_state.symbols = dataset['symbols']
+                                st.session_state.symbols = meta.get('symbols', dataset['symbols'])
                                 st.success(f"✅ Loaded {dataset['name']}")
                                 st.rerun()
                     

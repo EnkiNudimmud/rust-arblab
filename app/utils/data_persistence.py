@@ -149,15 +149,15 @@ def save_dataset(
         return False
 
 
-def load_dataset(dataset_name: str) -> Optional[pd.DataFrame]:
+def load_dataset(dataset_name: str) -> Optional[tuple[pd.DataFrame, Dict]]:
     """
-    Load a persisted dataset from disk.
+    Load a persisted dataset from disk along with its metadata.
     
     Args:
         dataset_name: Name of the dataset to load
         
     Returns:
-        DataFrame if found, None otherwise
+        Tuple of (DataFrame, metadata dict) if found, None otherwise
     """
     try:
         filepath = _get_dataset_filename(dataset_name)
@@ -167,8 +167,13 @@ def load_dataset(dataset_name: str) -> Optional[pd.DataFrame]:
             return None
         
         df = pd.read_parquet(filepath)
+        
+        # Load metadata for this dataset
+        metadata = _load_metadata()
+        dataset_meta = metadata.get(dataset_name, {})
+        
         logger.info(f"Loaded dataset '{dataset_name}': {len(df)} rows")
-        return df
+        return df, dataset_meta
         
     except Exception as e:
         logger.error(f"Failed to load dataset '{dataset_name}': {e}")
@@ -186,8 +191,9 @@ def load_all_datasets() -> Dict[str, pd.DataFrame]:
     datasets = {}
     
     for dataset_name in metadata.keys():
-        df = load_dataset(dataset_name)
-        if df is not None:
+        result = load_dataset(dataset_name)
+        if result is not None:
+            df, _ = result
             datasets[dataset_name] = df
     
     logger.info(f"Loaded {len(datasets)} datasets from disk")
@@ -321,12 +327,12 @@ def merge_datasets(dataset_names: List[str], new_dataset_name: str) -> bool:
         sources = []
         
         for name in dataset_names:
-            df = load_dataset(name)
-            if df is not None:
+            result = load_dataset(name)
+            if result is not None:
+                df, meta = result
                 dfs.append(df)
                 
-                # Get metadata
-                meta = get_dataset_metadata(name)
+                # Use metadata from load_dataset
                 all_symbols.extend(meta.get('symbols', []))
                 sources.append(meta.get('source', 'Unknown'))
         

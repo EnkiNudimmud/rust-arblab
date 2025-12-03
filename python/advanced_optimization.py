@@ -101,9 +101,9 @@ class HMMRegimeDetector:
                 hmm_model = optimizr.HMM(n_states=self.n_states)
                 hmm_model.fit(returns, n_iterations=n_iterations, tolerance=1e-6)
                 
-                # Extract fitted parameters
-                self.transition_matrix = hmm_model.transition_matrix
-                self.emission_params = [(m, s**2) for m, s in zip(hmm_model.emission_means, hmm_model.emission_stds)]
+                # Extract fitted parameters (note: OptimizR uses underscore suffix)
+                self.transition_matrix = hmm_model.transition_matrix_
+                self.emission_params = [(m, s**2) for m, s in zip(hmm_model.emission_means_, hmm_model.emission_stds_)]
                 
                 # Decode state sequence using Viterbi
                 self.state_sequence = hmm_model.predict(returns)

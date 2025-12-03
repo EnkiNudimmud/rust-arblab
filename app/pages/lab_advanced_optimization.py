@@ -52,7 +52,7 @@ st.set_page_config(
 )
 
 apply_custom_css()
-render_sidebar_navigation()
+render_sidebar_navigation(current_page="Advanced Optimization Lab")
 
 st.title("🧬 Advanced Optimization Laboratory")
 st.markdown("""

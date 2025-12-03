@@ -109,7 +109,8 @@ def render_sidebar_navigation(current_page="Home"):
         with st.expander("🔬 **Research Labs**", expanded=current_page in [
             "Mean Reversion Lab", "Rough Heston Lab", "Chiarella Model Lab", 
             "Signature Methods Lab", "Portfolio Analytics Lab", "PCA Arbitrage Lab",
-            "Momentum Trading Lab", "Market Making Lab"
+            "Momentum Trading Lab", "Market Making Lab", "Advanced Optimization Lab",
+            "Adaptive Strategies Lab"
         ]):
             if current_page == "Mean Reversion Lab":
                 st.success("📉 **Mean Reversion Lab**")
@@ -158,6 +159,18 @@ def render_sidebar_navigation(current_page="Home"):
             else:
                 if st.button("🌊 Market Making Lab", use_container_width=True, key="nav_mm"):
                     st.switch_page("pages/lab_market_making.py")
+            
+            if current_page == "Advanced Optimization Lab":
+                st.success("🧬 **Advanced Optimization Lab**")
+            else:
+                if st.button("🧬 Advanced Optimization Lab", use_container_width=True, key="nav_adv_opt"):
+                    st.switch_page("pages/lab_advanced_optimization.py")
+            
+            if current_page == "Adaptive Strategies Lab":
+                st.success("🎯 **Adaptive Strategies Lab**")
+            else:
+                if st.button("🎯 Adaptive Strategies Lab", use_container_width=True, key="nav_adaptive"):
+                    st.switch_page("pages/lab_adaptive_strategies.py")
         
         # Trading Strategies Section
         with st.expander("⚡ **Trading Strategies**", expanded=current_page in [

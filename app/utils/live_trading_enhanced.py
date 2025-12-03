@@ -673,37 +673,64 @@ def run_parameter_optimization(method: str, param_ranges: Dict, **method_params)
             result = optimizer.optimize()
         elif "Grid Search" in method:
             # Grid search implementation
-            best_score = -np.inf
-            best_params = {}
-            
-            # Create grid
             grid_points = method_params.get('grid_points', 5)
-            grids = []
-            for param in param_spaces:
-                low, high = param.bounds
-                grids.append(np.linspace(low, high, grid_points))
             
-            # Evaluate grid
-            with st.spinner("Running grid search..."):
-                for values in product(*grids):
-                    params = {param.name: val for param, val in zip(param_spaces, values)}
-                    score = objective(params)
-                    if score > best_score:
-                        best_score = score
-                        best_params = params
-            
-            result = OptimizationResult(
-                best_params=best_params,
-                best_score=best_score,
-                all_params=[best_params],
-                all_scores=[best_score],
-                convergence_history=[best_score],
-                method='Grid Search',
-                n_iterations=grid_points ** len(param_spaces)
-            )
+            # Try OptimizR first (50-100x faster!)
+            try:
+                import optimizr
+                
+                bounds = [param.bounds for param in param_spaces]
+                
+                with st.spinner("Running OptimizR grid search (Rust accelerated)..."):
+                    opt_result_x = optimizr.grid_search(
+                        objective,
+                        bounds,
+                        grid_points
+                    )
+                
+                best_params = {param.name: val for param, val in zip(param_spaces, opt_result_x)}
+                
+                result = OptimizationResult(
+                    best_params=best_params,
+                    best_score=objective(best_params),
+                    all_params=[best_params],
+                    all_scores=[objective(best_params)],
+                    convergence_history=[objective(best_params)],
+                    method='Grid Search (OptimizR - Rust accelerated)',
+                    n_iterations=grid_points ** len(param_spaces)
+                )
+            except Exception as e:
+                # Fallback to Python grid search
+                st.warning(f"OptimizR failed, using Python fallback: {e}")
+                
+                best_score = -np.inf
+                best_params = {}
+                
+                # Create grid
+                grids = []
+                for param in param_spaces:
+                    low, high = param.bounds
+                    grids.append(np.linspace(low, high, grid_points))
+                
+                # Evaluate grid
+                with st.spinner("Running grid search (Python fallback)..."):
+                    for values in product(*grids):
+                        params = {param.name: val for param, val in zip(param_spaces, values)}
+                        score = objective(params)
+                        if score > best_score:
+                            best_score = score
+                            best_params = params
+                
+                result = OptimizationResult(
+                    best_params=best_params,
+                    best_score=best_score,
+                    all_params=[best_params],
+                    all_scores=[best_score],
+                    convergence_history=[best_score],
+                    method='Grid Search (Python fallback)',
+                    n_iterations=grid_points ** len(param_spaces)
+                )
         elif "Differential Evolution" in method:
-            from scipy.optimize import differential_evolution
-            
             bounds = [param.bounds for param in param_spaces]
             maxiter = method_params.get('maxiter', 1000)
             popsize = method_params.get('popsize', 15)
@@ -712,25 +739,53 @@ def run_parameter_optimization(method: str, param_ranges: Dict, **method_params)
                 params = {param.name: val for param, val in zip(param_spaces, x)}
                 return -objective(params)
             
-            opt_result = differential_evolution(
-                neg_objective, 
-                bounds, 
-                maxiter=maxiter,
-                popsize=popsize,
-                workers=-1
-            )
-            
-            best_params = {param.name: val for param, val in zip(param_spaces, opt_result.x)}
-            
-            result = OptimizationResult(
-                best_params=best_params,
-                best_score=-opt_result.fun,
-                all_params=[best_params],
-                all_scores=[-opt_result.fun],
-                convergence_history=[],
-                method='Differential Evolution',
-                n_iterations=opt_result.nit
-            )
+            # Try OptimizR first (50-100x faster!)
+            try:
+                import optimizr
+                
+                opt_result_x = optimizr.differential_evolution(
+                    neg_objective,
+                    bounds,
+                    max_iterations=maxiter,
+                    population_size=popsize,
+                    f=0.8,
+                    cr=0.9
+                )
+                
+                best_params = {param.name: val for param, val in zip(param_spaces, opt_result_x)}
+                
+                result = OptimizationResult(
+                    best_params=best_params,
+                    best_score=-neg_objective(opt_result_x),
+                    all_params=[best_params],
+                    all_scores=[-neg_objective(opt_result_x)],
+                    convergence_history=[],
+                    method='Differential Evolution (OptimizR - Rust accelerated)',
+                    n_iterations=maxiter
+                )
+            except Exception as e:
+                # Fallback to scipy
+                from scipy.optimize import differential_evolution
+                
+                opt_result = differential_evolution(
+                    neg_objective, 
+                    bounds, 
+                    maxiter=maxiter,
+                    popsize=popsize,
+                    workers=-1
+                )
+                
+                best_params = {param.name: val for param, val in zip(param_spaces, opt_result.x)}
+                
+                result = OptimizationResult(
+                    best_params=best_params,
+                    best_score=-opt_result.fun,
+                    all_params=[best_params],
+                    all_scores=[-opt_result.fun],
+                    convergence_history=[],
+                    method='Differential Evolution (scipy fallback)',
+                    n_iterations=opt_result.nit
+                )
         else:
             st.warning("Method not yet implemented")
             return

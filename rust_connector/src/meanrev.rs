@@ -1,11 +1,9 @@
 /// Mean-reversion portfolio discovery and analysis functions
 /// Exposed to Python via PyO3 for performance-critical operations.
 
-use ndarray::{Array1, Array2};
 use nalgebra::{DMatrix, DVector, SVD};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use std::collections::HashMap;
 
 /// Compute PCA on returns matrix using nalgebra SVD
 /// Returns dict with "components" and "explained_variance"
@@ -184,7 +182,7 @@ pub fn cointegration_test_rust(
     let alpha = mean2 - beta * mean1;
     
     // Compute spread: spread = prices2 - (alpha + beta * prices1)
-    let mut spread: Vec<f64> = prices2
+    let spread: Vec<f64> = prices2
         .iter()
         .enumerate()
         .map(|(i, &p2)| p2 - (alpha + beta * prices1[i]))
@@ -260,7 +258,7 @@ pub fn backtest_strategy_rust(
     let mut returns = vec![0.0; n];
     
     let mut current_position = 0;
-    let mut cash = 100000.0;
+    let cash = 100000.0;
     let mut portfolio_value = cash;
     let mut peak_value = cash;
     let mut max_dd = 0.0;

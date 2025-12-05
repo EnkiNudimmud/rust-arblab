@@ -191,6 +191,14 @@ class AdaptiveStrategy:
         try:
             # Train HMM on recent data
             train_data = returns[-self.lookback_period:]
+            
+            # Remove NaN/inf values that can break HMM
+            train_data = train_data[np.isfinite(train_data)]
+            
+            if len(train_data) < 20:  # Need minimum data
+                logger.warning(f"Insufficient valid data after cleaning: {len(train_data)}")
+                return False
+            
             self.hmm_detector.fit(train_data, n_iterations=50)
             
             self.hmm_trained = True

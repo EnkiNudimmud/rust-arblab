@@ -16,3 +16,8 @@ log = "0.4"
 env_logger = "0.10"
 libm = "0.2"
 rand = "0.8"
+
+# Data processing dependencies
+polars = { version = "0.35", features = ["lazy", "parquet", "csv", "json", "dtype-date", "dtype-datetime"] }
+aws-config = "1.0"
+aws-sdk-s3 = "1.9"

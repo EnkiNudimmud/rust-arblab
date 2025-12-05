@@ -94,6 +94,15 @@ class HMMRegimeDetector:
             returns: Time series of returns
             n_iterations: Number of EM iterations
         """
+        # Validate input data
+        if len(returns) < 20:
+            raise ValueError(f"Insufficient data for HMM: need at least 20 points, got {len(returns)}")
+        
+        # Check for NaN/inf values
+        if not np.all(np.isfinite(returns)):
+            n_invalid = np.sum(~np.isfinite(returns))
+            raise ValueError(f"Returns contain {n_invalid} NaN or inf values. Clean data first.")
+        
         # Try OptimizR implementation first (50-100x faster!)
         if RUST_AVAILABLE and optimizr is not None:
             try:

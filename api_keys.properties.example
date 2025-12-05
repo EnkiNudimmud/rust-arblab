@@ -21,3 +21,14 @@ COINBASE_API_KEY=
 COINBASE_API_SECRET=
 COINBASE_PASSPHRASE=
 
+# Massive.com API Key (get free key at https://massive.com/signup)
+# Free tier: 100 REST requests/day, 10/minute, 10 concurrent WebSocket connections, 10 GB/month file downloads
+MASSIVE_API_KEY=
+
+# Massive.com S3 Credentials for Flat File Downloads (from "Accessing Flat Files (S3)" tab)
+# These are SEPARATE from the API key - get them from your Massive account dashboard
+MASSIVE_S3_ACCESS_KEY_ID=
+MASSIVE_S3_SECRET_ACCESS_KEY=
+MASSIVE_S3_ENDPOINT=https://files.massive.com
+MASSIVE_S3_BUCKET=flatfiles
+

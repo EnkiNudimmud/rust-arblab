@@ -531,7 +531,7 @@ pub fn differential_evolution(
             let c_idx = indices[uniform_idx.sample(&mut rng) % indices.len()];
             
             // Mutation: v = a + f * (b - c)
-            let mut mutant: Vec<f64> = (0..n_params)
+            let mutant: Vec<f64> = (0..n_params)
                 .map(|j| {
                     let v = population[a_idx][j] + f * (population[b_idx][j] - population[c_idx][j]);
                     v.max(bounds[j].0).min(bounds[j].1)

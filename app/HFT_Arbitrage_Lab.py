@@ -44,7 +44,7 @@ if 'live_use_websocket' not in st.session_state:
 
 # Initialize theme mode
 if 'theme_mode' not in st.session_state:
-    st.session_state.theme_mode = 'light'  # Default to light mode
+    st.session_state.theme_mode = 'dark'  # Default to dark mode for better visibility
 
 # Initialize persisted datasets cache
 if 'persisted_datasets' not in st.session_state:
@@ -112,11 +112,13 @@ col1, col2, col3, col4 = st.columns(4)
 
 try:
     import rust_connector
-    rust_status = "🟢 Online"
+    rust_status = "🟢 ENABLED (10-100x faster)"
     rust_class = "status-online"
+    rust_available = True
 except:
-    rust_status = "🔴 Offline"
+    rust_status = "🔴 DISABLED (build required)"
     rust_class = "status-offline"
+    rust_available = False
 
 try:
     from python.api_keys import get_finnhub_key
@@ -138,6 +140,23 @@ with col3:
 
 with col4:
     st.markdown(f'<div class="status-card"><strong>Active Labs</strong><br/><span class="status-online">🟢 5 Labs</span></div>', unsafe_allow_html=True)
+
+# Show prominent message if Rust is not available
+if not rust_available:
+    st.error("""
+    **⚠️ RUST ACCELERATION DISABLED - Performance will be significantly slower!**
+    
+    To enable 10-100x performance boost, build the Rust engine:
+    ```bash
+    cd rust_connector
+    maturin develop --release
+    ```
+    Or use the full restart script: `./scripts/restart_all.sh`
+    """)
+else:
+    st.success("""
+    **🚀 RUST ACCELERATION ENABLED** - Enjoying 10-100x performance boost on computations!
+    """)
 
 st.markdown("---")
 

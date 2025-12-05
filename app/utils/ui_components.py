@@ -18,7 +18,7 @@ def toggle_theme():
 def get_theme_colors():
     """Get color scheme based on current theme"""
     if 'theme_mode' not in st.session_state:
-        st.session_state.theme_mode = 'light'
+        st.session_state.theme_mode = 'dark'  # Default to dark mode for better visibility
     
     if st.session_state.theme_mode == 'light':
         return {
@@ -229,16 +229,26 @@ def apply_custom_css():
     
     st.markdown(f"""
     <style>
-        /* Main App Background */
+        /* Main App Background - Force dark everywhere */
         .stApp {{
-            background-color: {colors['bg_primary']};
+            background-color: {colors['bg_primary']} !important;
             color: {colors['text_primary']};
         }}
         
         /* Main content area */
         .main .block-container {{
-            background-color: {colors['bg_primary']};
+            background-color: {colors['bg_primary']} !important;
             color: {colors['text_primary']};
+        }}
+        
+        /* Force all sections to be dark */
+        section {{
+            background-color: {colors['bg_primary']} !important;
+        }}
+        
+        /* Override any white backgrounds */
+        * {{
+            scrollbar-color: {colors['border']} {colors['bg_secondary']};
         }}
         
         /* Headers */
@@ -371,6 +381,93 @@ def apply_custom_css():
             border: 1px solid {colors['border']} !important;
         }}
         
+        /* Radio buttons and checkboxes */
+        .stRadio label, .stCheckbox label {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Dropdown menus - Comprehensive targeting */
+        div[role="listbox"] {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+            border: 1px solid {colors['border']} !important;
+        }}
+        
+        div[role="listbox"] * {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        div[role="option"] {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        div[role="option"]:hover {{
+            background-color: {colors['bg_secondary']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Select dropdown popover */
+        div[data-baseweb="popover"] {{
+            background-color: {colors['bg_card']} !important;
+        }}
+        
+        div[data-baseweb="popover"] * {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Select menu list */
+        ul[role="listbox"] {{
+            background-color: {colors['bg_card']} !important;
+            border: 1px solid {colors['border']} !important;
+        }}
+        
+        ul[role="listbox"] li {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        ul[role="listbox"] li:hover {{
+            background-color: {colors['bg_secondary']} !important;
+        }}
+        
+        /* Streamlit select box specific */
+        [data-baseweb="select"] {{
+            background-color: {colors['bg_secondary']} !important;
+        }}
+        
+        [data-baseweb="select"] > div {{
+            background-color: {colors['bg_secondary']} !important;
+            color: {colors['text_primary']} !important;
+            border-color: {colors['border']} !important;
+        }}
+        
+        [data-baseweb="select"] span {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Menu/dropdown containers */
+        [data-baseweb="menu"] {{
+            background-color: {colors['bg_card']} !important;
+        }}
+        
+        [data-baseweb="menu"] li {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        [data-baseweb="menu"] li:hover {{
+            background-color: {colors['bg_secondary']} !important;
+        }}
+        
+        /* Date picker */
+        .stDateInput input {{
+            background-color: {colors['bg_secondary']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
         /* Dataframes */
         .dataframe {{
             background-color: {colors['bg_card']} !important;
@@ -411,10 +508,33 @@ def apply_custom_css():
             border: 1px solid {colors['border']};
         }}
         
+        .streamlit-expanderHeader * {{
+            color: {colors['text_primary']} !important;
+        }}
+        
         .streamlit-expanderContent {{
             background-color: {colors['bg_card']} !important;
             border: 1px solid {colors['border']};
             color: {colors['text_primary']};
+        }}
+        
+        .streamlit-expanderContent * {{
+            color: {colors['text_primary']};
+        }}
+        
+        /* Expander with data-testid */
+        [data-testid="stExpander"] {{
+            background-color: {colors['bg_card']} !important;
+            border: 1px solid {colors['border']};
+        }}
+        
+        [data-testid="stExpander"] summary {{
+            background-color: {colors['bg_secondary']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        [data-testid="stExpander"] summary * {{
+            color: {colors['text_primary']} !important;
         }}
         
         /* Tabs */
@@ -442,11 +562,52 @@ def apply_custom_css():
             color: {colors['text_secondary']} !important;
         }}
         
-        /* Info/Warning/Error boxes */
+        /* Info/Warning/Error boxes - Fixed visibility */
         .stAlert {{
-            background-color: {colors['bg_card']};
-            color: {colors['text_primary']};
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
             border: 1px solid {colors['border']};
+        }}
+        
+        .stAlert > div {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        .stAlert p, .stAlert span, .stAlert div {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Streamlit info/success/warning/error boxes */
+        div[data-baseweb="notification"] {{
+            background-color: {colors['bg_secondary']} !important;
+            color: {colors['text_primary']} !important;
+        }}
+        
+        div[data-baseweb="notification"] p,
+        div[data-baseweb="notification"] span,
+        div[data-baseweb="notification"] div {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Caption text */
+        .caption, [data-testid="stCaptionContainer"], .stCaptionContainer {{
+            color: {colors['text_muted']} !important;
+        }}
+        
+        .caption *, [data-testid="stCaptionContainer"] *, .stCaptionContainer * {{
+            color: {colors['text_muted']} !important;
+        }}
+        
+        /* Markdown text in containers */
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] span,
+        [data-testid="stMarkdownContainer"] div {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Ensure all text elements inherit proper colors */
+        .element-container * {{
+            color: inherit;
         }}
         
         /* Hide native Streamlit page navigation */

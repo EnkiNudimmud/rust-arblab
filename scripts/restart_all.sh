@@ -21,8 +21,11 @@ echo -e "${CYAN}║  🔄 Complete Development Environment      ║${NC}"
 echo -e "${CYAN}║     Restart Script                         ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
 echo ""
+echo -e "${GREEN}🦀 Rust backend will be REBUILT for optimal performance${NC}"
+echo ""
 
 # Parse arguments
+# FORCE: Always build Rust backend by default
 SKIP_RUST=false
 SKIP_STREAMLIT=false
 SKIP_JUPYTER=false
@@ -50,16 +53,18 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --skip-rust       Skip Rust rebuild"
+            echo "  --skip-rust       Skip Rust rebuild (NOT RECOMMENDED)"
             echo "  --skip-streamlit  Skip Streamlit restart"
             echo "  --skip-jupyter    Skip Jupyter restart"
             echo "  --quick           Quick incremental Rust build (no clean)"
             echo "  -h, --help        Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                    # Full restart (Rust + Streamlit + Jupyter)"
+            echo "  $0                    # Full restart (ALWAYS rebuilds Rust + Streamlit + Jupyter)"
             echo "  $0 --quick            # Quick Rust build + restart all"
-            echo "  $0 --skip-rust        # Only restart Python services"
+            echo "  $0 --skip-rust        # Only restart Python services (NOT RECOMMENDED)"
+            echo ""
+            echo "Note: Rust backend is ALWAYS rebuilt by default for optimal performance"
             exit 0
             ;;
         *)
@@ -228,14 +233,20 @@ if [ "$SKIP_JUPYTER" = false ]; then
         
         if pgrep -f "jupyter" > /dev/null; then
             echo -e "${GREEN}✓ Jupyter started${NC}"
+            echo ""
+            echo "╔═══════════════════════════════════════════════════════════════╗"
+            echo "║         📓 JUPYTER NOTEBOOK ACCESS                            ║"
+            echo "╚═══════════════════════════════════════════════════════════════╝"
             # Try to get the URL with token
             sleep 1
             JUPYTER_URL=$(jupyter notebook list 2>/dev/null | grep "http" | awk '{print $1}' | head -1)
             if [ -n "$JUPYTER_URL" ]; then
-                echo -e "${CYAN}  → $JUPYTER_URL${NC}"
+                echo -e "${CYAN}🌐 Jupyter URL: $JUPYTER_URL${NC}"
             else
-                echo -e "${CYAN}  → Check terminal for Jupyter URL${NC}"
+                echo -e "${CYAN}🌐 Jupyter URL: http://localhost:8888${NC}"
             fi
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
         else
             echo -e "${RED}✗ Jupyter failed to start${NC}"
         fi
@@ -269,7 +280,12 @@ else
 fi
 
 if pgrep -f "jupyter" > /dev/null && [ "$SKIP_JUPYTER" = false ]; then
-    echo -e "  ${GREEN}✓${NC} Jupyter: Running"
+    JUPYTER_URL=$(jupyter notebook list 2>/dev/null | grep "http" | awk '{print $1}' | head -1)
+    if [ -n "$JUPYTER_URL" ]; then
+        echo -e "  ${GREEN}✓${NC} Jupyter: Running → ${JUPYTER_URL}"
+    else
+        echo -e "  ${GREEN}✓${NC} Jupyter: Running → http://localhost:8888"
+    fi
 elif [ "$SKIP_JUPYTER" = true ]; then
     echo -e "  ${BLUE}⏭${NC} Jupyter: Skipped"
 else

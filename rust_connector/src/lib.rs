@@ -26,6 +26,7 @@ use fastrand;
 mod meanrev;
 mod lob;
 mod optimization;
+mod sparse_meanrev;
 
 /// OrderBook struct sent to Python
 #[pyclass]
@@ -579,6 +580,12 @@ fn rust_connector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Register optimization functions
     optimization::register_optimization_module(m)?;
+    
+    // Register sparse mean-reversion functions
+    m.add_function(wrap_pyfunction!(sparse_meanrev::sparse_pca_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(sparse_meanrev::box_tao_decomposition_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(sparse_meanrev::hurst_exponent_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(sparse_meanrev::sparse_cointegration_rust, m)?)?;
     
     Ok(())
 }

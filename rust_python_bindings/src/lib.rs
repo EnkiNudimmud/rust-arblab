@@ -12,6 +12,7 @@ mod options_bindings;
 mod rough_heston_bindings;
 mod portfolio_drift_bindings;
 mod signature_bindings;
+mod flat_file_bindings;
 // mod alpha_vantage_bindings;  // Temporarily disabled - using Python helper directly
 
 type HandleId = u64;
@@ -169,6 +170,9 @@ fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let signature = PyModule::new_bound(m.py(), "signature")?;
     signature_bindings::register_signature_portfolio(m.py(), &signature)?;
     m.add_submodule(&signature)?;
+    
+    // Add flat file processor submodule
+    flat_file_bindings::register_flat_file_module(m.py(), m)?;
     
     // Note: Alpha Vantage connector uses Python helper directly (alpha_vantage_helper.py)
     // No Rust bindings needed since it's REST-only, not real-time WebSocket

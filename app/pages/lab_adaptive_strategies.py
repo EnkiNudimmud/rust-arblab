@@ -123,17 +123,23 @@ with tab1:
     if 'symbol' in df.columns:
         symbols = df['symbol'].unique().tolist()
         
+        # Initialize session state for selected symbols
+        if 'adaptive_selected_symbols' not in st.session_state:
+            st.session_state['adaptive_selected_symbols'] = [symbols[0]] if symbols else []
+        
         col1, col2 = st.columns([3, 1])
         with col1:
             selected_symbols = st.multiselect(
                 "Select Symbol(s)",
                 symbols,
-                default=[symbols[0]] if symbols else [],
+                default=st.session_state['adaptive_selected_symbols'],
                 help="Select one or more symbols for backtesting"
             )
+            # Update session state with current selection
+            st.session_state['adaptive_selected_symbols'] = selected_symbols
         with col2:
             if st.button("📊 Select All"):
-                selected_symbols = symbols
+                st.session_state['adaptive_selected_symbols'] = symbols
                 st.rerun()
         
         if not selected_symbols:
@@ -202,7 +208,7 @@ with tab1:
                 # Initialize portfolio tracking across all symbols
                 portfolio_value = 100000.0
                 cash = portfolio_value
-                positions = {sym: None for sym in selected_symbols}
+                positions: dict[str, dict[str, float] | None] = {sym: None for sym in selected_symbols}
                 all_trades = []
                 equity_curve = [portfolio_value]
                 regime_history = []
@@ -286,10 +292,12 @@ with tab1:
                                 
                                 elif signal['action'] == 'close' and positions[symbol] is not None:
                                     # Close position
-                                    shares = positions[symbol]['shares']
-                                    side = positions[symbol]['side']
-                                    entry_price = positions[symbol]['entry_price']
-                                    entry_bar = positions[symbol]['entry_bar']
+                                    position = positions[symbol]
+                                    assert position is not None  # Type narrowing for type checker
+                                    shares = position['shares']
+                                    side = position['side']
+                                    entry_price = position['entry_price']
+                                    entry_bar = position['entry_bar']
                                     
                                     if side == 'long':
                                         pnl = shares * (current_price - entry_price)
@@ -589,14 +597,23 @@ with tab2:
             
             for i, (mean, var) in enumerate(emission_params):
                 regime_name = ["Bear", "Sideways", "Bull"][i] if i < 3 else f"Regime {i}"
-                std = np.sqrt(var)
                 
-                with [col1, col2, col3][i]:
-                    st.metric(
-                        regime_name,
-                        f"μ={mean:.4f}",
-                        delta=f"σ={std:.4f}"
-                    )
+                # Handle NaN/inf values gracefully
+                if not np.isfinite(mean) or not np.isfinite(var) or var < 0:
+                    with [col1, col2, col3][i]:
+                        st.metric(
+                            regime_name,
+                            "Not yet fitted",
+                            delta="Waiting for data"
+                        )
+                else:
+                    std = np.sqrt(var)
+                    with [col1, col2, col3][i]:
+                        st.metric(
+                            regime_name,
+                            f"μ={mean:.4f}",
+                            delta=f"σ={std:.4f}"
+                        )
         
         # Regime timeline
         st.subheader("⏱️ Regime Evolution")

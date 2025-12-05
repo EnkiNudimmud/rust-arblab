@@ -130,22 +130,47 @@ with tab1:
     st.subheader("Data Preview")
     st.dataframe(df.head(100), use_container_width=True)
     
-    # Symbol selection for single-asset methods
+    # Multi-Symbol Selection
+    st.subheader("📊 Asset Selection")
+    
     if 'symbol' in df.columns:
-        st.subheader("Symbol Selection")
         symbols = df['symbol'].unique().tolist()
-        selected_symbol = st.selectbox("Select symbol for analysis", symbols)
         
-        # Filter data for selected symbol
-        symbol_df = df[df['symbol'] == selected_symbol].copy()
-        if 'timestamp' in symbol_df.columns:
-            symbol_df = symbol_df.set_index('timestamp').sort_index()
+        # Initialize session state for selected symbols
+        if 'selected_symbols' not in st.session_state:
+            st.session_state['selected_symbols'] = [symbols[0]] if symbols else []
         
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            selected_symbols = st.multiselect(
+                "Select symbols for optimization",
+                symbols,
+                default=st.session_state['selected_symbols'],
+                help="Choose one or more symbols to analyze"
+            )
+            # Update session state with current selection
+            st.session_state['selected_symbols'] = selected_symbols
+        with col2:
+            if st.button("📋 Select All", use_container_width=True):
+                st.session_state['selected_symbols'] = symbols
+                st.rerun()
+        
+        if not selected_symbols:
+            st.warning("⚠️ Please select at least one symbol")
+            st.stop()
+        
+        # Store selected symbols
+        st.session_state['selected_symbols'] = selected_symbols
+        
+        # Prepare data for selected symbols
+        symbol_df = df[df['symbol'].isin(selected_symbols)].copy()
         st.session_state['selected_symbol_data'] = symbol_df
-        st.session_state['selected_symbol'] = selected_symbol
+        
+        st.info(f"📌 Selected {len(selected_symbols)} symbol(s): {', '.join(selected_symbols[:5])}{'...' if len(selected_symbols) > 5 else ''}")
     else:
+        st.session_state['selected_symbols'] = ["Dataset"]
         st.session_state['selected_symbol_data'] = df
-        st.session_state['selected_symbol'] = "Full Dataset"
+        st.info("📌 Using full dataset (no symbol column)")
     
     # Parameter Configuration
     st.subheader("⚙️ Optimization Parameters")
@@ -281,7 +306,20 @@ with tab2:
     if optimization_method == "HMM Regime Detection":
         st.subheader("Hidden Markov Model Calibration")
         
-        if st.button("🚀 Run HMM Calibration", type="primary"):
+        # Execution mode for multi-symbol
+        if len(st.session_state.get('selected_symbols', [])) > 1:
+            execution_mode = st.radio(
+                "Execution Mode",
+                ["Run on first symbol only", "Run on all selected symbols"],
+                help="Choose whether to run HMM on just the first symbol or all selected symbols"
+            )
+        else:
+            execution_mode = "Run on first symbol only"
+        
+        if st.button("▶️ Run HMM Calibration", use_container_width=True, type="primary"):
+            selected_symbols = st.session_state.get('selected_symbols', ['Dataset'])
+            st.info(f"🔄 Running HMM on {len(selected_symbols)} symbol(s)...")
+            
             with st.spinner("Training HMM model..."):
                 try:
                     params = st.session_state['hmm_params']
@@ -339,7 +377,7 @@ with tab2:
     elif optimization_method == "MCMC Bayesian":
         st.subheader("MCMC Bayesian Parameter Estimation")
         
-        if st.button("🚀 Run MCMC Sampling", type="primary"):
+        if st.button("▶️ Run MCMC Sampling", use_container_width=True, type="primary"):
             with st.spinner("Running MCMC chains..."):
                 try:
                     params = st.session_state['mcmc_params']
@@ -387,7 +425,7 @@ with tab2:
     elif optimization_method == "MLE Estimation":
         st.subheader("Maximum Likelihood Estimation")
         
-        if st.button("🚀 Run MLE Optimization", type="primary"):
+        if st.button("▶️ Run MLE Optimization", use_container_width=True, type="primary"):
             with st.spinner("Optimizing parameters..."):
                 try:
                     params = st.session_state['mle_params']
@@ -449,7 +487,7 @@ with tab2:
     elif optimization_method == "Information Theory":
         st.subheader("Information Theory Feature Selection")
         
-        if st.button("🚀 Compute Mutual Information", type="primary"):
+        if st.button("▶️ Compute Mutual Information", use_container_width=True, type="primary"):
             with st.spinner("Computing mutual information..."):
                 try:
                     params = st.session_state['info_theory_params']
@@ -518,7 +556,7 @@ with tab2:
     else:  # Multi-Strategy
         st.subheader("Multi-Strategy Portfolio Optimization")
         
-        if st.button("🚀 Run Multi-Objective Optimization", type="primary"):
+        if st.button("▶️ Run Multi-Objective Optimization", use_container_width=True, type="primary"):
             with st.spinner("Optimizing portfolio allocation..."):
                 try:
                     params = st.session_state['multi_strategy_params']

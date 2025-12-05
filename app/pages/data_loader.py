@@ -551,6 +551,7 @@ def render_fetch_tab():
                 "Yahoo Finance", 
                 "Finnhub (API)", 
                 "Alpha Vantage (API - FREE 25 calls/day)",
+                "Massive (Institutional-grade - FREE 100 calls/day)",
                 "Upload CSV", 
                 "Mock/Synthetic"
             ],
@@ -576,8 +577,203 @@ def render_fetch_tab():
                 f"Supports second-level historical data for crypto pairs."
             )
         
+        # Massive rate limit warnings and method selection
+        # Initialize in session state for global access
+        if 'massive_fetch_method' not in st.session_state:
+            st.session_state.massive_fetch_method = "auto"
+        if 'massive_data_type' not in st.session_state:
+            st.session_state.massive_data_type = "ohlcv"
+        
+        if data_source.startswith("Massive"):
+            # Important notice about Massive.com availability
+            st.warning(
+                "⚠️ **Massive.com API Notice**\\n\\n"
+                "Massive.com is currently a placeholder/example service for demonstration purposes. "
+                "The REST API and WebSocket endpoints are not yet publicly available.\\n\\n"
+                "**🔄 Working Alternatives:**\\n"
+                "• **CCXT** - Free real-time crypto data (Binance, Kraken, etc.)\\n"
+                "• **Yahoo Finance** - Free stock data\\n"
+                "• **Finnhub** - Free stock market data with API key\\n\\n"
+                "**Flat File Downloads** may work if you have valid S3 credentials from a compatible provider."
+            )
+            
+            # Initialize rate limit tracking in session state
+            if 'massive_calls_today' not in st.session_state:
+                st.session_state.massive_calls_today = 0
+                st.session_state.massive_last_reset = datetime.now().date()
+            
+            # Reset daily counter if new day
+            if st.session_state.massive_last_reset < datetime.now().date():
+                st.session_state.massive_calls_today = 0
+                st.session_state.massive_last_reset = datetime.now().date()
+            
+            # Method selection
+            st.markdown("#### 📊 Fetch Method")
+            st.session_state.massive_fetch_method = st.radio(
+                "How to fetch data",
+                ["auto", "rest", "flat_file"],
+                index=["auto", "rest", "flat_file"].index(st.session_state.massive_fetch_method) if st.session_state.massive_fetch_method in ["auto", "rest", "flat_file"] else 0,
+                format_func=lambda x: {
+                    "auto": "🤖 Auto (Smart Selection)",
+                    "rest": "📡 REST API (Fast, small queries)",
+                    "flat_file": "📦 Flat Files / S3 (Bulk downloads)"
+                }[x],
+                help=(
+                    "**Auto**: Automatically chooses best method based on query size\\n"
+                    "  - REST API for ≤5 symbols AND ≤7 days\\n"
+                    "  - Flat Files for larger queries\\n\\n"
+                    "**REST API**: Fast for small queries, counts against 100 calls/day\\n\\n"
+                    "**Flat Files (S3)**: Best for bulk data (>10 symbols or >30 days), "
+                    "uses S3 credentials (separate from API key), 10 GB/month quota"
+                )
+            )
+            
+            # Data type selection for flat files
+            if st.session_state.massive_fetch_method == "flat_file":
+                st.session_state.massive_data_type = st.radio(
+                    "Data Type",
+                    ["ohlcv", "trades"],
+                    format_func=lambda x: {
+                        "ohlcv": "📊 OHLCV Bars (Aggregated candles)",
+                        "trades": "⚡ Tick-Level Trades (Raw trade data)"
+                    }[x],
+                    help=(
+                        "**OHLCV Bars**: Aggregated data (open, high, low, close, volume) for backtesting\\n"
+                        "**Tick-Level Trades**: Raw trade-by-trade data from SIP feed (US stocks only, very large files)"
+                    ),
+                    horizontal=True
+                )
+            
+            # Display rate limit status
+            calls_remaining = 100 - st.session_state.massive_calls_today
+            
+            if st.session_state.massive_fetch_method in ["auto", "rest"]:
+                if calls_remaining > 50:
+                    st.info(
+                        f"🏛️ **Massive.com Free Tier Status:**\\n"
+                        f"✅ {calls_remaining}/100 REST API calls remaining today\\n"
+                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
+                        f"🔌 WebSocket: 10 concurrent connections, 100 messages/min\\n"
+                        f"📥 Bulk Files: 10 GB/month downloads available\\n"
+                        f"💡 Institutional-grade data with generous free tier!"
+                    )
+                elif calls_remaining > 20:
+                    st.warning(
+                        f"⚠️ **Massive.com Free Tier Status:**\\n"
+                        f"🔶 {calls_remaining}/100 REST API calls remaining today\\n"
+                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
+                        f"💡 Consider using WebSocket streaming or flat file downloads\\n"
+                        f"📥 10 GB/month bulk downloads available"
+                    )
+                elif calls_remaining > 0:
+                    st.error(
+                        f"🚨 **Massive.com Free Tier Status:**\\n"
+                        f"🔴 Only {calls_remaining}/100 REST API calls left today!\\n"
+                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
+                        f"💡 Switch to flat file downloads\\n"
+                        f"📥 10 GB/month still available for flat files"
+                    )
+                else:
+                    st.error(
+                        f"🚫 **Massive.com Daily REST Limit Reached!**\\n"
+                        f"❌ 0/100 REST API calls remaining\\n"
+                        f"⏰ Limit resets at midnight UTC\\n"
+                        f"💡 Alternative: Use flat files (10 GB/month)\\n"
+                        f"📥 Get S3 credentials from Massive dashboard"
+                    )
+                    # Auto-switch to flat files if REST limit reached
+                    if st.session_state.massive_fetch_method == "auto":
+                        st.info("🤖 Auto-switching to flat files since REST limit reached")
+                        st.session_state.massive_fetch_method = "flat_file"
+            
+            if st.session_state.massive_fetch_method == "flat_file":
+                st.success(
+                    f"📦 **Using Flat Files (S3 Downloads)**\\n"
+                    f"✅ Doesn't count against REST API quota\\n"
+                    f"📥 10 GB/month download limit\\n"
+                    f"💡 Requires S3 credentials from 'Accessing Flat Files (S3)' tab\\n"
+                    f"⚙️ Add to api_keys.properties: MASSIVE_S3_ACCESS_KEY_ID, MASSIVE_S3_SECRET_ACCESS_KEY"
+                )
+                
+                # Show what's available for bulk download
+                with st.expander("📋 View Available Flat File Data", expanded=False):
+                    if st.session_state.massive_data_type == "ohlcv":
+                        st.markdown("""
+                        **Available OHLCV Bar Data on Massive S3:**
+                        
+                        **Equities (US Stocks):**
+                        - 🕐 Minute-level data: 2000-present
+                        - 📈 Hourly data: 2000-present  
+                        - 📊 Daily data: 1970-present
+                        - 📅 Weekly data: 1970-present
+                        
+                        **Coverage:**
+                        - All NYSE, NASDAQ, AMEX listed stocks
+                        - ~8,000+ active tickers
+                        - Corporate actions adjusted
+                        - Institutional-grade quality
+                        
+                        **File Organization:**
+                        ```
+                        equities/{interval}/{SYMBOL}/{YYYY-MM}.parquet
+                        ```
+                        
+                        **Typical File Sizes:**
+                        - 1 month minute data (1 symbol): ~50-200 MB
+                        - 1 month daily data (1 symbol): ~1-5 MB
+                        - 1 year daily data (1 symbol): ~10-50 MB
+                        
+                        **Performance (Rust Backend):**
+                        - Small files (<1GB): Polars engine (50-100x faster than Python)
+                        - Large files (>1GB): DataFusion streaming
+                        - Automatic engine selection
+                        
+                        **Recommended Usage:**
+                        - ≤10 symbols, ≤30 days: Use REST API
+                        - >10 symbols OR >30 days: Use Flat Files
+                        - Backtesting (100s of symbols): Use Flat Files
+                        """)
+                    else:  # trades
+                        st.markdown("""
+                        **Available Tick-Level Trade Data on Massive S3:**
+                        
+                        **US Stocks SIP (Securities Information Processor):**
+                        - ⚡ Tick-by-tick trade data
+                        - 🕐 Coverage: 2020-present
+                        - 📍 Source: Consolidated SIP feed (all exchanges)
+                        - 📊 Fields: timestamp, symbol, price, size, exchange, conditions
+                        
+                        **Coverage:**
+                        - All NYSE, NASDAQ, AMEX listed stocks
+                        - Every single trade execution
+                        - Sub-millisecond timestamps
+                        - Exchange identifiers and trade conditions
+                        
+                        **File Organization:**
+                        ```
+                        us_stocks_sip/trades_v1/{SYMBOL}/{YYYY-MM-DD}.parquet
+                        ```
+                        
+                        **⚠️ Large File Sizes:**
+                        - 1 day tick data (liquid stock): 100-500 MB
+                        - 1 day tick data (very liquid): 500 MB - 2 GB
+                        - 1 month tick data: 3-15 GB per symbol
+                        
+                        **Performance:**
+                        - Rust backend automatically uses DataFusion for streaming
+                        - Processes millions of ticks efficiently
+                        - Filters applied before loading into memory
+                        
+                        **⚠️ Recommended Usage:**
+                        - HFT strategy development and backtesting
+                        - Market microstructure research
+                        - Order flow analysis
+                        - **Start with 1-2 days for testing due to large file sizes**
+                        - Monitor your 10 GB/month quota carefully
+                        """)
+        
         # Alpha Vantage rate limit warnings
-        if data_source.startswith("Alpha Vantage"):
+        elif data_source.startswith("Alpha Vantage"):
             # Initialize rate limit tracking in session state
             if 'av_calls_today' not in st.session_state:
                 st.session_state.av_calls_today = 0
@@ -909,6 +1105,56 @@ def render_fetch_tab():
                     current_rows = len(st.session_state.historical_data)
                     st.caption(f"📊 Current: {current_rows:,} rows")
             
+            # Show download preview for Massive flat files
+            if data_source.startswith("Massive") and st.session_state.massive_fetch_method == "flat_file":
+                st.markdown("---")
+                st.markdown("#### 📋 Download Preview")
+                
+                days_diff = (end_date - start_date).days
+                num_symbols = len(symbols)
+                
+                # Estimate download size
+                if st.session_state.massive_data_type == "trades":
+                    # Tick-level trade data is MUCH larger
+                    est_mb_per_symbol = days_diff * 300  # ~300 MB per symbol per day for tick data
+                    data_density = "⚡ Tick-Level Trades"
+                elif interval in ['1m', '5m', '15m', '30m']:
+                    est_mb_per_symbol = days_diff * 10  # ~10 MB per symbol per day
+                    data_density = "Minute-level"
+                elif interval in ['1h', '4h']:
+                    est_mb_per_symbol = days_diff * 1  # ~1 MB per symbol per day
+                    data_density = "Hourly"
+                else:
+                    est_mb_per_symbol = days_diff * 0.5  # ~0.5 MB per symbol per day
+                    data_density = "Daily/Weekly"
+                
+                total_est_mb = num_symbols * est_mb_per_symbol
+                
+                # Show preview
+                preview_col1, preview_col2, preview_col3 = st.columns(3)
+                with preview_col1:
+                    st.metric("Symbols", f"{num_symbols}")
+                with preview_col2:
+                    st.metric("Days", f"{days_diff}")
+                with preview_col3:
+                    st.metric("Est. Download", f"~{total_est_mb:.1f} MB")
+                
+                st.info(
+                    f"📊 **{data_density} data** for **{num_symbols} symbol(s)** "
+                    f"over **{days_diff} days**\\n\\n"
+                    f"🦀 Rust backend: {('Polars (fast)' if total_est_mb < 1000 else 'DataFusion (streaming)')}\\n"
+                    f"⏱️ Estimated time: {max(2, total_est_mb / 50):.0f}-{max(5, total_est_mb / 20):.0f} seconds\\n"
+                    f"💾 Quota used: {total_est_mb:.1f} MB of 10 GB monthly limit"
+                )
+                
+                # Warning if approaching quota
+                if total_est_mb > 5000:  # > 5 GB
+                    st.warning(
+                        f"⚠️ This download will use **{total_est_mb/1024:.1f} GB** "
+                        f"of your monthly quota!\\n"
+                        f"Consider reducing the date range or number of symbols."
+                    )
+            
             # Fetch button
             if st.button("🔄 Fetch Data", type="primary", use_container_width=True):
                 if not symbols:
@@ -920,6 +1166,7 @@ def render_fetch_tab():
                         'yahoo': 'yfinance',
                         'finnhub': 'finnhub',
                         'alpha': 'alpha_vantage',
+                        'massive': 'massive',
                         'mock': 'synthetic',
                         'upload': 'synthetic'
                     }
@@ -1020,6 +1267,13 @@ def render_fetch_tab():
               - Real-time quotes (15-20 min delay)
               - Intraday & daily historical data
               - Requires free API key from alphavantage.co
+            - **🏛️ Massive**: Institutional-grade market data (FREE 100 calls/day)
+              - ⚡ REST API: 100 requests/day, 10/minute
+              - 🔌 WebSocket: 10 concurrent connections, 100 messages/min
+              - 📥 Bulk Files: 10 GB/month historical data downloads
+              - Stocks, options, futures, forex, crypto
+              - Real-time and historical data
+              - Requires free API key from massive.com
             - **CSV Upload**: Custom data files
             - **Mock**: Synthetic data for testing
             """)
@@ -1040,6 +1294,17 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             if source == 'ccxt' and exchange_id:
                 from python.data_fetcher import _fetch_ccxt
                 new_df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
+            # For Massive, use transparent fetch_data with method selection
+            elif source == 'massive':
+                from python.massive_helper import fetch_data
+                new_df = fetch_data(
+                    symbols=symbols,
+                    start=start,
+                    end=end,
+                    interval=interval,
+                    method=st.session_state.get('massive_fetch_method', 'auto'),  # "auto", "rest", or "flat_file"
+                    data_type=st.session_state.get('massive_data_type', 'ohlcv') if st.session_state.get('massive_fetch_method', 'auto') == "flat_file" else "ohlcv"  # "ohlcv" or "trades"
+                )
             else:
                 new_df = fetch_intraday_data(
                     symbols=symbols,
@@ -1049,11 +1314,28 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
                     source=source
                 )
             
+            # Increment API call counter for rate-limited sources
+            if source == 'massive' and st.session_state.get('massive_fetch_method', 'auto') in ["auto", "rest"]:
+                # Only count REST API calls, not flat file downloads
+                if 'massive_calls_today' in st.session_state:
+                    st.session_state.massive_calls_today += len(symbols)
+            elif source == 'alpha_vantage':
+                if 'av_calls_today' in st.session_state:
+                    st.session_state.av_calls_today += len(symbols)
+            
             # Reset index to make it easier to work with
             if isinstance(new_df.index, pd.MultiIndex):
                 new_df = new_df.reset_index()
             
-            st.session_state.historical_data = new_df
+            # Handle data loading mode: replace, append, or update
+            if save_mode == "replace" or st.session_state.historical_data is None:
+                st.session_state.historical_data = new_df
+            else:
+                # Use stack_data to append or update existing data
+                st.session_state.historical_data = stack_data(
+                    st.session_state.historical_data, new_df, save_mode
+                )
+            
             st.session_state.symbols = symbols
             st.session_state.data_source = source
             st.session_state.date_range = (start, end)
@@ -1073,8 +1355,15 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             )
             st.info(f"💾 Data saved as '{dataset_name}'")
             
-            st.success(f"✅ Successfully loaded {len(new_df):,} records for {len(symbols)} symbols")
-            return new_df
+            # Display appropriate success message based on mode
+            total_rows = len(st.session_state.historical_data)
+            if save_mode == "replace":
+                st.success(f"✅ Successfully loaded {len(new_df):,} records for {len(symbols)} symbols")
+            elif save_mode == "append":
+                st.success(f"✅ Successfully appended {len(new_df):,} new records for {len(symbols)} symbols (Total: {total_rows:,} rows)")
+            else:  # update
+                st.success(f"✅ Successfully updated data with {len(new_df):,} records for {len(symbols)} symbols (Total: {total_rows:,} rows)")
+            return st.session_state.historical_data
             
         except Exception as e:
             st.error(f"Failed to fetch data: {e}")

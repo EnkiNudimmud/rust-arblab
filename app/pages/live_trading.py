@@ -150,7 +150,10 @@ def configure_live_trading():
     use_websocket = connection_mode == "Streaming (WebSocket)"
     
     if use_websocket:
-        st.info("💡 **WebSocket Tips:**\n- Use crypto symbols: `BINANCE:BTCUSDT`, `BINANCE:ETHUSDT`\n- Stock symbols require Finnhub premium tier\n- Free tier: max 1 connection (shared across all symbols)")
+        if connector_name == "massive":
+            st.info("🏛️ **Massive WebSocket (Free Tier):**\n- 10 concurrent connections\n- 100 messages/minute\n- Stocks, options, futures, forex, crypto\n- Real-time quotes and trades")
+        else:
+            st.info("💡 **WebSocket Tips:**\n- Use crypto symbols: `BINANCE:BTCUSDT`, `BINANCE:ETHUSDT`\n- Stock symbols require Finnhub premium tier\n- Free tier: max 1 connection (shared across all symbols)")
     
     if connection_mode == "Polling (REST)":
         update_interval = st.slider(
@@ -1031,12 +1034,13 @@ def display_live_analytics_and_lob():
     
     st.markdown("### Live Analytics & Orderbook")
     
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📊 Statistics", 
         "💼 Portfolio", 
         "📝 Trade Log", 
         "⚡ Signals", 
-        "📖 Limit Order Book"
+        "📖 Limit Order Book",
+        "🧪 Test on Live Data"
     ])
     
     with tab1:
@@ -1053,6 +1057,9 @@ def display_live_analytics_and_lob():
     
     with tab5:
         display_limit_order_book()
+    
+    with tab6:
+        display_live_backtest()
 
 def display_portfolio_analytics():
     """Display virtual portfolio analytics"""
@@ -1494,6 +1501,129 @@ def display_live_signals():
             st.info(f"💼 **{action}** signal detected. Position size: {signal['position_size']:.1%}")
         else:
             st.warning("⏸️ **NEUTRAL** - No strong signal. Consider waiting for better setup.")
+        
+        # Hurst Exponent Analysis for Mean Reversion Detection
+        if len(prices) >= 100:  # Need sufficient data for Hurst
+            with st.expander("📊 Mean Reversion Analysis (Hurst Exponent)", expanded=False):
+                try:
+                    # Import hurst_exponent from sparse_meanrev
+                    sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'python'))
+                    from sparse_meanrev import hurst_exponent
+                    
+                    # Compute Hurst exponent
+                    hurst_result = hurst_exponent(prices)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        hurst_color = "green" if hurst_result.is_mean_reverting else "orange"
+                        st.metric(
+                            "Hurst Exponent",
+                            f"{hurst_result.hurst_exponent:.4f}",
+                            delta="Mean-Reverting" if hurst_result.is_mean_reverting else "Trending/Random",
+                            delta_color="normal" if hurst_result.is_mean_reverting else "inverse"
+                        )
+                    
+                    with col2:
+                        ci_lower, ci_upper = hurst_result.confidence_interval
+                        st.metric(
+                            "95% Confidence Interval",
+                            f"[{ci_lower:.4f}, {ci_upper:.4f}]",
+                            delta=f"±{hurst_result.standard_error:.4f}"
+                        )
+                    
+                    with col3:
+                        # Show alignment with Chiarella regime
+                        chiarella_match = (
+                            (hurst_result.is_mean_reverting and signal['regime'] == 'mean_reverting') or
+                            (not hurst_result.is_mean_reverting and signal['regime'] in ['trending', 'mixed'])
+                        )
+                        st.metric(
+                            "Regime Alignment",
+                            "✅ Aligned" if chiarella_match else "⚠️ Divergent",
+                            delta="Hurst agrees with Chiarella" if chiarella_match else "Signals differ"
+                        )
+                    
+                    # Interpretation
+                    st.markdown("**Interpretation:**")
+                    st.write(hurst_result.interpretation)
+                    
+                    # R/S plot
+                    fig_hurst = go.Figure()
+                    
+                    # Log-log plot
+                    log_window = np.log(hurst_result.window_sizes)
+                    log_rs = np.log(hurst_result.rs_values)
+                    
+                    fig_hurst.add_trace(go.Scatter(
+                        x=log_window,
+                        y=log_rs,
+                        mode='markers+lines',
+                        name='R/S Analysis',
+                        marker=dict(size=8, color='lightblue'),
+                        line=dict(color='lightblue', width=2)
+                    ))
+                    
+                    # Add fitted line
+                    slope = hurst_result.hurst_exponent
+                    fitted_line = slope * log_window + (log_rs[0] - slope * log_window[0])
+                    
+                    fig_hurst.add_trace(go.Scatter(
+                        x=log_window,
+                        y=fitted_line,
+                        mode='lines',
+                        name=f'H = {slope:.4f}',
+                        line=dict(color='red', width=2, dash='dash')
+                    ))
+                    
+                    # Add reference lines
+                    fig_hurst.add_hline(
+                        y=np.log(0.5) + 0.5 * log_window.mean(),
+                        line_dash="dot",
+                        line_color="green",
+                        annotation_text="H=0.5 (Random Walk)"
+                    )
+                    
+                    fig_hurst.update_layout(
+                        title="Rescaled Range (R/S) Analysis",
+                        xaxis_title="log(Window Size)",
+                        yaxis_title="log(R/S)",
+                        template="plotly_dark",
+                        height=350,
+                        showlegend=True
+                    )
+                    
+                    st.plotly_chart(fig_hurst, use_container_width=True, key=f"hurst_{symbol}")
+                    
+                    # Trading implications
+                    st.markdown("**💡 Trading Implications:**")
+                    if hurst_result.is_mean_reverting:
+                        st.success("""
+                        ✅ **Mean-Reverting Detected** - Favorable for:
+                        - Mean reversion strategies
+                        - Statistical arbitrage
+                        - Pairs trading
+                        - Range-bound trading
+                        
+                        **Strategy:** Buy when price is low (below mean), sell when high (above mean).
+                        """)
+                    else:
+                        st.warning("""
+                        ⚠️ **Trending/Random Behavior** - Consider:
+                        - Momentum strategies may work better
+                        - Mean reversion strategies may underperform
+                        - Use wider stop-losses
+                        - Shorter holding periods
+                        
+                        **Caution:** Mean reversion trades may be less reliable in this regime.
+                        """)
+                    
+                except ImportError:
+                    st.info("Install optimizr for Hurst exponent analysis: `cd optimiz-r && maturin develop --release`")
+                except Exception as e:
+                    st.error(f"Error computing Hurst exponent: {str(e)}")
+        else:
+            st.info(f"Need at least 100 data points for Hurst exponent (currently {len(prices)})")
         
         st.markdown("---")
 
@@ -2056,6 +2186,229 @@ Avg Total Ask Volume: ${analytics_df['total_ask_volume'].mean():,.2f}
         use_container_width=True,
         height=400
     )
+
+
+def display_live_backtest():
+    """Test strategies on live recorded data"""
+    
+    st.markdown("#### 🧪 Test Strategies on Live Data")
+    st.markdown("""
+    This tab allows you to:
+    - 📹 **Record live data** from WebSocket streams
+    - 💾 **Save** recorded data as datasets for later analysis
+    - 🧪 **Backtest strategies** on the live-recorded data
+    - 📊 **Compare** strategy performance on real market conditions
+    """)
+    
+    # Check if connector supports recording
+    connector_name = st.session_state.get('live_connector_name', 'binance')
+    connector = st.session_state.get('live_connector')
+    
+    if connector_name != 'massive':
+        st.warning("⚠️ Recording is currently only supported for Massive.com connector")
+        st.info("💡 Switch to Massive connector to enable live data recording")
+        return
+    
+    if not connector:
+        st.info("Please start WebSocket streaming first")
+        return
+    
+    # Recording controls
+    st.markdown("### 📹 Recording Controls")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    is_recording = st.session_state.get('is_recording', False)
+    
+    with col1:
+        if not is_recording:
+            if st.button("▶️ Start Recording", use_container_width=True):
+                symbols = st.session_state.get('symbols', ['AAPL', 'GOOGL'])
+                try:
+                    connector.enable_recording(symbols=symbols)
+                    st.session_state.is_recording = True
+                    st.success(f"📹 Recording started for {len(symbols)} symbols")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to start recording: {e}")
+        else:
+            if st.button("⏹️ Stop Recording", use_container_width=True):
+                try:
+                    filepath = connector.disable_recording()
+                    st.session_state.is_recording = False
+                    st.session_state.last_recorded_file = filepath
+                    st.success(f"💾 Recording saved to: {filepath}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to stop recording: {e}")
+    
+    with col2:
+        recording_duration = st.number_input(
+            "Recording Duration (minutes)",
+            min_value=1,
+            max_value=60,
+            value=5,
+            help="Automatically stop recording after this duration"
+        )
+    
+    with col3:
+        if is_recording:
+            st.metric("Status", "🔴 RECORDING")
+        else:
+            st.metric("Status", "⚪ Stopped")
+    
+    # Show current recording stats
+    if is_recording:
+        try:
+            df_recorded = connector.get_recorded_dataframe(resample_interval="1min")
+            if df_recorded is not None and not df_recorded.empty:
+                st.markdown("### 📊 Current Recording Stats")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Total Bars", f"{len(df_recorded):,}")
+                
+                with col2:
+                    num_symbols = len(df_recorded.index.get_level_values('symbol').unique())
+                    st.metric("Symbols", num_symbols)
+                
+                with col3:
+                    duration = (df_recorded.index.get_level_values('timestamp').max() - 
+                               df_recorded.index.get_level_values('timestamp').min()).total_seconds() / 60
+                    st.metric("Duration", f"{duration:.1f} min")
+                
+                with col4:
+                    file_size_mb = df_recorded.memory_usage(deep=True).sum() / (1024 * 1024)
+                    st.metric("Size", f"{file_size_mb:.2f} MB")
+                
+                # Preview recorded data
+                st.markdown("#### Preview")
+                preview = df_recorded.reset_index().tail(10)
+                st.dataframe(preview, use_container_width=True)
+        
+        except Exception as e:
+            st.warning(f"⚠️ Could not retrieve recording stats: {e}")
+    
+    # Backtest on recorded data
+    st.markdown("---")
+    st.markdown("### 🧪 Backtest on Recorded Data")
+    
+    # Load recorded datasets
+    from python.data_persistence import list_datasets
+    
+    recorded_datasets = [d for d in list_datasets() if 'massive_live_' in d or 'live_recorded' in d]
+    
+    if not recorded_datasets:
+        st.info("📁 No recorded datasets found. Start recording to create one!")
+        return
+    
+    # Select dataset
+    selected_dataset = st.selectbox(
+        "Select Recorded Dataset",
+        recorded_datasets,
+        help="Choose a live-recorded dataset to backtest on"
+    )
+    
+    # Load dataset
+    try:
+        from python.data_persistence import load_dataset
+        df_backtest = load_dataset(selected_dataset)
+        
+        st.success(f"✅ Loaded {len(df_backtest):,} bars")
+        
+        # Dataset info
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            symbols = df_backtest.index.get_level_values('symbol').unique().tolist()
+            st.metric("Symbols", len(symbols))
+            st.caption(", ".join(symbols[:5]) + ("..." if len(symbols) > 5 else ""))
+        
+        with col2:
+            start_date = df_backtest.index.get_level_values('timestamp').min()
+            end_date = df_backtest.index.get_level_values('timestamp').max()
+            duration_days = (end_date - start_date).total_seconds() / (24 * 3600)
+            st.metric("Duration", f"{duration_days:.2f} days")
+            st.caption(f"{start_date.strftime('%Y-%m-%d %H:%M')} to {end_date.strftime('%Y-%m-%d %H:%M')}")
+        
+        with col3:
+            file_size = df_backtest.memory_usage(deep=True).sum() / (1024 * 1024)
+            st.metric("Size", f"{file_size:.2f} MB")
+        
+        # Strategy selection
+        st.markdown("#### Select Strategy to Test")
+        
+        strategy_name = st.selectbox(
+            "Strategy",
+            list(AVAILABLE_STRATEGIES.keys()),
+            help="Choose strategy to backtest on live data"
+        )
+        
+        # Run backtest button
+        if st.button("🚀 Run Backtest", use_container_width=True):
+            with st.spinner("Running backtest on live data..."):
+                try:
+                    # Import backtest engine
+                    from python_client.backtest import run_backtest_with_dataframe
+                    
+                    # Run backtest
+                    results = run_backtest_with_dataframe(
+                        df=df_backtest,
+                        strategy_name=strategy_name,
+                        initial_capital=100000.0
+                    )
+                    
+                    # Display results
+                    st.markdown("### 📈 Backtest Results")
+                    
+                    metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                    
+                    with metrics_col1:
+                        st.metric("Final Value", f"${results['final_value']:,.2f}")
+                    
+                    with metrics_col2:
+                        st.metric("Total Return", f"{results['total_return']:.2f}%")
+                    
+                    with metrics_col3:
+                        st.metric("Sharpe Ratio", f"{results['sharpe_ratio']:.2f}")
+                    
+                    with metrics_col4:
+                        st.metric("Max Drawdown", f"{results['max_drawdown']:.2f}%")
+                    
+                    # Plot equity curve
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Scatter(
+                        x=results['equity_curve'].index,
+                        y=results['equity_curve'].values,
+                        mode='lines',
+                        name='Portfolio Value',
+                        line=dict(color='#00cc96', width=2)
+                    ))
+                    
+                    fig.update_layout(
+                        title="Equity Curve on Live Data",
+                        xaxis_title="Time",
+                        yaxis_title="Portfolio Value ($)",
+                        height=400,
+                        template="plotly_dark"
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Trade log
+                    if 'trades' in results and len(results['trades']) > 0:
+                        st.markdown("#### Trade Log")
+                        trades_df = pd.DataFrame(results['trades'])
+                        st.dataframe(trades_df, use_container_width=True)
+                
+                except Exception as e:
+                    st.error(f"❌ Backtest failed: {e}")
+                    st.exception(e)
+    
+    except Exception as e:
+        st.error(f"❌ Failed to load dataset: {e}")
 
 
 # Execute the render function when page is loaded

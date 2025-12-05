@@ -12,7 +12,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 /// Single level in the order book
 #[pyclass]

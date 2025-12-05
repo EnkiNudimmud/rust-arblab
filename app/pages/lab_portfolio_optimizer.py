@@ -1001,7 +1001,7 @@ if optimization_mode == "Drift Uncertainty (Robust)":
 
 else:
     # Original Multi-Factor Analysis Mode
-    tab1, tab2, tab3 = st.tabs(["📊 Stock Analysis", "🎯 Portfolio Optimization", "📈 Results & Backtest"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Stock Analysis", "🎯 Portfolio Optimization", "📈 Results & Backtest", "🎨 Sparse Factor Analysis"])
 
     with tab1:
         st.markdown("### Multi-Factor Stock Ranking")
@@ -1559,6 +1559,234 @@ else:
                     - Dynamic weight optimization based on multi-factor scores
                     - Risk-aware position sizing with correlation considerations
                     """)
+    
+    with tab4:
+        st.markdown("### 🎨 Sparse Factor Analysis with PCA")
+        st.markdown("Use Sparse PCA to identify the most important latent factors driving your portfolio returns.")
+        
+        if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
+            st.warning("⚠️ Please load data first from the Data Loader page")
+        else:
+            try:
+                # Import sparse_meanrev module
+                sys.path.insert(0, str(project_root / 'python'))
+                from sparse_meanrev import sparse_pca, compute_risk_metrics
+                
+                data = st.session_state.historical_data
+                
+                # Get available symbols
+                if isinstance(data, dict):
+                    symbols = list(data.keys())
+                elif isinstance(data, pd.DataFrame):
+                    if 'symbol' in data.columns:
+                        symbols = data['symbol'].unique().tolist()
+                    else:
+                        symbols = ['Data']
+                else:
+                    symbols = []
+                
+                if len(symbols) < 3:
+                    st.warning("⚠️ Need at least 3 assets for sparse PCA analysis")
+                else:
+                    st.markdown(f"**Available Symbols:** {len(symbols)}")
+                    
+                    # Configuration
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        n_components = st.slider("Number of Components", 1, min(5, len(symbols)//2), 3)
+                        lambda_param = st.slider("Sparsity Parameter (λ)", 0.0, 1.0, 0.2, 0.05,
+                                                help="Higher values = more sparse (fewer assets per component)")
+                    with col2:
+                        max_iter = st.slider("Max Iterations", 100, 2000, 1000, 100)
+                        lookback_days = st.slider("Lookback Days", 50, 500, 200, 50)
+                    
+                    # Select symbols for analysis
+                    selected_symbols = st.multiselect(
+                        "Select Assets for Sparse PCA",
+                        symbols,
+                        default=symbols[:min(10, len(symbols))],
+                        help="Select 3-20 assets"
+                    )
+                    
+                    if len(selected_symbols) < 3:
+                        st.info("Please select at least 3 assets")
+                    elif len(selected_symbols) > 20:
+                        st.warning("Maximum 20 assets recommended for clear visualization")
+                    else:
+                        if st.button("🎨 Run Sparse PCA Analysis", type="primary"):
+                            with st.spinner("Computing sparse principal components..."):
+                                try:
+                                    # Build returns matrix
+                                    returns_dict = {}
+                                    
+                                    for symbol in selected_symbols:
+                                        if isinstance(data, dict):
+                                            df = data[symbol]
+                                        elif isinstance(data, pd.DataFrame):
+                                            if 'symbol' in data.columns:
+                                                df = data[data['symbol'] == symbol].copy()
+                                            else:
+                                                df = data.copy()
+                                        else:
+                                            continue
+                                        
+                                        close_col = None
+                                        for col in df.columns:
+                                            if col.lower() == 'close':
+                                                close_col = col
+                                                break
+                                        
+                                        if close_col is None:
+                                            continue
+                                        
+                                        prices = df[close_col].values[-lookback_days:]
+                                        if len(prices) > 10:
+                                            returns = np.diff(prices) / prices[:-1]
+                                            returns_dict[symbol] = returns
+                                    
+                                    if len(returns_dict) < 3:
+                                        st.error("Not enough valid data for selected symbols")
+                                    else:
+                                        # Align returns to same length
+                                        min_len = min(len(r) for r in returns_dict.values())
+                                        returns_df = pd.DataFrame({
+                                            sym: ret[-min_len:] for sym, ret in returns_dict.items()
+                                        })
+                                        
+                                        # Run Sparse PCA
+                                        st.info(f"Running Sparse PCA on {len(returns_df.columns)} assets over {len(returns_df)} periods...")
+                                        result = sparse_pca(returns_df, n_components=n_components, lambda_=lambda_param, max_iter=max_iter)
+                                        
+                                        # Display results
+                                        st.success("✅ Sparse PCA Complete!")
+                                        st.write(result.summary())
+                                        
+                                        # Component weights heatmap
+                                        st.markdown("### 📊 Component Loadings (Sparse Weights)")
+                                        
+                                        weights_df = pd.DataFrame(
+                                            result.weights,
+                                            columns=returns_df.columns,
+                                            index=[f'PC{i+1}' for i in range(n_components)]
+                                        )
+                                        
+                                        fig_heatmap = go.Figure(data=go.Heatmap(
+                                            z=weights_df.values,
+                                            x=weights_df.columns,
+                                            y=weights_df.index,
+                                            colorscale='RdBu',
+                                            zmid=0,
+                                            text=np.round(weights_df.values, 3),
+                                            texttemplate='%{text}',
+                                            textfont={"size": 10},
+                                            colorbar=dict(title="Weight")
+                                        ))
+                                        
+                                        fig_heatmap.update_layout(
+                                            title='Sparse Component Loadings',
+                                            xaxis_title='Assets',
+                                            yaxis_title='Components',
+                                            height=300 + n_components * 50
+                                        )
+                                        
+                                        st.plotly_chart(fig_heatmap, use_container_width=True)
+                                        
+                                        # Variance explained
+                                        st.markdown("### 📈 Variance Explained")
+                                        
+                                        col1, col2 = st.columns(2)
+                                        
+                                        with col1:
+                                            fig_var = go.Figure()
+                                            fig_var.add_trace(go.Bar(
+                                                x=[f'PC{i+1}' for i in range(n_components)],
+                                                y=result.variance_explained * 100,
+                                                marker_color='lightblue',
+                                                text=[f'{v:.1f}%' for v in result.variance_explained * 100],
+                                                textposition='auto'
+                                            ))
+                                            fig_var.update_layout(
+                                                title='Variance Explained by Component',
+                                                yaxis_title='Variance (%)',
+                                                height=400
+                                            )
+                                            st.plotly_chart(fig_var, use_container_width=True)
+                                        
+                                        with col2:
+                                            fig_sparsity = go.Figure()
+                                            fig_sparsity.add_trace(go.Bar(
+                                                x=[f'PC{i+1}' for i in range(n_components)],
+                                                y=result.sparsity * 100,
+                                                marker_color='lightcoral',
+                                                text=[f'{s:.1f}%' for s in result.sparsity * 100],
+                                                textposition='auto'
+                                            ))
+                                            fig_sparsity.update_layout(
+                                                title='Sparsity Level by Component',
+                                                yaxis_title='Sparsity (%)',
+                                                height=400
+                                            )
+                                            st.plotly_chart(fig_sparsity, use_container_width=True)
+                                        
+                                        # Component portfolios
+                                        st.markdown("### 💼 Component-Based Portfolios")
+                                        
+                                        for i in range(n_components):
+                                            with st.expander(f"📊 PC{i+1} Portfolio (Variance: {result.variance_explained[i]*100:.1f}%)"):
+                                                weights = result.get_portfolio(i)
+                                                non_zero = weights[weights.abs() > 1e-6].sort_values(key=abs, ascending=False)
+                                                
+                                                col1, col2 = st.columns([1, 2])
+                                                
+                                                with col1:
+                                                    st.markdown("**Top Holdings:**")
+                                                    for asset, weight in non_zero.head(10).items():
+                                                        st.write(f"• {asset}: {weight:.4f}")
+                                                
+                                                with col2:
+                                                    # Compute portfolio returns
+                                                    portfolio_returns = (returns_df * weights).sum(axis=1)
+                                                    
+                                                    # Compute risk metrics
+                                                    metrics = compute_risk_metrics(portfolio_returns)
+                                                    
+                                                    st.markdown("**Risk Metrics:**")
+                                                    metric_col1, metric_col2 = st.columns(2)
+                                                    with metric_col1:
+                                                        st.metric("Sharpe Ratio", f"{metrics.sharpe_ratio:.3f}")
+                                                        st.metric("Sortino Ratio", f"{metrics.sortino_ratio:.3f}")
+                                                        st.metric("Max Drawdown", f"{metrics.max_drawdown*100:.2f}%")
+                                                    with metric_col2:
+                                                        st.metric("Volatility", f"{metrics.volatility*100:.2f}%")
+                                                        st.metric("VaR (95%)", f"{metrics.var_95*100:.3f}%")
+                                                        st.metric("Skewness", f"{metrics.skewness:.3f}")
+                                        
+                                        # Usage recommendations
+                                        st.markdown("### 💡 How to Use These Results")
+                                        st.info("""
+                                        **Sparse PCA helps you:**
+                                        1. **Factor Identification**: Each component represents a latent market factor
+                                        2. **Portfolio Construction**: Use sparse weights to build factor-based portfolios
+                                        3. **Risk Management**: Components with high variance may indicate systematic risks
+                                        4. **Asset Selection**: Non-zero weights show which assets are most important for each factor
+                                        
+                                        **Interpretation Tips:**
+                                        - Higher sparsity = cleaner, more interpretable factors
+                                        - First component usually captures market-wide movements
+                                        - Later components capture sector/style-specific patterns
+                                        - Use these factors for strategic asset allocation or hedging
+                                        """)
+                                        
+                                except Exception as e:
+                                    st.error(f"Error during sparse PCA analysis: {str(e)}")
+                                    import traceback
+                                    with st.expander("Show error details"):
+                                        st.code(traceback.format_exc())
+                                        
+            except ImportError as e:
+                st.error("Could not import sparse_meanrev module. Please ensure optimizr is installed.")
+                st.code(f"pip install -e ./optimiz-r")
+                st.info("Or build it locally: `cd optimiz-r && maturin develop --release`")
 
 # Footer
 st.markdown("---")

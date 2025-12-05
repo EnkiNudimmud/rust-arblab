@@ -638,6 +638,64 @@ def display_analysis(results: Dict):
             st.metric("Skewness", f"{returns.skew():.3f}")
         with col4:
             st.metric("Kurtosis", f"{returns.kurtosis():.3f}")
+        
+        # Enhanced Risk Metrics using optimizr
+        st.markdown("---")
+        st.markdown("#### 🎯 Comprehensive Risk Metrics")
+        
+        try:
+            # Try to import compute_risk_metrics from sparse_meanrev
+            sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'python'))
+            from sparse_meanrev import compute_risk_metrics
+            
+            # Compute comprehensive metrics
+            risk_metrics = compute_risk_metrics(returns.values, risk_free_rate=0.0, periods_per_year=252)
+            
+            st.success("✅ Using Rust-accelerated risk metrics")
+            
+            # Display in organized columns
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**Return Metrics**")
+                st.metric("Sharpe Ratio", f"{risk_metrics.sharpe_ratio:.4f}")
+                st.metric("Sortino Ratio", f"{risk_metrics.sortino_ratio:.4f}")
+                st.metric("Calmar Ratio", f"{risk_metrics.calmar_ratio:.4f}")
+            
+            with col2:
+                st.markdown("**Risk Metrics**")
+                st.metric("Volatility (Ann.)", f"{risk_metrics.volatility*100:.2f}%")
+                st.metric("Downside Dev (Ann.)", f"{risk_metrics.downside_deviation*100:.2f}%")
+                st.metric("Max Drawdown", f"{risk_metrics.max_drawdown*100:.2f}%")
+            
+            with col3:
+                st.markdown("**Tail Risk**")
+                st.metric("VaR (95%)", f"{risk_metrics.var_95*100:.3f}%")
+                st.metric("CVaR (95%)", f"{risk_metrics.cvar_95*100:.3f}%")
+                st.metric("Max DD Duration", f"{risk_metrics.max_drawdown_duration} periods")
+            
+            # Detailed explanation
+            with st.expander("ℹ️ Understanding Risk Metrics"):
+                st.markdown("""
+                **Sharpe Ratio**: Risk-adjusted return (higher is better). Measures excess return per unit of volatility.
+                
+                **Sortino Ratio**: Like Sharpe but only penalizes downside volatility (higher is better).
+                
+                **Calmar Ratio**: Return divided by max drawdown (higher is better).
+                
+                **Volatility**: Annualized standard deviation of returns.
+                
+                **Downside Deviation**: Volatility of negative returns only.
+                
+                **VaR (Value at Risk)**: Expected loss at 95% confidence level (1 in 20 days worse than this).
+                
+                **CVaR (Conditional VaR)**: Average loss beyond the VaR threshold (tail risk).
+                
+                **Max DD Duration**: Longest period underwater (below previous high).
+                """)
+            
+        except ImportError:
+            st.info("Install optimizr for enhanced risk metrics: `cd optimiz-r && maturin develop --release`")
 
 def compare_strategies(initial_capital: float, transaction_cost: float):
     """Compare multiple strategies"""

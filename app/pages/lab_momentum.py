@@ -331,9 +331,13 @@ with tab3:
         
     else:  # Kelly
         returns = prices_clean.pct_change()
-        win_rate = (returns[signals.shift(1) != 0] > 0).sum() / (signals != 0).sum()
-        avg_win = returns[returns > 0].mean()
-        avg_loss = abs(returns[returns < 0].mean())
+        signal_mask = signals.shift(1) != 0
+        # Type ignore comments for pandas operations that confuse type checker
+        winning_trades = (returns[signal_mask] > 0).sum()  # type: ignore
+        total_trades = (signals != 0).sum()  # type: ignore
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0.5
+        avg_win = returns[returns > 0].mean() if (returns > 0).any() else 0.01  # type: ignore
+        avg_loss = abs(returns[returns < 0].mean()) if (returns < 0).any() else 0.01  # type: ignore
         
         kelly = win_rate - (1 - win_rate) / (avg_win / avg_loss) if avg_loss > 0 else 0.5
         kelly = np.clip(kelly, 0, 0.5)  # Cap at 50%

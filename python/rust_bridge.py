@@ -26,7 +26,7 @@ def list_connectors() -> List[str]:
             logger.exception("rust list_connectors failed")
     
     # Add authenticated and external connectors
-    return base_connectors + ["binance_auth", "coinbase_auth", "kraken_auth", "finnhub"]
+    return base_connectors + ["binance_auth", "coinbase_auth", "kraken_auth", "finnhub", "massive"]
 
 
 def get_connector(name: str, api_key: Optional[str] = None, api_secret: Optional[str] = None, 
@@ -36,8 +36,9 @@ def get_connector(name: str, api_key: Optional[str] = None, api_secret: Optional
     implementations exposing a credentials setter).
     
     Special connectors:
-    - binance_auth, coinbase_auth: Use authenticated Python wrappers
+    - binance_auth, coinbase_auth, kraken_auth: Use authenticated Python wrappers
     - finnhub: Use Finnhub Python connector
+    - massive: Use Massive.com Python connector
     """
     # Handle authenticated Python wrappers
     if name == "binance_auth":
@@ -59,6 +60,11 @@ def get_connector(name: str, api_key: Optional[str] = None, api_secret: Optional
         from python.connectors.finnhub import FinnhubConnector
         # API key is optional - auto-loaded from api_keys.properties if not provided
         return FinnhubConnector(api_key)
+    
+    if name == "massive":
+        from python.connectors.massive import MassiveConnector
+        # API key is optional - auto-loaded from api_keys.properties if not provided
+        return MassiveConnector(api_key)
     
     # Standard Rust connectors
     if RUST_AVAILABLE and hasattr(rust_connector, "get_connector"):

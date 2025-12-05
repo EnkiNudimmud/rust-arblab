@@ -6,3 +6,4 @@ pub mod chiarella;
 pub mod options;
 pub mod rough_heston;
 pub mod portfolio_drift_uncertainty;
+pub mod flat_file_processor;

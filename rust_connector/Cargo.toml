@@ -37,6 +37,9 @@ ethers-middleware = "2.0.14"
 # Linear algebra for mean-reversion algorithms
 ndarray = { version = "0.15", features = ["serde"] }
 nalgebra = "0.32"
+numpy = "0.21"
+rand = "0.8"
+rand_distr = "0.4"
 
 # For LOB implementation
 ordered-float = "4.2"

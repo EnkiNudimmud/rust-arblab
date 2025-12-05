@@ -67,6 +67,18 @@ except Exception as e:
     import logging
     logging.getLogger(__name__).warning(f"Could not import CCXT helper: {e}")
 
+try:
+    from python.massive_helper import fetch_ohlcv_rest as massive_fetch_ohlcv
+    MASSIVE_AVAILABLE = True
+except ImportError:
+    massive_fetch_ohlcv = None
+    MASSIVE_AVAILABLE = False
+except Exception as e:
+    massive_fetch_ohlcv = None
+    MASSIVE_AVAILABLE = False
+    import logging
+    logging.getLogger(__name__).warning(f"Could not import Massive helper: {e}")
+
 
 def fetch_intraday_data(
     symbols: List[str],
@@ -97,6 +109,8 @@ def fetch_intraday_data(
             source = "ccxt"
         elif YF_AVAILABLE:
             source = "yfinance"
+        elif MASSIVE_AVAILABLE:
+            source = "massive"
         elif FH_AVAILABLE and fh_fetch_ohlcv is not None:
             source = "finnhub"
         else:
@@ -110,6 +124,8 @@ def fetch_intraday_data(
         return _fetch_alpha_vantage(symbols, start, end, interval)
     elif source == "yfinance":
         return _fetch_yfinance(symbols, start, end, interval)
+    elif source == "massive":
+        return _fetch_massive(symbols, start, end, interval)
     else:
         return _generate_synthetic(symbols, start, end, interval)
 
@@ -725,6 +741,37 @@ def _generate_synthetic(symbols: List[str], start: str, end: str, interval: str)
     combined = pd.concat(all_data, ignore_index=True)
     combined = combined.set_index(['timestamp', 'symbol']).sort_index()
     return combined
+
+
+def _fetch_massive(symbols: List[str], start: str, end: str, interval: str) -> pd.DataFrame:
+    """Fetch data from Massive.com with rate limiting and progress tracking."""
+    if not MASSIVE_AVAILABLE or massive_fetch_ohlcv is None:
+        raise ImportError(
+            "❌ Massive helper not available!\n"
+            "Make sure massive_helper.py is in the python/ directory.\n"
+            "Install dependencies: pip install requests websockets"
+        )
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"📊 Fetching {len(symbols)} symbols from Massive.com...")
+    logger.info("💡 Free tier: 100 req/day, 10 req/min - Use 'massive' for better rates than yfinance!")
+    
+    # Fetch data using Massive REST API
+    df = massive_fetch_ohlcv(
+        symbols=symbols,
+        start=start,
+        end=end,
+        interval=interval
+    )
+    
+    if df is None or df.empty:
+        logger.warning("⚠️ No data returned from Massive, using synthetic fallback")
+        return _generate_synthetic(symbols, start, end, interval)
+    
+    logger.info(f"✅ Massive.com: Fetched {len(df)} total bars")
+    return df
 
 
 def get_close_prices(data: pd.DataFrame) -> pd.DataFrame:

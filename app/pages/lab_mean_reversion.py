@@ -89,7 +89,7 @@ with st.sidebar:
         symbol2 = st.selectbox("Pair Asset", [s for s in available_symbols if s != selected_symbol])
 
 # Main analysis
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Z-Score Analysis", "🔄 Pairs Trading", "📈 Strategy Backtest", "📉 Performance"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Z-Score Analysis", "🔄 Pairs Trading", "📈 Strategy Backtest", "📉 Performance", "✨ Sparse Mean-Reversion"])
 
 with tab1:
     st.markdown("### Z-Score Mean Reversion Analysis")
@@ -609,6 +609,225 @@ with tab4:
                 })
             
             st.dataframe(pd.DataFrame(trade_log), use_container_width=True, height=300)
+
+with tab5:
+    st.markdown("### ✨ Sparse Mean-Reverting Portfolios")
+    st.markdown("Advanced sparse decomposition algorithms for identifying small, mean-reverting portfolios")
+    
+    try:
+        from python.sparse_meanrev import (
+            sparse_pca, box_tao_decomposition, hurst_exponent, 
+            sparse_cointegration, RUST_AVAILABLE
+        )
+        
+        if RUST_AVAILABLE:
+            st.success("⚡ Rust acceleration enabled - High performance mode")
+        else:
+            st.info("ℹ️ Using Python fallback implementations")
+        
+        # Method selection
+        st.markdown("#### Select Method")
+        method = st.selectbox(
+            "Algorithm",
+            ["Sparse PCA", "Box & Tao Decomposition", "Sparse Cointegration"],
+            help="Choose sparse decomposition method"
+        )
+        
+        # Get multi-asset data
+        if 'symbol' in data.columns and len(available_symbols) >= 5:
+            # Build price matrix
+            st.markdown(f"**Using {len(available_symbols)} assets for analysis**")
+            
+            # Pivot to get price matrix
+            if 'close' in data.columns:
+                prices_pivot = data.pivot(columns='symbol', values='close')
+            else:
+                st.error("No 'close' price column found")
+                st.stop()
+            
+            # Remove NaN
+            prices_pivot = prices_pivot.dropna()
+            
+            if len(prices_pivot) < 100:
+                st.warning("Insufficient data points. Need at least 100 periods.")
+                st.stop()
+            
+            # Parameters
+            col1, col2 = st.columns(2)
+            with col1:
+                if method == "Sparse PCA":
+                    lambda_param = st.slider("Sparsity (λ)", 0.01, 1.0, 0.2, 0.01,
+                                            help="Higher = sparser portfolios")
+                    n_components = st.slider("Components", 1, 5, 3)
+                elif method == "Box & Tao Decomposition":
+                    lambda_param = st.slider("Sparsity (λ)", 0.01, 1.0, 0.1, 0.01)
+                    mu_param = st.slider("Augmented Lagrangian (μ)", 0.001, 0.1, 0.01, 0.001)
+                else:  # Sparse Cointegration
+                    lambda_l1 = st.slider("L1 Penalty", 0.01, 1.0, 0.1, 0.01)
+                    lambda_l2 = st.slider("L2 Penalty", 0.001, 0.1, 0.01, 0.001)
+                    target_idx = st.selectbox("Target Asset", range(len(available_symbols)),
+                                             format_func=lambda x: available_symbols[x])
+            
+            with col2:
+                lookback = st.slider("Lookback Period", 100, len(prices_pivot), 
+                                   min(252, len(prices_pivot)))
+            
+            # Run analysis button
+            if st.button("🚀 Run Sparse Analysis", type="primary"):
+                with st.spinner("Computing sparse decomposition..."):
+                    try:
+                        # Use last lookback periods
+                        recent_prices = prices_pivot.iloc[-lookback:]
+                        returns = recent_prices.pct_change().dropna()
+                        
+                        if method == "Sparse PCA":
+                            result = sparse_pca(returns, n_components=n_components, 
+                                              lambda_=lambda_param)
+                            
+                            st.markdown("#### 📊 Sparse PCA Results")
+                            st.code(result.summary())
+                            
+                            # Display weights
+                            st.markdown("**Portfolio Weights**")
+                            for i in range(n_components):
+                                weights = result.get_portfolio(i)
+                                weights.index = available_symbols[:len(weights)]
+                                
+                                # Only show non-zero weights
+                                non_zero = weights[weights.abs() > 0.001]
+                                
+                                st.markdown(f"**Component {i+1}** ({len(non_zero)} assets)")
+                                fig = go.Figure(data=[
+                                    go.Bar(x=non_zero.index, y=non_zero.values,
+                                          marker_color=['green' if x > 0 else 'red' for x in non_zero.values])
+                                ])
+                                fig.update_layout(title=f'Component {i+1} Weights',
+                                                xaxis_title='Asset',
+                                                yaxis_title='Weight',
+                                                height=300)
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Compute portfolio value
+                                portfolio_returns = (returns * weights).sum(axis=1)
+                                portfolio_value = (1 + portfolio_returns).cumprod()
+                                
+                                # Test for mean-reversion
+                                hurst_result = hurst_exponent(portfolio_value)
+                                st.info(f"**Hurst Exponent:** {hurst_result.hurst_exponent:.4f} "
+                                       f"({hurst_result.interpretation})")
+                                
+                                if hurst_result.is_mean_reverting:
+                                    st.success("✅ Portfolio is mean-reverting - Suitable for trading!")
+                                else:
+                                    st.warning("⚠️ Portfolio not significantly mean-reverting")
+                        
+                        elif method == "Box & Tao Decomposition":
+                            result = box_tao_decomposition(recent_prices, 
+                                                          lambda_=lambda_param,
+                                                          mu=mu_param)
+                            
+                            st.markdown("#### 🔄 Box & Tao Decomposition")
+                            st.code(result.convergence_info())
+                            
+                            # Visualize decomposition
+                            fig = make_subplots(rows=3, cols=1,
+                                              subplot_titles=('Low-Rank (Common Factors)',
+                                                            'Sparse (Mean-Reverting Opportunities)',
+                                                            'Noise'))
+                            
+                            for i, asset in enumerate(available_symbols[:5]):  # Show first 5 assets
+                                if i < result.low_rank.shape[1]:
+                                    fig.add_trace(go.Scatter(y=result.low_rank[:, i], 
+                                                           name=f'{asset} L',
+                                                           line=dict(width=1)),
+                                                row=1, col=1)
+                                    fig.add_trace(go.Scatter(y=result.sparse[:, i],
+                                                           name=f'{asset} S',
+                                                           line=dict(width=1)),
+                                                row=2, col=1)
+                                    fig.add_trace(go.Scatter(y=result.noise[:, i],
+                                                           name=f'{asset} N',
+                                                           line=dict(width=1)),
+                                                row=3, col=1)
+                            
+                            fig.update_layout(height=900, showlegend=False)
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Use sparse component for trading
+                            st.markdown("**Trading Opportunities from Sparse Component**")
+                            sparse_df = pd.DataFrame(result.sparse, 
+                                                    columns=available_symbols[:result.sparse.shape[1]])
+                            
+                            # Find most sparse assets (largest absolute values)
+                            sparse_magnitude = sparse_df.abs().mean()
+                            top_sparse = sparse_magnitude.nlargest(5)
+                            
+                            st.write("Top 5 assets with sparse (idiosyncratic) behavior:")
+                            st.dataframe(top_sparse.to_frame('Magnitude'))
+                        
+                        else:  # Sparse Cointegration
+                            result = sparse_cointegration(recent_prices.values,
+                                                         target_asset=target_idx,
+                                                         lambda_l1=lambda_l1,
+                                                         lambda_l2=lambda_l2)
+                            
+                            st.markdown("#### 🔗 Sparse Cointegration")
+                            st.code(result.summary())
+                            
+                            # Display weights
+                            weights_series = pd.Series(result.weights, 
+                                                      index=available_symbols[:len(result.weights)])
+                            non_zero = weights_series[weights_series.abs() > 0.001]
+                            
+                            st.markdown(f"**Portfolio ({len(non_zero)} assets)**")
+                            fig = go.Figure(data=[
+                                go.Bar(x=non_zero.index, y=non_zero.values,
+                                      marker_color=['green' if x > 0 else 'red' for x in non_zero.values])
+                            ])
+                            fig.update_layout(title='Cointegrating Portfolio Weights',
+                                            height=400)
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Test residuals for mean-reversion
+                            hurst_result = hurst_exponent(result.residuals)
+                            
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                st.metric("Hurst Exponent", f"{hurst_result.hurst_exponent:.4f}")
+                                if hurst_result.is_mean_reverting:
+                                    st.success("✅ Residuals are mean-reverting")
+                                else:
+                                    st.warning("⚠️ Residuals not mean-reverting")
+                            
+                            with col_b:
+                                st.metric("95% CI", 
+                                        f"[{hurst_result.confidence_interval[0]:.4f}, "
+                                        f"{hurst_result.confidence_interval[1]:.4f}]")
+                            
+                            # Plot residuals
+                            fig = go.Figure()
+                            fig.add_trace(go.Scatter(y=result.residuals, 
+                                                    name='Cointegration Residuals',
+                                                    line=dict(color='blue', width=1)))
+                            fig.add_hline(y=0, line_dash="dash", line_color="gray")
+                            fig.update_layout(title='Cointegrating Residuals (Should be Stationary)',
+                                            xaxis_title='Time',
+                                            yaxis_title='Residual',
+                                            height=400)
+                            st.plotly_chart(fig, use_container_width=True)
+                    
+                    except Exception as e:
+                        st.error(f"Error during analysis: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
+        else:
+            st.warning("⚠️ Need at least 5 assets for sparse portfolio analysis")
+            st.info("Load more symbols in the Data Loader page")
+    
+    except ImportError as e:
+        st.error("❌ Sparse mean-reversion module not available")
+        st.code(f"Import error: {str(e)}")
+        st.info("Make sure `python/sparse_meanrev.py` is in your path and Rust connector is built")
 
 # Footer
 st.markdown("---")

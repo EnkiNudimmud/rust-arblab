@@ -184,7 +184,7 @@ def render():
     """Render the data loading page"""
     # Initialize session state
     if 'theme_mode' not in st.session_state:
-        st.session_state.theme_mode = 'dark'
+        st.session_state.theme_mode = 'light'
     if 'historical_data' not in st.session_state:
         st.session_state.historical_data = None
     if 'symbols' not in st.session_state:
@@ -196,13 +196,16 @@ def render():
     st.markdown("Load and preview market data for backtesting strategies")
     
     # Main tabs for different sections
-    main_tab1, main_tab2 = st.tabs(["📥 Fetch Data", "💾 Saved Datasets"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(["📥 Fetch Data", "💾 Saved Datasets", "🔗 Merge/Append"])
     
     with main_tab1:
         render_fetch_tab()
     
     with main_tab2:
         render_saved_datasets_tab()
+    
+    with main_tab3:
+        render_merge_append_tab()
 
 
 def render_saved_datasets_tab():
@@ -227,12 +230,23 @@ def render_saved_datasets_tab():
             col1, col2, col3 = st.columns([2, 1, 1])
             
             with col1:
-                st.markdown(f"**Rows:** {ds.get('rows', 'N/A'):,}")
+                # Handle both 'rows' and 'row_count' for compatibility
+                rows = ds.get('rows') or ds.get('row_count', 'N/A')
+                rows_str = f"{rows:,}" if isinstance(rows, (int, float)) else rows
+                st.markdown(f"**Rows:** {rows_str}")
                 st.markdown(f"**Symbols:** {', '.join(ds.get('symbols', [])[:5])}{'...' if len(ds.get('symbols', [])) > 5 else ''}")
                 
                 date_range = ds.get('date_range', {})
                 if date_range:
-                    st.markdown(f"**Date Range:** {date_range.get('start', 'N/A')[:10]} to {date_range.get('end', 'N/A')[:10]}")
+                    if isinstance(date_range, dict):
+                        start = str(date_range.get('start', 'N/A'))[:10]
+                        end = str(date_range.get('end', 'N/A'))[:10]
+                    elif isinstance(date_range, (list, tuple)) and len(date_range) >= 2:
+                        start = str(date_range[0])[:10]
+                        end = str(date_range[1])[:10]
+                    else:
+                        start = end = 'N/A'
+                    st.markdown(f"**Date Range:** {start} to {end}")
             
             with col2:
                 st.markdown(f"**Source:** {ds.get('source', 'N/A')}")
@@ -241,9 +255,10 @@ def render_saved_datasets_tab():
             
             with col3:
                 # Load button
-                if st.button("📤 Load", key=f"load_{ds['name']}", use_container_width=True):
+                if st.button("📤 Load", key=f"saved_load_{ds['name']}", use_container_width=True):
                     try:
-                        df, meta = load_dataset(ds['name'])
+                        result: tuple[pd.DataFrame, dict] = load_dataset(ds['name'])  # type: ignore
+                        df, meta = result
                         
                         # Option to stack or replace
                         if st.session_state.historical_data is not None and st.session_state.data_load_mode == "append":
@@ -264,12 +279,178 @@ def render_saved_datasets_tab():
                         st.error(f"Failed to load dataset: {e}")
                 
                 # Delete button
-                if st.button("🗑️ Delete", key=f"delete_{ds['name']}", use_container_width=True):
+                if st.button("🗑️ Delete", key=f"saved_delete_{ds['name']}", use_container_width=True):
                     if delete_dataset(ds['name']):
                         st.success(f"Deleted '{ds['name']}'")
                         st.rerun()
                     else:
                         st.error("Failed to delete dataset")
+
+
+def render_merge_append_tab():
+    """Render the merge/append datasets tab."""
+    st.markdown("### 🔗 Merge & Append Datasets")
+    st.markdown("Combine multiple datasets or add new data to existing datasets")
+    
+    # Get list of saved datasets
+    datasets = list_datasets()
+    
+    if not datasets:
+        st.info("No saved datasets available. Fetch and save data first.")
+        return
+    
+    dataset_names = [ds['name'] for ds in datasets]
+    
+    # Two modes: Merge multiple datasets, or Append to existing dataset
+    mode = st.radio(
+        "Operation Mode",
+        ["Merge Multiple Datasets", "Append New Data to Existing Dataset"],
+        help="Choose how you want to combine data"
+    )
+    
+    if mode == "Merge Multiple Datasets":
+        st.markdown("#### 🔀 Merge Multiple Datasets")
+        st.markdown("Combine two or more datasets into a new dataset. Duplicates will be removed based on symbol and timestamp.")
+        
+        # Select datasets to merge
+        selected_datasets = st.multiselect(
+            "Select datasets to merge",
+            dataset_names,
+            help="Choose 2 or more datasets to combine"
+        )
+        
+        if len(selected_datasets) < 2:
+            st.warning("⚠️ Please select at least 2 datasets to merge")
+            return
+        
+        # Show preview of what will be merged
+        st.markdown("**Preview:**")
+        preview_data = []
+        for ds_name in selected_datasets:
+            ds_info = next((ds for ds in datasets if ds['name'] == ds_name), None)
+            if ds_info:
+                preview_data.append({
+                    'Dataset': ds_name,
+                    'Rows': f"{ds_info.get('row_count', 'N/A'):,}",
+                    'Symbols': len(ds_info.get('symbols', [])),
+                    'Source': ds_info.get('source', 'N/A')
+                })
+        
+        st.dataframe(pd.DataFrame(preview_data), use_container_width=True)
+        
+        # New dataset name
+        new_dataset_name = st.text_input(
+            "New dataset name",
+            value=f"merged_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            help="Name for the merged dataset"
+        )
+        
+        # Merge button
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if st.button("🔀 Merge Datasets", type="primary", use_container_width=True):
+                with st.spinner("Merging datasets..."):
+                    if merge_datasets(selected_datasets, new_dataset_name):
+                        st.success(f"✅ Successfully merged {len(selected_datasets)} datasets into '{new_dataset_name}'")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to merge datasets")
+    
+    else:  # Append mode
+        st.markdown("#### ➕ Append New Data to Existing Dataset")
+        st.markdown("Add newly fetched data to an existing dataset. Duplicates will be removed automatically.")
+        
+        # Select target dataset
+        target_dataset = st.selectbox(
+            "Target dataset (to append to)",
+            dataset_names,
+            help="Select the dataset you want to add data to"
+        )
+        
+        # Show current dataset info
+        target_info = next((ds for ds in datasets if ds['name'] == target_dataset), None)
+        if target_info:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Current Rows", f"{target_info.get('row_count', 'N/A'):,}")
+            with col2:
+                st.metric("Symbols", len(target_info.get('symbols', [])))
+            with col3:
+                st.metric("Source", target_info.get('source', 'N/A'))
+            
+            st.markdown(f"**Symbols in dataset:** {', '.join(target_info.get('symbols', [])[:10])}{'...' if len(target_info.get('symbols', [])) > 10 else ''}")
+        
+        st.markdown("---")
+        
+        # Option 1: Append from current session data
+        st.markdown("**Option 1: Append from currently loaded data**")
+        
+        if st.session_state.historical_data is not None:
+            current_data = st.session_state.historical_data
+            st.info(f"📊 Current session has {len(current_data):,} rows of data loaded")
+            
+            if st.button("➕ Append Session Data", use_container_width=True):
+                with st.spinner("Appending data..."):
+                    # Load target dataset
+                    result = load_dataset(target_dataset)
+                    if result:
+                        target_df, target_meta = result
+                        
+                        # Combine with current data
+                        combined_df = pd.concat([target_df, current_data], ignore_index=True)
+                        
+                        # Remove duplicates
+                        if 'symbol' in combined_df.columns and 'timestamp' in combined_df.columns:
+                            combined_df = combined_df.drop_duplicates(subset=['symbol', 'timestamp'], keep='last')
+                        
+                        # Get all symbols
+                        if 'symbol' in combined_df.columns:
+                            all_symbols = combined_df['symbol'].unique().tolist()
+                        else:
+                            all_symbols = target_meta.get('symbols', [])
+                        
+                        # Save back to target dataset
+                        if save_dataset(
+                            combined_df,
+                            target_dataset,
+                            all_symbols,
+                            target_meta.get('source', 'Mixed'),
+                            target_meta.get('date_range'),
+                            append=False  # Replace with merged data
+                        ):
+                            old_row_count = target_info.get('row_count', 0) if target_info else 0
+                            new_rows = len(combined_df) - old_row_count
+                            st.success(f"✅ Added {new_rows:,} new rows to '{target_dataset}' (total: {len(combined_df):,} rows)")
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to append data")
+        else:
+            st.warning("⚠️ No data loaded in current session. Fetch data first, then append it here.")
+        
+        st.markdown("---")
+        
+        # Option 2: Append from another saved dataset
+        st.markdown("**Option 2: Append from another saved dataset**")
+        
+        source_datasets = [ds for ds in dataset_names if ds != target_dataset]
+        if source_datasets:
+            source_dataset = st.selectbox(
+                "Source dataset (to append from)",
+                source_datasets,
+                help="Select the dataset to append to the target"
+            )
+            
+            if st.button("➕ Append from Dataset", use_container_width=True):
+                with st.spinner("Appending datasets..."):
+                    # Merge the two datasets
+                    if merge_datasets([target_dataset, source_dataset], target_dataset):
+                        st.success(f"✅ Successfully appended '{source_dataset}' to '{target_dataset}'")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to append datasets")
+        else:
+            st.info("No other datasets available to append from")
 
 
 def render_fetch_tab():
@@ -335,16 +516,17 @@ def render_fetch_tab():
                         )
                     
                     with col_ds2:
-                        if st.button("📂 Load", key=f"load_{dataset['name']}", use_container_width=True):
-                            df = load_dataset(dataset['name'])
-                            if df is not None:
+                        if st.button("📂 Load", key=f"fetch_load_{dataset['name']}", use_container_width=True):
+                            result = load_dataset(dataset['name'])
+                            if result is not None:
+                                df, meta = result
                                 st.session_state.historical_data = df
-                                st.session_state.symbols = dataset['symbols']
+                                st.session_state.symbols = meta.get('symbols', dataset['symbols'])
                                 st.success(f"✅ Loaded {dataset['name']}")
                                 st.rerun()
                     
                     with col_ds3:
-                        if st.button("🗑️ Delete", key=f"delete_{dataset['name']}", use_container_width=True):
+                        if st.button("🗑️ Delete", key=f"fetch_delete_{dataset['name']}", use_container_width=True):
                             if delete_dataset(dataset['name']):
                                 st.success(f"✅ Deleted {dataset['name']}")
                                 st.rerun()
@@ -369,6 +551,7 @@ def render_fetch_tab():
                 "Yahoo Finance", 
                 "Finnhub (API)", 
                 "Alpha Vantage (API - FREE 25 calls/day)",
+                "Massive (Institutional-grade - FREE 100 calls/day)",
                 "Upload CSV", 
                 "Mock/Synthetic"
             ],
@@ -394,8 +577,203 @@ def render_fetch_tab():
                 f"Supports second-level historical data for crypto pairs."
             )
         
+        # Massive rate limit warnings and method selection
+        # Initialize in session state for global access
+        if 'massive_fetch_method' not in st.session_state:
+            st.session_state.massive_fetch_method = "auto"
+        if 'massive_data_type' not in st.session_state:
+            st.session_state.massive_data_type = "ohlcv"
+        
+        if data_source.startswith("Massive"):
+            # Important notice about Massive.com availability
+            st.warning(
+                "⚠️ **Massive.com API Notice**\\n\\n"
+                "Massive.com is currently a placeholder/example service for demonstration purposes. "
+                "The REST API and WebSocket endpoints are not yet publicly available.\\n\\n"
+                "**🔄 Working Alternatives:**\\n"
+                "• **CCXT** - Free real-time crypto data (Binance, Kraken, etc.)\\n"
+                "• **Yahoo Finance** - Free stock data\\n"
+                "• **Finnhub** - Free stock market data with API key\\n\\n"
+                "**Flat File Downloads** may work if you have valid S3 credentials from a compatible provider."
+            )
+            
+            # Initialize rate limit tracking in session state
+            if 'massive_calls_today' not in st.session_state:
+                st.session_state.massive_calls_today = 0
+                st.session_state.massive_last_reset = datetime.now().date()
+            
+            # Reset daily counter if new day
+            if st.session_state.massive_last_reset < datetime.now().date():
+                st.session_state.massive_calls_today = 0
+                st.session_state.massive_last_reset = datetime.now().date()
+            
+            # Method selection
+            st.markdown("#### 📊 Fetch Method")
+            st.session_state.massive_fetch_method = st.radio(
+                "How to fetch data",
+                ["auto", "rest", "flat_file"],
+                index=["auto", "rest", "flat_file"].index(st.session_state.massive_fetch_method) if st.session_state.massive_fetch_method in ["auto", "rest", "flat_file"] else 0,
+                format_func=lambda x: {
+                    "auto": "🤖 Auto (Smart Selection)",
+                    "rest": "📡 REST API (Fast, small queries)",
+                    "flat_file": "📦 Flat Files / S3 (Bulk downloads)"
+                }[x],
+                help=(
+                    "**Auto**: Automatically chooses best method based on query size\\n"
+                    "  - REST API for ≤5 symbols AND ≤7 days\\n"
+                    "  - Flat Files for larger queries\\n\\n"
+                    "**REST API**: Fast for small queries, counts against 100 calls/day\\n\\n"
+                    "**Flat Files (S3)**: Best for bulk data (>10 symbols or >30 days), "
+                    "uses S3 credentials (separate from API key), 10 GB/month quota"
+                )
+            )
+            
+            # Data type selection for flat files
+            if st.session_state.massive_fetch_method == "flat_file":
+                st.session_state.massive_data_type = st.radio(
+                    "Data Type",
+                    ["ohlcv", "trades"],
+                    format_func=lambda x: {
+                        "ohlcv": "📊 OHLCV Bars (Aggregated candles)",
+                        "trades": "⚡ Tick-Level Trades (Raw trade data)"
+                    }[x],
+                    help=(
+                        "**OHLCV Bars**: Aggregated data (open, high, low, close, volume) for backtesting\\n"
+                        "**Tick-Level Trades**: Raw trade-by-trade data from SIP feed (US stocks only, very large files)"
+                    ),
+                    horizontal=True
+                )
+            
+            # Display rate limit status
+            calls_remaining = 100 - st.session_state.massive_calls_today
+            
+            if st.session_state.massive_fetch_method in ["auto", "rest"]:
+                if calls_remaining > 50:
+                    st.info(
+                        f"🏛️ **Massive.com Free Tier Status:**\\n"
+                        f"✅ {calls_remaining}/100 REST API calls remaining today\\n"
+                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
+                        f"🔌 WebSocket: 10 concurrent connections, 100 messages/min\\n"
+                        f"📥 Bulk Files: 10 GB/month downloads available\\n"
+                        f"💡 Institutional-grade data with generous free tier!"
+                    )
+                elif calls_remaining > 20:
+                    st.warning(
+                        f"⚠️ **Massive.com Free Tier Status:**\\n"
+                        f"🔶 {calls_remaining}/100 REST API calls remaining today\\n"
+                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
+                        f"💡 Consider using WebSocket streaming or flat file downloads\\n"
+                        f"📥 10 GB/month bulk downloads available"
+                    )
+                elif calls_remaining > 0:
+                    st.error(
+                        f"🚨 **Massive.com Free Tier Status:**\\n"
+                        f"🔴 Only {calls_remaining}/100 REST API calls left today!\\n"
+                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
+                        f"💡 Switch to flat file downloads\\n"
+                        f"📥 10 GB/month still available for flat files"
+                    )
+                else:
+                    st.error(
+                        f"🚫 **Massive.com Daily REST Limit Reached!**\\n"
+                        f"❌ 0/100 REST API calls remaining\\n"
+                        f"⏰ Limit resets at midnight UTC\\n"
+                        f"💡 Alternative: Use flat files (10 GB/month)\\n"
+                        f"📥 Get S3 credentials from Massive dashboard"
+                    )
+                    # Auto-switch to flat files if REST limit reached
+                    if st.session_state.massive_fetch_method == "auto":
+                        st.info("🤖 Auto-switching to flat files since REST limit reached")
+                        st.session_state.massive_fetch_method = "flat_file"
+            
+            if st.session_state.massive_fetch_method == "flat_file":
+                st.success(
+                    f"📦 **Using Flat Files (S3 Downloads)**\\n"
+                    f"✅ Doesn't count against REST API quota\\n"
+                    f"📥 10 GB/month download limit\\n"
+                    f"💡 Requires S3 credentials from 'Accessing Flat Files (S3)' tab\\n"
+                    f"⚙️ Add to api_keys.properties: MASSIVE_S3_ACCESS_KEY_ID, MASSIVE_S3_SECRET_ACCESS_KEY"
+                )
+                
+                # Show what's available for bulk download
+                with st.expander("📋 View Available Flat File Data", expanded=False):
+                    if st.session_state.massive_data_type == "ohlcv":
+                        st.markdown("""
+                        **Available OHLCV Bar Data on Massive S3:**
+                        
+                        **Equities (US Stocks):**
+                        - 🕐 Minute-level data: 2000-present
+                        - 📈 Hourly data: 2000-present  
+                        - 📊 Daily data: 1970-present
+                        - 📅 Weekly data: 1970-present
+                        
+                        **Coverage:**
+                        - All NYSE, NASDAQ, AMEX listed stocks
+                        - ~8,000+ active tickers
+                        - Corporate actions adjusted
+                        - Institutional-grade quality
+                        
+                        **File Organization:**
+                        ```
+                        equities/{interval}/{SYMBOL}/{YYYY-MM}.parquet
+                        ```
+                        
+                        **Typical File Sizes:**
+                        - 1 month minute data (1 symbol): ~50-200 MB
+                        - 1 month daily data (1 symbol): ~1-5 MB
+                        - 1 year daily data (1 symbol): ~10-50 MB
+                        
+                        **Performance (Rust Backend):**
+                        - Small files (<1GB): Polars engine (50-100x faster than Python)
+                        - Large files (>1GB): DataFusion streaming
+                        - Automatic engine selection
+                        
+                        **Recommended Usage:**
+                        - ≤10 symbols, ≤30 days: Use REST API
+                        - >10 symbols OR >30 days: Use Flat Files
+                        - Backtesting (100s of symbols): Use Flat Files
+                        """)
+                    else:  # trades
+                        st.markdown("""
+                        **Available Tick-Level Trade Data on Massive S3:**
+                        
+                        **US Stocks SIP (Securities Information Processor):**
+                        - ⚡ Tick-by-tick trade data
+                        - 🕐 Coverage: 2020-present
+                        - 📍 Source: Consolidated SIP feed (all exchanges)
+                        - 📊 Fields: timestamp, symbol, price, size, exchange, conditions
+                        
+                        **Coverage:**
+                        - All NYSE, NASDAQ, AMEX listed stocks
+                        - Every single trade execution
+                        - Sub-millisecond timestamps
+                        - Exchange identifiers and trade conditions
+                        
+                        **File Organization:**
+                        ```
+                        us_stocks_sip/trades_v1/{SYMBOL}/{YYYY-MM-DD}.parquet
+                        ```
+                        
+                        **⚠️ Large File Sizes:**
+                        - 1 day tick data (liquid stock): 100-500 MB
+                        - 1 day tick data (very liquid): 500 MB - 2 GB
+                        - 1 month tick data: 3-15 GB per symbol
+                        
+                        **Performance:**
+                        - Rust backend automatically uses DataFusion for streaming
+                        - Processes millions of ticks efficiently
+                        - Filters applied before loading into memory
+                        
+                        **⚠️ Recommended Usage:**
+                        - HFT strategy development and backtesting
+                        - Market microstructure research
+                        - Order flow analysis
+                        - **Start with 1-2 days for testing due to large file sizes**
+                        - Monitor your 10 GB/month quota carefully
+                        """)
+        
         # Alpha Vantage rate limit warnings
-        if data_source.startswith("Alpha Vantage"):
+        elif data_source.startswith("Alpha Vantage"):
             # Initialize rate limit tracking in session state
             if 'av_calls_today' not in st.session_state:
                 st.session_state.av_calls_today = 0
@@ -727,6 +1105,56 @@ def render_fetch_tab():
                     current_rows = len(st.session_state.historical_data)
                     st.caption(f"📊 Current: {current_rows:,} rows")
             
+            # Show download preview for Massive flat files
+            if data_source.startswith("Massive") and st.session_state.massive_fetch_method == "flat_file":
+                st.markdown("---")
+                st.markdown("#### 📋 Download Preview")
+                
+                days_diff = (end_date - start_date).days
+                num_symbols = len(symbols)
+                
+                # Estimate download size
+                if st.session_state.massive_data_type == "trades":
+                    # Tick-level trade data is MUCH larger
+                    est_mb_per_symbol = days_diff * 300  # ~300 MB per symbol per day for tick data
+                    data_density = "⚡ Tick-Level Trades"
+                elif interval in ['1m', '5m', '15m', '30m']:
+                    est_mb_per_symbol = days_diff * 10  # ~10 MB per symbol per day
+                    data_density = "Minute-level"
+                elif interval in ['1h', '4h']:
+                    est_mb_per_symbol = days_diff * 1  # ~1 MB per symbol per day
+                    data_density = "Hourly"
+                else:
+                    est_mb_per_symbol = days_diff * 0.5  # ~0.5 MB per symbol per day
+                    data_density = "Daily/Weekly"
+                
+                total_est_mb = num_symbols * est_mb_per_symbol
+                
+                # Show preview
+                preview_col1, preview_col2, preview_col3 = st.columns(3)
+                with preview_col1:
+                    st.metric("Symbols", f"{num_symbols}")
+                with preview_col2:
+                    st.metric("Days", f"{days_diff}")
+                with preview_col3:
+                    st.metric("Est. Download", f"~{total_est_mb:.1f} MB")
+                
+                st.info(
+                    f"📊 **{data_density} data** for **{num_symbols} symbol(s)** "
+                    f"over **{days_diff} days**\\n\\n"
+                    f"🦀 Rust backend: {('Polars (fast)' if total_est_mb < 1000 else 'DataFusion (streaming)')}\\n"
+                    f"⏱️ Estimated time: {max(2, total_est_mb / 50):.0f}-{max(5, total_est_mb / 20):.0f} seconds\\n"
+                    f"💾 Quota used: {total_est_mb:.1f} MB of 10 GB monthly limit"
+                )
+                
+                # Warning if approaching quota
+                if total_est_mb > 5000:  # > 5 GB
+                    st.warning(
+                        f"⚠️ This download will use **{total_est_mb/1024:.1f} GB** "
+                        f"of your monthly quota!\\n"
+                        f"Consider reducing the date range or number of symbols."
+                    )
+            
             # Fetch button
             if st.button("🔄 Fetch Data", type="primary", use_container_width=True):
                 if not symbols:
@@ -738,6 +1166,7 @@ def render_fetch_tab():
                         'yahoo': 'yfinance',
                         'finnhub': 'finnhub',
                         'alpha': 'alpha_vantage',
+                        'massive': 'massive',
                         'mock': 'synthetic',
                         'upload': 'synthetic'
                     }
@@ -751,7 +1180,7 @@ def render_fetch_tab():
                         interval=interval,
                         source=internal_source,
                         exchange_id=exchange_id if data_source.startswith("CCXT") else None,
-                        load_mode=st.session_state.data_load_mode
+                        save_mode=st.session_state.data_load_mode
                     )
     
     with col2:
@@ -800,14 +1229,21 @@ def render_fetch_tab():
                         "interval": st.session_state.get('interval', 'unknown'),
                         "symbols": st.session_state.symbols,
                     }
+                    date_range_tuple = None
                     if st.session_state.get('date_range'):
-                        metadata["date_range"] = {
-                            "start": st.session_state.date_range[0],
-                            "end": st.session_state.date_range[1]
-                        }
+                        date_range_tuple = (
+                            st.session_state.date_range[0],
+                            st.session_state.date_range[1]
+                        )
                     
-                    path = save_dataset(df, save_name, metadata)
-                    st.success(f"✅ Saved to: {path}")
+                    save_dataset(
+                        df, save_name,
+                        symbols=st.session_state.symbols or [],
+                        source=metadata.get('source', 'unknown'),
+                        date_range=date_range_tuple,
+                        append=False
+                    )
+                    st.success(f"✅ Saved as '{save_name}'")
                 except Exception as e:
                     st.error(f"Failed to save: {e}")
             
@@ -831,6 +1267,13 @@ def render_fetch_tab():
               - Real-time quotes (15-20 min delay)
               - Intraday & daily historical data
               - Requires free API key from alphavantage.co
+            - **🏛️ Massive**: Institutional-grade market data (FREE 100 calls/day)
+              - ⚡ REST API: 100 requests/day, 10/minute
+              - 🔌 WebSocket: 10 concurrent connections, 100 messages/min
+              - 📥 Bulk Files: 10 GB/month historical data downloads
+              - Stocks, options, futures, forex, crypto
+              - Real-time and historical data
+              - Requires free API key from massive.com
             - **CSV Upload**: Custom data files
             - **Mock**: Synthetic data for testing
             """)
@@ -851,6 +1294,17 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             if source == 'ccxt' and exchange_id:
                 from python.data_fetcher import _fetch_ccxt
                 new_df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
+            # For Massive, use transparent fetch_data with method selection
+            elif source == 'massive':
+                from python.massive_helper import fetch_data
+                new_df = fetch_data(
+                    symbols=symbols,
+                    start=start,
+                    end=end,
+                    interval=interval,
+                    method=st.session_state.get('massive_fetch_method', 'auto'),  # "auto", "rest", or "flat_file"
+                    data_type=st.session_state.get('massive_data_type', 'ohlcv') if st.session_state.get('massive_fetch_method', 'auto') == "flat_file" else "ohlcv"  # "ohlcv" or "trades"
+                )
             else:
                 new_df = fetch_intraday_data(
                     symbols=symbols,
@@ -860,11 +1314,28 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
                     source=source
                 )
             
-            # Reset index to make it easier to work with
-            if isinstance(df.index, pd.MultiIndex):
-                df = df.reset_index()
+            # Increment API call counter for rate-limited sources
+            if source == 'massive' and st.session_state.get('massive_fetch_method', 'auto') in ["auto", "rest"]:
+                # Only count REST API calls, not flat file downloads
+                if 'massive_calls_today' in st.session_state:
+                    st.session_state.massive_calls_today += len(symbols)
+            elif source == 'alpha_vantage':
+                if 'av_calls_today' in st.session_state:
+                    st.session_state.av_calls_today += len(symbols)
             
-            st.session_state.historical_data = df
+            # Reset index to make it easier to work with
+            if isinstance(new_df.index, pd.MultiIndex):
+                new_df = new_df.reset_index()
+            
+            # Handle data loading mode: replace, append, or update
+            if save_mode == "replace" or st.session_state.historical_data is None:
+                st.session_state.historical_data = new_df
+            else:
+                # Use stack_data to append or update existing data
+                st.session_state.historical_data = stack_data(
+                    st.session_state.historical_data, new_df, save_mode
+                )
+            
             st.session_state.symbols = symbols
             st.session_state.data_source = source
             st.session_state.date_range = (start, end)
@@ -874,13 +1345,25 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             if exchange_id:
                 dataset_name = f"{exchange_id}_{dataset_name}"
             
-            append_mode = (save_mode == "append")
-            if save_dataset(df, dataset_name, symbols, display_source, (start, end), append=append_mode):
-                save_msg = "appended to existing dataset" if append_mode else "saved"
-                st.info(f"💾 Data {save_msg} as '{dataset_name}'")
+            # Auto-save dataset
+            save_dataset(
+                new_df, dataset_name,
+                symbols=symbols,
+                source=display_source,
+                date_range=(start, end),
+                append=(save_mode == "append")
+            )
+            st.info(f"💾 Data saved as '{dataset_name}'")
             
-            st.success(f"✅ Successfully loaded {len(df):,} records for {len(symbols)} symbols")
-            return df
+            # Display appropriate success message based on mode
+            total_rows = len(st.session_state.historical_data)
+            if save_mode == "replace":
+                st.success(f"✅ Successfully loaded {len(new_df):,} records for {len(symbols)} symbols")
+            elif save_mode == "append":
+                st.success(f"✅ Successfully appended {len(new_df):,} new records for {len(symbols)} symbols (Total: {total_rows:,} rows)")
+            else:  # update
+                st.success(f"✅ Successfully updated data with {len(new_df):,} records for {len(symbols)} symbols (Total: {total_rows:,} rows)")
+            return st.session_state.historical_data
             
         except Exception as e:
             st.error(f"Failed to fetch data: {e}")

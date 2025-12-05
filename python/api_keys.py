@@ -46,6 +46,20 @@ def load_api_keys() -> Dict[str, str]:
     return _API_KEYS
 
 
+def get_massive_s3_credentials() -> Dict[str, str]:
+    """
+    Get Massive.com S3 credentials for flat file downloads.
+    Returns dict with: access_key_id, secret_access_key, endpoint, bucket
+    """
+    load_api_keys()
+    return {
+        'access_key_id': _API_KEYS.get('MASSIVE_S3_ACCESS_KEY_ID', ''),
+        'secret_access_key': _API_KEYS.get('MASSIVE_S3_SECRET_ACCESS_KEY', ''),
+        'endpoint': _API_KEYS.get('MASSIVE_S3_ENDPOINT', 'https://files.massive.com'),
+        'bucket': _API_KEYS.get('MASSIVE_S3_BUCKET', 'flatfiles')
+    }
+
+
 def get_api_key(key_name: str) -> Optional[str]:
     """
     Get an API key by name.
@@ -88,3 +102,7 @@ def get_coinbase_credentials() -> tuple[Optional[str], Optional[str], Optional[s
 
 def get_kraken_credentials() -> tuple[Optional[str], Optional[str]]:
     return (get_api_key('KRAKEN_API_KEY'), get_api_key('KRAKEN_API_SECRET'))
+
+
+def get_massive_key() -> Optional[str]:
+    return get_api_key('MASSIVE_API_KEY')

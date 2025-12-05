@@ -248,12 +248,16 @@ def sparse_pca(
             tol,
         )
         
+        # Calculate total variance if not provided by Rust function
+        variance_explained = np.array(result_dict['variance_explained'])
+        total_var = result_dict.get('total_variance_explained', np.sum(variance_explained))
+        
         result = SparsePCAResult(
             weights=result_dict['weights'],
-            variance_explained=np.array(result_dict['variance_explained']),
+            variance_explained=variance_explained,
             sparsity=np.array(result_dict['sparsity']),
             iterations=np.array(result_dict['iterations']),
-            total_variance_explained=result_dict['total_variance_explained'],
+            total_variance_explained=total_var,
         )
     else:
         # Python fallback implementation

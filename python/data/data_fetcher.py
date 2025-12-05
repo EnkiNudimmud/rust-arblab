@@ -14,7 +14,7 @@ from typing import List, Dict, Optional
 import time
 
 try:
-    from python.finnhub_helper import fetch_ohlcv as fh_fetch_ohlcv
+    from python.data.fetchers.finnhub_helper import fetch_ohlcv as fh_fetch_ohlcv
     FH_AVAILABLE = True
 except ImportError:
     fh_fetch_ohlcv = None
@@ -26,7 +26,7 @@ except Exception as e:
     logging.getLogger(__name__).warning(f"Could not import Finnhub helper: {e}")
 
 try:
-    from python.alpha_vantage_helper import (
+    from python.data.fetchers.alpha_vantage_helper import (
         fetch_intraday as av_fetch_intraday,
         fetch_daily as av_fetch_daily,
         check_rate_limit,
@@ -50,7 +50,7 @@ except Exception as e:
 
 try:
     import yfinance as yf
-    from python.yfinance_helper import validate_date_range
+    from python.data.fetchers.yfinance_helper import validate_date_range
     YF_AVAILABLE = True
 except ImportError:
     yf = None
@@ -58,7 +58,7 @@ except ImportError:
     YF_AVAILABLE = False
 
 try:
-    from python.ccxt_helper import create_exchange, fetch_ohlcv_range
+    from python.data.fetchers.ccxt_helper import create_exchange, fetch_ohlcv_range
     CCXT_AVAILABLE = True
 except ImportError:
     CCXT_AVAILABLE = False
@@ -68,7 +68,7 @@ except Exception as e:
     logging.getLogger(__name__).warning(f"Could not import CCXT helper: {e}")
 
 try:
-    from python.massive_helper import fetch_ohlcv_rest as massive_fetch_ohlcv
+    from python.data.fetchers.massive_helper import fetch_ohlcv_rest as massive_fetch_ohlcv
     MASSIVE_AVAILABLE = True
 except ImportError:
     massive_fetch_ohlcv = None

@@ -15,12 +15,13 @@ Features:
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Callable
+from typing import Dict, List, Optional, Tuple, Callable, Union
 from dataclasses import dataclass
 from datetime import datetime
 import logging
 
-from python.advanced_optimization import HMMRegimeDetector, RUST_AVAILABLE
+from python.optimization.advanced_optimization import HMMRegimeDetector, RUST_AVAILABLE
+from python.type_fixes import ArrayLike, as_numpy, safe_mean, safe_std
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,7 @@ class AdaptiveStrategy:
         if 'close' not in data.columns:
             return None
         
-        returns = data['close'].pct_change().dropna().values
+        returns = as_numpy(data['close'].pct_change().dropna())
         
         # Update regimes periodically
         if len(returns) >= self.lookback_period:
@@ -390,8 +391,8 @@ class AdaptiveMeanReversion(AdaptiveStrategy):
         lookback = int(config.max_holding_period * 2)
         prices = data['close'].values
         
-        mean = np.mean(prices[-lookback:])
-        std = np.std(prices[-lookback:])
+        mean = safe_mean(prices[-lookback:])
+        std = safe_std(prices[-lookback:])
         
         if std == 0:
             return None
@@ -477,8 +478,8 @@ class AdaptiveMomentum(AdaptiveStrategy):
         prices = data['close'].values
         
         # Calculate momentum indicators
-        fast_ma = np.mean(prices[-10:])
-        slow_ma = np.mean(prices[-30:])
+        fast_ma = safe_mean(prices[-10:])
+        slow_ma = safe_mean(prices[-30:])
         momentum = (fast_ma - slow_ma) / slow_ma
         
         # Calculate RSI
@@ -564,8 +565,8 @@ class AdaptiveStatArb(AdaptiveStrategy):
         prices = data['close'].values
         spread = prices  # Simplified
         
-        spread_mean = np.mean(spread[-50:])
-        spread_std = np.std(spread[-50:])
+        spread_mean = safe_mean(spread[-50:])
+        spread_std = safe_std(spread[-50:])
         
         if spread_std == 0:
             return None

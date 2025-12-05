@@ -836,8 +836,11 @@ def render_fetch_tab():
                     df['timestamp'] = pd.to_datetime(df['timestamp'])
                     st.session_state.historical_data = df
                     st.success(f"✅ Loaded {len(df)} rows from CSV")
-                    symbols = df['symbol'].unique().tolist()
-                    st.session_state.symbols = symbols
+                    if 'symbol' in df.columns:
+                        symbols = df['symbol'].unique().tolist()
+                        st.session_state.symbols = symbols
+                    else:
+                        st.warning("CSV does not contain a 'symbol' column. Some features may be limited.")
                 except Exception as e:
                     st.error(f"Failed to load CSV: {e}")
         else:
@@ -1373,6 +1376,11 @@ def display_data_preview():
     """Display data preview and visualization"""
     df = st.session_state.historical_data
     
+    # Validate dataframe
+    if df is None or df.empty:
+        st.warning("No data available to preview.")
+        return
+    
     st.markdown("### 📋 Data Preview & Visualization")
     
     # Tabs for different views
@@ -1380,11 +1388,20 @@ def display_data_preview():
     
     with tab1:
         # Symbol selector for charting
-        symbols = df['symbol'].unique().tolist()
-        selected_symbol = st.selectbox("Select Symbol for Chart", symbols)
-        
-        # Filter data for selected symbol
-        symbol_df = df[df['symbol'] == selected_symbol].copy()
+        if 'symbol' in df.columns:
+            try:
+                symbols = df['symbol'].unique().tolist()
+                selected_symbol = st.selectbox("Select Symbol for Chart", symbols)
+                # Filter data for selected symbol
+                symbol_df = df[df['symbol'] == selected_symbol].copy()
+            except Exception as e:
+                st.error(f"Error accessing symbol column: {e}")
+                symbol_df = df.copy()
+                selected_symbol = None
+        else:
+            st.info("Data does not contain a 'symbol' column. Showing all data.")
+            symbol_df = df.copy()
+            selected_symbol = None
         if 'timestamp' in symbol_df.columns:
             symbol_df = symbol_df.sort_values('timestamp')
         
@@ -1444,15 +1461,25 @@ def display_data_preview():
         # Filtering options
         col1, col2, col3 = st.columns(3)
         with col1:
-            filter_symbol = st.multiselect("Filter by Symbol", df['symbol'].unique())
+            if 'symbol' in df.columns:
+                try:
+                    filter_symbol = st.multiselect("Filter by Symbol", df['symbol'].unique())
+                except Exception:
+                    filter_symbol = []
+            else:
+                filter_symbol = []
         with col2:
             n_rows = st.number_input("Number of rows", min_value=10, max_value=10000, value=100)
         with col3:
-            sort_order = st.selectbox("Sort by", ["timestamp", "symbol", "close"])
+            # Dynamic sort options based on available columns
+            sort_options = [col for col in ['timestamp', 'symbol', 'close', 'date'] if col in df.columns]
+            if not sort_options:
+                sort_options = df.columns.tolist()[:5]  # First 5 columns as fallback
+            sort_order = st.selectbox("Sort by", sort_options)
         
         # Apply filters
         display_df = df.copy()
-        if filter_symbol:
+        if filter_symbol and 'symbol' in df.columns:
             display_df = display_df[display_df['symbol'].isin(filter_symbol)]
         
         display_df = display_df.sort_values(sort_order, ascending=False).head(n_rows)
@@ -1467,34 +1494,38 @@ def display_data_preview():
         st.markdown("#### Statistical Summary")
         
         # Per-symbol statistics
-        for symbol in df['symbol'].unique()[:5]:  # Show first 5 symbols
-            symbol_df = df[df['symbol'] == symbol]
-            
-            with st.expander(f"📊 {symbol}", expanded=False):
-                cols = st.columns(4)
-                
-                if 'close' in symbol_df.columns:
-                    with cols[0]:
-                        st.metric("Mean Price", f"${symbol_df['close'].mean():.2f}")
-                    with cols[1]:
-                        st.metric("Std Dev", f"${symbol_df['close'].std():.2f}")
-                    with cols[2]:
-                        st.metric("Min", f"${symbol_df['close'].min():.2f}")
-                    with cols[3]:
-                        st.metric("Max", f"${symbol_df['close'].max():.2f}")
-                
-                # Returns analysis
-                if 'close' in symbol_df.columns and len(symbol_df) > 1:
-                    returns = symbol_df['close'].pct_change().dropna()
+        if 'symbol' in df.columns:
+            try:
+                for symbol in df['symbol'].unique()[:5]:  # Show first 5 symbols
+                    symbol_df = df[df['symbol'] == symbol]
                     
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Mean Return", f"{returns.mean()*100:.3f}%")
-                    with col2:
-                        st.metric("Return Volatility", f"{returns.std()*100:.3f}%")
-                    with col3:
-                        sharpe = (returns.mean() / returns.std()) if returns.std() > 0 else 0
-                        st.metric("Sharpe Ratio", f"{sharpe:.3f}")
+                    with st.expander(f"📊 {symbol}", expanded=False):
+                        cols = st.columns(4)
+                        
+                        if 'close' in symbol_df.columns:
+                            with cols[0]:
+                                st.metric("Mean Price", f"${symbol_df['close'].mean():.2f}")
+                            with cols[1]:
+                                st.metric("Std Dev", f"${symbol_df['close'].std():.2f}")
+                            with cols[2]:
+                                st.metric("Min", f"${symbol_df['close'].min():.2f}")
+                            with cols[3]:
+                                st.metric("Max", f"${symbol_df['close'].max():.2f}")
+                        
+                        # Returns analysis
+                        if 'close' in symbol_df.columns and len(symbol_df) > 1:
+                            returns = symbol_df['close'].pct_change().dropna()
+                            
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Mean Return", f"{returns.mean()*100:.3f}%")
+                            with col2:
+                                st.metric("Return Volatility", f"{returns.std()*100:.3f}%")
+                            with col3:
+                                sharpe = (returns.mean() / returns.std()) if returns.std() > 0 else 0
+                                st.metric("Sharpe Ratio", f"{sharpe:.3f}")
+            except Exception as e:
+                st.error(f"Error displaying symbol statistics: {e}")
     
     with tab4:
         st.markdown("#### 💾 Save & Export")
@@ -1523,7 +1554,10 @@ def display_data_preview():
         with col_savebtn1:
             if st.button("💾 Save Dataset", use_container_width=True, type="primary"):
                 append_mode = (save_mode == "Append to Existing")
-                symbols = df['symbol'].unique().tolist() if 'symbol' in df.columns else st.session_state.get('symbols', [])
+                try:
+                    symbols = df['symbol'].unique().tolist() if 'symbol' in df.columns else st.session_state.get('symbols', [])
+                except Exception:
+                    symbols = st.session_state.get('symbols', [])
                 source = st.session_state.get('data_source', 'Unknown')
                 date_range = st.session_state.get('date_range')
                 

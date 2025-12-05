@@ -195,9 +195,9 @@ echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━�
 
 # Start Streamlit (if not skipped)
 if [ "$SKIP_STREAMLIT" = false ]; then
-    if [ -f "run_app.sh" ]; then
+    if [ -f "scripts/run_app.sh" ]; then
         echo -e "${CYAN}Starting Streamlit dashboard...${NC}"
-        nohup ./run_app.sh > /dev/null 2>&1 &
+        nohup ./scripts/run_app.sh > /dev/null 2>&1 &
         sleep 3
         
         if pgrep -f "streamlit run" > /dev/null; then

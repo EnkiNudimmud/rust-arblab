@@ -52,3 +52,54 @@ build/
 # Environment variables
 .env
 .env.local
+
+# Logs
+*.log
+logs/
+*.out
+
+# Data files
+data/saved_datasets/
+data/persisted/
+data/portfolios/
+*.csv
+*.parquet
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# Large binary files
+*.whl
+wheels/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Papers
+papers/
+
+# Mock data
+mock_apis/data/
+
+# Streamlit cache
+.streamlit/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

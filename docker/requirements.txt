@@ -23,3 +23,6 @@ nbformat>=5.10.4
 maturin>=1.10.0
 # Additional dependencies for Python 3.13 compatibility
 scipy>=1.11.0,<1.14.0
+# gRPC for dual backend support
+grpcio>=1.60.0
+grpcio-tools>=1.60.0

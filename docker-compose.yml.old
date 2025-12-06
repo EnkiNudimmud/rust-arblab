@@ -1,55 +1,59 @@
-# Unified docker-compose for HFT Arbitrage Lab with optimized caching
+# Unified docker-compose for HFT Arbitrage Lab with build optimizations
+version: '3.8'
+
+x-common-build: &common-build
+  build:
+    context: .
+    cache_from:
+      - rust-hft-lab:builder
+      - rust-hft-lab:latest
+  image: rust-hft-lab:latest
+
 services:
   # Mock APIs for testing
   mock_apis:
     build: 
       context: ./mock_apis
-    image: rust-hft-lab:mock-apis-latest
+      cache_from:
+        - rust-hft-lab-mock:latest
+    image: rust-hft-lab-mock:latest
     container_name: mock_apis
     ports:
       - "8000:8000"
     volumes:
       - ./mock_apis/data:/data:ro
+    restart: unless-stopped
 
   # gRPC Server for ultra-fast backend
   grpc-server:
-    build:
-      context: .
-      target: runtime
-    image: rust-hft-lab:latest
+    <<: *common-build
     container_name: hft-grpc-server
     ports:
       - "50051:50051"  # gRPC
     volumes:
-      - ./app:/app/app:ro
-      - ./python:/app/python:ro
-      - ./scripts:/app/scripts:ro
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/workspace/target
-    working_dir: /app
     environment:
       - RUST_LOG=info
-    command: ["./target/release/hft-server"]
+    command: ["/app/target/release/hft-server"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # Main lab environment
   lab:
-    build:
-      context: .
-      target: runtime
-    image: rust-hft-lab:latest
+    <<: *common-build
     container_name: hft-lab
     ports:
       - "8501:8501"  # Streamlit
       - "8888:8888"  # Jupyter
     volumes:
-      - ./app:/app/app
-      - ./python:/app/python
-      - ./scripts:/app/scripts
+      - .:/app
       - ./api_keys.properties:/app/api_keys.properties:ro
-      - hft_data:/app/data
-      - cargo-cache:/usr/local/cargo/registry
-      - target-cache:/workspace/target
+      - hft_data:/app/data  # Persistent data storage
     environment:
       - PYTHONPATH=/app
       - BACKEND_TYPE=grpc
@@ -57,33 +61,28 @@ services:
       - GRPC_PORT=50051
     command: ["streamlit", "run", "app/HFT_Arbitrage_Lab.py", "--server.address=0.0.0.0"]
     depends_on:
-      - mock_apis
-      - grpc-server
+      grpc-server:
+        condition: service_healthy
+      mock_apis:
+        condition: service_started
     restart: unless-stopped
 
   # Jupyter notebook server
   jupyter:
-    build:
-      context: .
-      target: runtime
-    image: rust-hft-lab:latest
+    <<: *common-build
     container_name: hft-jupyter
     ports:
       - "8889:8888"
     volumes:
-      - ./app:/app/app:ro
-      - ./python:/app/python:ro
-      - ./examples:/app/examples:ro
-      - ./scripts:/app/scripts:ro
+      - .:/app
       - ./api_keys.properties:/app/api_keys.properties:ro
-      - hft_data:/app/data
-      - cargo-cache:/usr/local/cargo/registry
-      - target-cache:/workspace/target
+      - hft_data:/app/data  # Persistent data storage
     environment:
       - PYTHONPATH=/app
     command: ["bash", "scripts/start_jupyter.sh"]
     depends_on:
       - mock_apis
+    restart: unless-stopped
 
 volumes:
   hft_data:

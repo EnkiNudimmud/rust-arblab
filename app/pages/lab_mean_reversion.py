@@ -92,7 +92,7 @@ with st.sidebar:
         symbol2 = st.selectbox("Pair Asset", [s for s in available_symbols if s != selected_symbol])
 
 # Main analysis
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Z-Score Analysis", "🔄 Pairs Trading", "📈 Strategy Backtest", "📉 Performance", "✨ Sparse Mean-Reversion"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Z-Score Analysis", "🔄 Pairs Trading", "🎯 Multi-Asset Cointegration", "📈 Strategy Backtest", "📉 Performance", "✨ Sparse Mean-Reversion"])
 
 with tab1:
     st.markdown("### Z-Score Mean Reversion Analysis")
@@ -263,6 +263,384 @@ with tab2:
         st.info("Enable cointegration testing in the sidebar to analyze pairs trading opportunities")
 
 with tab3:
+    st.markdown("### 🎯 Multi-Asset Cointegration & Optimal Switching")
+    st.markdown("Test multiple assets for cointegration and analyze mean-reversion with Hurst exponent")
+    
+    if len(available_symbols) < 2:
+        st.warning("Need at least 2 assets for cointegration analysis")
+    else:
+        try:
+            from python.strategies.optimal_switching import (
+                engle_granger_cointegration, johansen_cointegration,
+                estimate_ou_parameters, solve_hjb_pde, 
+                backtest_optimal_switching, compute_strategy_metrics
+            )
+            from python.strategies.sparse_meanrev import hurst_exponent
+            
+            st.markdown("#### Select Assets for Analysis")
+            
+            # Method selection
+            test_method = st.radio(
+                "Cointegration Method",
+                ["Pairwise (Engle-Granger)", "Multi-asset (Johansen)"],
+                horizontal=True
+            )
+            
+            if test_method == "Pairwise (Engle-Granger)":
+                # Pairwise testing with all available symbols
+                st.markdown("#### Pairwise Cointegration Matrix")
+                
+                if st.button("🔍 Run Pairwise Analysis", type="primary"):
+                    with st.spinner("Testing all pairs for cointegration..."):
+                        # Build cointegration matrix
+                        n_assets = min(len(available_symbols), 20)  # Limit to 20 for performance
+                        symbols_subset = available_symbols[:n_assets]
+                        
+                        results_matrix = np.zeros((n_assets, n_assets))
+                        hedge_ratios = {}
+                        hurst_values = {}
+                        
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        total_pairs = n_assets * (n_assets - 1) // 2
+                        completed = 0
+                        
+                        for i in range(n_assets):
+                            for j in range(i + 1, n_assets):
+                                sym1 = symbols_subset[i]
+                                sym2 = symbols_subset[j]
+                                
+                                # Extract prices
+                                if 'symbol' in data.columns:
+                                    p1 = data[data['symbol'] == sym1].set_index('timestamp')['close']
+                                    p2 = data[data['symbol'] == sym2].set_index('timestamp')['close']
+                                else:
+                                    continue
+                                
+                                # Test cointegration
+                                try:
+                                    coint_result = engle_granger_cointegration(p1, p2)
+                                    
+                                    # Store p-value in matrix
+                                    results_matrix[i, j] = coint_result.p_value
+                                    results_matrix[j, i] = coint_result.p_value
+                                    
+                                    if coint_result.is_cointegrated:
+                                        hedge_ratios[f"{sym1}/{sym2}"] = coint_result.hedge_ratio
+                                        
+                                        # Compute spread and test for mean-reversion
+                                        common_idx = p1.index.intersection(p2.index)
+                                        spread = p1.loc[common_idx] - coint_result.hedge_ratio * p2.loc[common_idx]
+                                        
+                                        try:
+                                            hurst_result = hurst_exponent(spread)
+                                            hurst_values[f"{sym1}/{sym2}"] = {
+                                                'hurst': hurst_result.hurst_exponent,
+                                                'is_mean_reverting': hurst_result.is_mean_reverting,
+                                                'interpretation': hurst_result.interpretation
+                                            }
+                                        except:
+                                            pass
+                                except:
+                                    results_matrix[i, j] = 1.0
+                                    results_matrix[j, i] = 1.0
+                                
+                                completed += 1
+                                progress_bar.progress(completed / total_pairs)
+                                status_text.text(f"Testing {sym1} vs {sym2} ({completed}/{total_pairs})")
+                        
+                        progress_bar.empty()
+                        status_text.empty()
+                        
+                        # Display results
+                        st.markdown("#### Cointegration P-Value Matrix")
+                        st.markdown("*Green = cointegrated (p < 0.05), Red = not cointegrated*")
+                        
+                        # Create heatmap
+                        import plotly.graph_objects as go
+                        
+                        fig = go.Figure(data=go.Heatmap(
+                            z=results_matrix,
+                            x=symbols_subset,
+                            y=symbols_subset,
+                            colorscale='RdYlGn_r',
+                            zmin=0,
+                            zmax=0.1,
+                            text=results_matrix,
+                            texttemplate='%{text:.3f}',
+                            textfont={"size": 10},
+                            colorbar=dict(title="P-value")
+                        ))
+                        
+                        fig.update_layout(
+                            title="Cointegration P-Values (lower = more cointegrated)",
+                            xaxis_title="Asset 2",
+                            yaxis_title="Asset 1",
+                            height=600
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Show cointegrated pairs
+                        if len(hedge_ratios) > 0:
+                            st.markdown("#### ✅ Cointegrated Pairs")
+                            
+                            pairs_data = []
+                            for pair, ratio in hedge_ratios.items():
+                                hurst_info = hurst_values.get(pair, {})
+                                pairs_data.append({
+                                    'Pair': pair,
+                                    'Hedge Ratio': f"{ratio:.4f}",
+                                    'Hurst': f"{hurst_info.get('hurst', 0.0):.4f}",
+                                    'Mean-Reverting': '✅' if hurst_info.get('is_mean_reverting', False) else '❌',
+                                    'Interpretation': hurst_info.get('interpretation', 'N/A')
+                                })
+                            
+                            pairs_df = pd.DataFrame(pairs_data)
+                            st.dataframe(pairs_df, use_container_width=True)
+                            
+                            # Allow user to select a pair for optimal switching analysis
+                            st.markdown("#### 🎯 Optimal Switching Analysis")
+                            selected_pair = st.selectbox(
+                                "Select a cointegrated pair for optimal switching strategy",
+                                list(hedge_ratios.keys())
+                            )
+                            
+                            if st.button("📊 Analyze Optimal Switching Strategy", type="primary"):
+                                with st.spinner("Computing optimal switching boundaries..."):
+                                    sym1, sym2 = selected_pair.split('/')
+                                    
+                                    # Extract prices
+                                    if 'symbol' in data.columns:
+                                        p1 = data[data['symbol'] == sym1].set_index('timestamp')['close']
+                                        p2 = data[data['symbol'] == sym2].set_index('timestamp')['close']
+                                    
+                                    common_idx = p1.index.intersection(p2.index)
+                                    p1_aligned = p1.loc[common_idx]
+                                    p2_aligned = p2.loc[common_idx]
+                                    
+                                    hedge_ratio = hedge_ratios[selected_pair]
+                                    spread = p1_aligned - hedge_ratio * p2_aligned
+                                    
+                                    # Estimate OU parameters
+                                    ou_params = estimate_ou_parameters(spread)
+                                    
+                                    st.markdown("##### OU Process Parameters")
+                                    col1, col2, col3, col4 = st.columns(4)
+                                    with col1:
+                                        st.metric("κ (mean-reversion)", f"{ou_params.kappa:.4f}")
+                                    with col2:
+                                        st.metric("θ (long-term mean)", f"{ou_params.theta:.4f}")
+                                    with col3:
+                                        st.metric("σ (volatility)", f"{ou_params.sigma:.4f}")
+                                    with col4:
+                                        st.metric("Half-life (days)", f"{ou_params.half_life:.2f}")
+                                    
+                                    # Solve HJB equations
+                                    st.markdown("##### Solving HJB Equations...")
+                                    
+                                    transaction_cost = st.slider("Transaction Cost (%)", 0.0, 1.0, 0.1, 0.05) / 100
+                                    discount_rate = st.slider("Discount Rate (%/year)", 0.0, 10.0, 5.0, 0.5) / 100
+                                    
+                                    spread_std = spread.std()
+                                    spread_mean = spread.mean()
+                                    
+                                    boundaries = solve_hjb_pde(
+                                        ou_params,
+                                        transaction_cost,
+                                        discount_rate,
+                                        spread_mean - 3*spread_std,
+                                        spread_mean + 3*spread_std,
+                                        n_points=500,
+                                        max_iterations=5000
+                                    )
+                                    
+                                    st.success("✅ Optimal boundaries computed!")
+                                    st.code(str(boundaries))
+                                    
+                                    # Plot value functions
+                                    st.markdown("##### Value Functions")
+                                    
+                                    fig_value = go.Figure()
+                                    fig_value.add_trace(go.Scatter(
+                                        x=boundaries.spread_grid,
+                                        y=boundaries.V_open,
+                                        name='V_open',
+                                        line=dict(color='blue', width=2)
+                                    ))
+                                    fig_value.add_trace(go.Scatter(
+                                        x=boundaries.spread_grid,
+                                        y=boundaries.V_buy,
+                                        name='V_buy (long spread)',
+                                        line=dict(color='green', width=2)
+                                    ))
+                                    fig_value.add_trace(go.Scatter(
+                                        x=boundaries.spread_grid,
+                                        y=boundaries.V_sell,
+                                        name='V_sell (short spread)',
+                                        line=dict(color='red', width=2)
+                                    ))
+                                    
+                                    # Add boundary lines
+                                    fig_value.add_vline(x=boundaries.open_to_buy, line_dash="dash",
+                                                       line_color="green", annotation_text="Open→Buy")
+                                    fig_value.add_vline(x=boundaries.open_to_sell, line_dash="dash",
+                                                       line_color="red", annotation_text="Open→Sell")
+                                    fig_value.add_vline(x=boundaries.buy_to_close, line_dash="dot",
+                                                       line_color="orange", annotation_text="Buy→Close")
+                                    fig_value.add_vline(x=boundaries.sell_to_close, line_dash="dot",
+                                                       line_color="purple", annotation_text="Sell→Close")
+                                    
+                                    fig_value.update_layout(
+                                        title="Value Functions and Optimal Switching Boundaries",
+                                        xaxis_title="Spread Value",
+                                        yaxis_title="Value Function",
+                                        height=500,
+                                        showlegend=True
+                                    )
+                                    
+                                    st.plotly_chart(fig_value, use_container_width=True)
+                                    
+                                    # Backtest strategy
+                                    st.markdown("##### Backtest Results")
+                                    
+                                    equity_curve, trades_df = backtest_optimal_switching(
+                                        p1_aligned,
+                                        p2_aligned,
+                                        hedge_ratio,
+                                        boundaries,
+                                        transaction_cost_bps=transaction_cost * 10000
+                                    )
+                                    
+                                    metrics = compute_strategy_metrics(equity_curve, trades_df)
+                                    
+                                    # Display metrics
+                                    col1, col2, col3, col4 = st.columns(4)
+                                    with col1:
+                                        st.metric("Total Return", f"{metrics['Total Return']:.2%}")
+                                        st.metric("Sharpe Ratio", f"{metrics['Sharpe Ratio']:.2f}")
+                                    with col2:
+                                        st.metric("Max Drawdown", f"{metrics['Max Drawdown']:.2%}")
+                                        st.metric("Num Trades", f"{int(metrics['Num Trades'])}")
+                                    with col3:
+                                        st.metric("Win Rate", f"{metrics['Win Rate']:.2%}")
+                                        st.metric("Avg Win", f"${metrics['Avg Win']:.2f}")
+                                    with col4:
+                                        st.metric("Avg Loss", f"${metrics['Avg Loss']:.2f}")
+                                        st.metric("Profit Factor", f"{metrics['Profit Factor']:.2f}")
+                                    
+                                    # Plot equity curve
+                                    fig_eq = go.Figure()
+                                    fig_eq.add_trace(go.Scatter(
+                                        x=equity_curve['timestamp'],
+                                        y=equity_curve['total_equity'],
+                                        name='Portfolio Value',
+                                        line=dict(color='blue', width=2)
+                                    ))
+                                    
+                                    fig_eq.update_layout(
+                                        title="Portfolio Equity Curve",
+                                        xaxis_title="Date",
+                                        yaxis_title="Portfolio Value ($)",
+                                        height=400
+                                    )
+                                    
+                                    st.plotly_chart(fig_eq, use_container_width=True)
+                                    
+                                    # Plot spread with trading signals
+                                    fig_spread = go.Figure()
+                                    fig_spread.add_trace(go.Scatter(
+                                        x=equity_curve['timestamp'],
+                                        y=equity_curve['spread'],
+                                        name='Spread',
+                                        line=dict(color='black', width=1)
+                                    ))
+                                    
+                                    # Color regions by state
+                                    colors = {'open': 'gray', 'buy': 'lightgreen', 'sell': 'lightcoral'}
+                                    for state, color in colors.items():
+                                        state_data = equity_curve[equity_curve['state'] == state]
+                                        if len(state_data) > 0:
+                                            fig_spread.add_trace(go.Scatter(
+                                                x=state_data['timestamp'],
+                                                y=state_data['spread'],
+                                                mode='markers',
+                                                marker=dict(color=color, size=3),
+                                                name=state.capitalize(),
+                                                showlegend=True
+                                            ))
+                                    
+                                    fig_spread.add_hline(y=boundaries.open_to_buy, line_dash="dash",
+                                                        line_color="green", annotation_text="Open→Buy")
+                                    fig_spread.add_hline(y=boundaries.open_to_sell, line_dash="dash",
+                                                        line_color="red", annotation_text="Open→Sell")
+                                    
+                                    fig_spread.update_layout(
+                                        title="Spread with Optimal Trading Signals",
+                                        xaxis_title="Date",
+                                        yaxis_title="Spread Value",
+                                        height=400
+                                    )
+                                    
+                                    st.plotly_chart(fig_spread, use_container_width=True)
+                                    
+                                    # Show trades table
+                                    if len(trades_df) > 0:
+                                        st.markdown("##### Trade Log")
+                                        st.dataframe(trades_df, use_container_width=True)
+                        else:
+                            st.warning("No cointegrated pairs found. Try different assets or adjust significance level.")
+            
+            else:  # Johansen method
+                st.markdown("#### Multi-Asset Cointegration (Johansen Test)")
+                st.info("Select 3-10 assets for multi-asset cointegration testing")
+                
+                max_assets = min(10, len(available_symbols))
+                selected_assets = st.multiselect(
+                    "Select assets for Johansen test",
+                    available_symbols,
+                    default=available_symbols[:min(5, len(available_symbols))]
+                )
+                
+                if len(selected_assets) >= 2 and st.button("🔍 Run Johansen Test", type="primary"):
+                    with st.spinner("Running Johansen cointegration test..."):
+                        # Build price matrix
+                        price_dict = {}
+                        for sym in selected_assets:
+                            if 'symbol' in data.columns:
+                                prices = data[data['symbol'] == sym].set_index('timestamp')['close']
+                                price_dict[sym] = prices
+                        
+                        # Align all series
+                        prices_df = pd.DataFrame(price_dict).dropna()
+                        
+                        if len(prices_df) < 50:
+                            st.error("Insufficient data points. Need at least 50 periods.")
+                        else:
+                            try:
+                                results = johansen_cointegration(prices_df)
+                                
+                                st.markdown("#### Johansen Test Results")
+                                
+                                for i, result in enumerate(results):
+                                    with st.expander(f"Cointegrating Relationship {i+1}"):
+                                        st.code(result.summary())
+                                        
+                                        if result.is_cointegrated:
+                                            st.success("✅ Significant cointegrating relationship found!")
+                                        else:
+                                            st.info("ℹ️ No significant cointegration at this level")
+                                
+                            except Exception as e:
+                                st.error(f"Johansen test failed: {str(e)}")
+                                st.info("Make sure you have statsmodels installed: `pip install statsmodels`")
+        
+        except ImportError as e:
+            st.error(f"Required module not available: {str(e)}")
+            st.info("Install required packages: `pip install statsmodels scipy`")
+
+with tab4:
     st.markdown("### Strategy Backtest")
     
     if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
@@ -509,7 +887,7 @@ with tab3:
                     
                     st.success("✅ Backtest complete! View detailed metrics in the Performance Metrics tab.")
 
-with tab4:
+with tab5:
     st.markdown("### Performance Metrics")
     
     if 'backtest_results' not in st.session_state:
@@ -628,7 +1006,7 @@ with tab4:
             
             st.dataframe(pd.DataFrame(trade_log), use_container_width=True, height=300)
 
-with tab5:
+with tab6:
     st.markdown("### ✨ Sparse Mean-Reverting Portfolios")
     st.markdown("Advanced sparse decomposition algorithms for identifying small, mean-reverting portfolios")
     

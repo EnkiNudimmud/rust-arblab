@@ -589,6 +589,213 @@ with tab3:
                                     if len(trades_df) > 0:
                                         st.markdown("##### Trade Log")
                                         st.dataframe(trades_df, use_container_width=True)
+                            
+                            # Bulk Optimal Switching Analysis
+                            st.markdown("---")
+                            st.markdown("#### 🚀 Bulk Optimal Switching Analysis")
+                            st.markdown("Automatically run optimal switching on all cointegrated pairs and rank by expected profit")
+                            
+                            if st.button("🎯 Run Bulk Optimal Switching", type="primary", key="bulk_optimal"):
+                                with st.spinner("Analyzing all cointegrated pairs..."):
+                                    bulk_results = []
+                                    
+                                    progress_bar = st.progress(0)
+                                    status_text = st.empty()
+                                    
+                                    # Transaction cost and discount rate
+                                    transaction_cost = 0.001  # 0.1%
+                                    discount_rate = 0.05  # 5%
+                                    
+                                    for idx, pair in enumerate(hedge_ratios.keys()):
+                                        try:
+                                            status_text.text(f"Processing {pair}...")
+                                            sym1, sym2 = pair.split('/')
+                                            
+                                            # Extract prices
+                                            if 'symbol' in data.columns:
+                                                p1 = data[data['symbol'] == sym1].set_index('timestamp')['close']
+                                                p2 = data[data['symbol'] == sym2].set_index('timestamp')['close']
+                                            
+                                            common_idx = p1.index.intersection(p2.index)
+                                            p1_aligned = p1.loc[common_idx]
+                                            p2_aligned = p2.loc[common_idx]
+                                            
+                                            hedge_ratio = hedge_ratios[pair]
+                                            spread = p1_aligned - hedge_ratio * p2_aligned
+                                            
+                                            # Estimate OU parameters
+                                            ou_params = estimate_ou_parameters(spread)
+                                            
+                                            # Skip if parameters are invalid
+                                            if ou_params.kappa <= 0 or ou_params.sigma <= 0:
+                                                continue
+                                            
+                                            # Solve HJB equations
+                                            spread_std = spread.std()
+                                            spread_mean = spread.mean()
+                                            
+                                            boundaries = solve_hjb_pde(
+                                                ou_params,
+                                                transaction_cost,
+                                                discount_rate,
+                                                spread_mean - 3*spread_std,
+                                                spread_mean + 3*spread_std,
+                                                n_points=300,  # Fewer points for speed
+                                                max_iterations=3000
+                                            )
+                                            
+                                            # Backtest strategy
+                                            equity_curve, trades_df = backtest_optimal_switching(
+                                                p1_aligned,
+                                                p2_aligned,
+                                                hedge_ratio,
+                                                boundaries,
+                                                transaction_cost_bps=transaction_cost * 10000
+                                            )
+                                            
+                                            metrics = compute_strategy_metrics(equity_curve, trades_df)
+                                            
+                                            # Store results
+                                            bulk_results.append({
+                                                'Pair': pair,
+                                                'Hedge Ratio': hedge_ratio,
+                                                'Kappa': ou_params.kappa,
+                                                'Theta': ou_params.theta,
+                                                'Sigma': ou_params.sigma,
+                                                'Half-Life': ou_params.half_life,
+                                                'Hurst': hurst_values.get(pair, {}).get('hurst', 0.0),
+                                                'Total Return': metrics['Total Return'],
+                                                'Sharpe Ratio': metrics['Sharpe Ratio'],
+                                                'Max Drawdown': metrics['Max Drawdown'],
+                                                'Num Trades': int(metrics['Num Trades']),
+                                                'Win Rate': metrics['Win Rate'],
+                                                'Profit Factor': metrics['Profit Factor'],
+                                                'Expected Profit': metrics['Total Return'] * (1 - abs(metrics['Max Drawdown']))  # Risk-adjusted return
+                                            })
+                                            
+                                        except Exception as e:
+                                            st.warning(f"Failed to process {pair}: {str(e)}")
+                                        
+                                        progress_bar.progress((idx + 1) / len(hedge_ratios))
+                                    
+                                    progress_bar.empty()
+                                    status_text.empty()
+                                    
+                                    if len(bulk_results) > 0:
+                                        # Create DataFrame and sort by expected profit
+                                        bulk_df = pd.DataFrame(bulk_results)
+                                        bulk_df = bulk_df.sort_values('Expected Profit', ascending=False)
+                                        
+                                        st.success(f"✅ Analyzed {len(bulk_df)} pairs successfully!")
+                                        
+                                        # Display summary metrics
+                                        st.markdown("##### 📊 Performance Summary")
+                                        
+                                        col1, col2, col3, col4 = st.columns(4)
+                                        with col1:
+                                            st.metric("Best Return", f"{bulk_df['Total Return'].max():.2%}")
+                                            st.metric("Avg Return", f"{bulk_df['Total Return'].mean():.2%}")
+                                        with col2:
+                                            st.metric("Best Sharpe", f"{bulk_df['Sharpe Ratio'].max():.2f}")
+                                            st.metric("Avg Sharpe", f"{bulk_df['Sharpe Ratio'].mean():.2f}")
+                                        with col3:
+                                            st.metric("Best Win Rate", f"{bulk_df['Win Rate'].max():.2%}")
+                                            st.metric("Avg Win Rate", f"{bulk_df['Win Rate'].mean():.2%}")
+                                        with col4:
+                                            st.metric("Total Pairs", len(bulk_df))
+                                            profitable = (bulk_df['Total Return'] > 0).sum()
+                                            st.metric("Profitable", f"{profitable}/{len(bulk_df)}")
+                                        
+                                        # Display top performers
+                                        st.markdown("##### 🏆 Top Performing Pairs (by Risk-Adjusted Return)")
+                                        
+                                        # Format display DataFrame
+                                        display_df = bulk_df.copy()
+                                        display_df['Total Return'] = display_df['Total Return'].apply(lambda x: f"{x:.2%}")
+                                        display_df['Sharpe Ratio'] = display_df['Sharpe Ratio'].apply(lambda x: f"{x:.2f}")
+                                        display_df['Max Drawdown'] = display_df['Max Drawdown'].apply(lambda x: f"{x:.2%}")
+                                        display_df['Win Rate'] = display_df['Win Rate'].apply(lambda x: f"{x:.2%}")
+                                        display_df['Profit Factor'] = display_df['Profit Factor'].apply(lambda x: f"{x:.2f}")
+                                        display_df['Hedge Ratio'] = display_df['Hedge Ratio'].apply(lambda x: f"{x:.4f}")
+                                        display_df['Kappa'] = display_df['Kappa'].apply(lambda x: f"{x:.4f}")
+                                        display_df['Half-Life'] = display_df['Half-Life'].apply(lambda x: f"{x:.2f}")
+                                        display_df['Hurst'] = display_df['Hurst'].apply(lambda x: f"{x:.4f}")
+                                        display_df['Expected Profit'] = display_df['Expected Profit'].apply(lambda x: f"{x:.4f}")
+                                        
+                                        st.dataframe(
+                                            display_df.head(20),  # Top 20
+                                            use_container_width=True,
+                                            height=600
+                                        )
+                                        
+                                        # Visualize performance distribution
+                                        st.markdown("##### 📈 Performance Distribution")
+                                        
+                                        fig_dist = go.Figure()
+                                        
+                                        # Scatter plot: Return vs Sharpe
+                                        fig_dist.add_trace(go.Scatter(
+                                            x=bulk_df['Sharpe Ratio'],
+                                            y=bulk_df['Total Return'],
+                                            mode='markers+text',
+                                            text=bulk_df['Pair'],
+                                            textposition="top center",
+                                            textfont=dict(size=8),
+                                            marker=dict(
+                                                size=bulk_df['Num Trades'] / 2,
+                                                color=bulk_df['Expected Profit'],
+                                                colorscale='Viridis',
+                                                showscale=True,
+                                                colorbar=dict(title="Expected Profit")
+                                            ),
+                                            showlegend=False
+                                        ))
+                                        
+                                        fig_dist.update_layout(
+                                            title="Risk-Return Profile (size = num trades, color = expected profit)",
+                                            xaxis_title="Sharpe Ratio",
+                                            yaxis_title="Total Return",
+                                            height=600,
+                                            showlegend=False
+                                        )
+                                        
+                                        st.plotly_chart(fig_dist, use_container_width=True)
+                                        
+                                        # Portfolio construction suggestion
+                                        st.markdown("##### 💼 Portfolio Construction Recommendation")
+                                        
+                                        # Select top N pairs
+                                        n_pairs = st.slider("Number of pairs for portfolio", 1, min(10, len(bulk_df)), 5)
+                                        
+                                        top_pairs = bulk_df.head(n_pairs)
+                                        
+                                        st.markdown(f"**Top {n_pairs} Pairs:**")
+                                        for _, row in top_pairs.iterrows():
+                                            st.markdown(f"- **{row['Pair']}**: Return {row['Total Return']}, Sharpe {row['Sharpe Ratio']:.2f}, Trades {int(row['Num Trades'])}")
+                                        
+                                        # Calculate portfolio metrics
+                                        portfolio_return = top_pairs['Total Return'].mean()
+                                        portfolio_sharpe = top_pairs['Sharpe Ratio'].mean()
+                                        portfolio_max_dd = top_pairs['Max Drawdown'].mean()
+                                        
+                                        st.info(f"""
+                                        **Expected Portfolio Performance:**
+                                        - Average Return: {portfolio_return:.2%}
+                                        - Average Sharpe: {portfolio_sharpe:.2f}
+                                        - Average Max Drawdown: {portfolio_max_dd:.2%}
+                                        - Diversification: {n_pairs} independent pairs
+                                        """)
+                                        
+                                        # Download results
+                                        csv = bulk_df.to_csv(index=False)
+                                        st.download_button(
+                                            label="📥 Download Full Results (CSV)",
+                                            data=csv,
+                                            file_name="optimal_switching_bulk_results.csv",
+                                            mime="text/csv"
+                                        )
+                                    else:
+                                        st.error("❌ No pairs could be successfully analyzed")
                         else:
                             st.warning("No cointegrated pairs found. Try different assets or adjust significance level.")
             

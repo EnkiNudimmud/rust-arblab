@@ -388,8 +388,6 @@ with tab2:
                     st.session_state['hmm_observations'] = observations
                     
                     st.success("✅ HMM model trained successfully!")
-                else:
-                    st.warning("⚠️ HMM training cancelled")
                     
                     # Display results
                     col1, col2 = st.columns(2)
@@ -416,8 +414,10 @@ with tab2:
                             # State distribution
                             state_counts = pd.Series(hmm.state_sequence).value_counts()
                             st.bar_chart(state_counts)
+                else:
+                    st.warning("⚠️ HMM training cancelled")
                 
-                except Exception as e:
+            except Exception as e:
                     st.error(f"❌ Calibration failed: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())
@@ -483,8 +483,6 @@ with tab2:
                 if not st.session_state.get('cancel_mcmc', False):
                     mcmc_status.text("✅ MCMC complete!")
                     mcmc_progress.progress(1.0)
-                else:
-                    st.warning("⚠️ MCMC sampling cancelled")
                     
                     samples = result.all_params
                     
@@ -495,8 +493,10 @@ with tab2:
                     posterior_df = pd.DataFrame(samples)
                     st.markdown("**Posterior Statistics**")
                     st.dataframe(posterior_df.describe())
+                else:
+                    st.warning("⚠️ MCMC sampling cancelled")
                 
-                except Exception as e:
+            except Exception as e:
                     st.error(f"❌ MCMC sampling failed: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())

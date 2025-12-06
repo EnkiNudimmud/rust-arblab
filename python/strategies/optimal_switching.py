@@ -168,18 +168,20 @@ def engle_granger_cointegration(
     spread = y_aligned - hedge_ratio * x_aligned
     
     # Step 2: ADF test on residuals
-    adf_result = adfuller(spread, maxlag=1, regression='c', autolag=None)
+    adf_result = adfuller(spread, maxlag=1, regression='c')
     
-    test_stat = adf_result[0]
-    p_value = adf_result[1]
+    test_stat = float(adf_result[0])
+    p_value = float(adf_result[1])
+    # Critical values are in index 4, which is a dict
+    cv_dict = adf_result[4] if len(adf_result) > 4 else {}
     critical_values = {
-        '1%': adf_result[4]['1%'],
-        '5%': adf_result[4]['5%'],
-        '10%': adf_result[4]['10%']
+        '1%': float(cv_dict.get('1%', 0.0)),
+        '5%': float(cv_dict.get('5%', 0.0)),
+        '10%': float(cv_dict.get('10%', 0.0))
     }
     
     # Determine if cointegrated
-    is_cointegrated = p_value < significance_level
+    is_cointegrated = bool(p_value < significance_level)
     
     return CointegrationResult(
         is_cointegrated=is_cointegrated,
@@ -275,7 +277,7 @@ def estimate_ou_parameters(spread: pd.Series, dt: float = 1.0) -> OUParameters:
     OUParameters
     """
     # Convert to numpy array
-    X = spread.values
+    X = np.asarray(spread.values, dtype=np.float64)
     n = len(X)
     
     # Compute differences
@@ -286,7 +288,7 @@ def estimate_ou_parameters(spread: pd.Series, dt: float = 1.0) -> OUParameters:
     # From discretized OU: dX = κ(θ - X)dt + σ√dt ε
     
     # Step 1: Estimate θ (long-term mean) as sample mean
-    theta_hat = np.mean(X)
+    theta_hat = float(np.mean(X))
     
     # Step 2: Estimate κ and σ using regression
     # dX/dt ≈ κ(θ - X) + σ/√dt ε

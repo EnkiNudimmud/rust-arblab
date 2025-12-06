@@ -452,18 +452,23 @@ def solve_hjb_pde(
     # Buy -> Close: where V^O - c > V^B (exit long position)
     # Sell -> Close: where V^O - c > V^S (exit short position)
     
-    open_to_buy_idx = np.argmax(V_buy - transaction_cost > V_open)
-    open_to_sell_idx = np.argmax(V_sell - transaction_cost > V_open)
+    # Find boundaries by looking for where conditions are satisfied
+    open_to_buy_mask = (V_buy - transaction_cost) > V_open
+    open_to_sell_mask = (V_sell - transaction_cost) > V_open
+    buy_to_close_mask = (V_open - transaction_cost) > V_buy
+    sell_to_close_mask = (V_open - transaction_cost) > V_sell
     
-    # Find where it's optimal to close from buy/sell states
-    buy_to_close_idx = np.argmax(V_open - transaction_cost > V_buy)
-    sell_to_close_idx = np.argmax(V_open - transaction_cost > V_sell)
+    # Get indices where conditions are first/last met
+    open_to_buy_indices = np.where(open_to_buy_mask)[0]
+    open_to_sell_indices = np.where(open_to_sell_mask)[0]
+    buy_to_close_indices = np.where(buy_to_close_mask)[0]
+    sell_to_close_indices = np.where(sell_to_close_mask)[0]
     
-    # Handle case where no crossing found
-    open_to_buy = x_grid[open_to_buy_idx] if open_to_buy_idx > 0 else x_grid[0]
-    open_to_sell = x_grid[open_to_sell_idx] if open_to_sell_idx > 0 else x_grid[-1]
-    buy_to_close = x_grid[buy_to_close_idx] if buy_to_close_idx > 0 else x_grid[-1]
-    sell_to_close = x_grid[sell_to_close_idx] if sell_to_close_idx > 0 else x_grid[0]
+    # Extract boundaries (use theta as default if no crossing found)
+    open_to_buy = float(x_grid[open_to_buy_indices[-1]]) if len(open_to_buy_indices) > 0 else float(theta - sigma)
+    open_to_sell = float(x_grid[open_to_sell_indices[0]]) if len(open_to_sell_indices) > 0 else float(theta + sigma)
+    buy_to_close = float(x_grid[buy_to_close_indices[0]]) if len(buy_to_close_indices) > 0 else float(theta + sigma)
+    sell_to_close = float(x_grid[sell_to_close_indices[-1]]) if len(sell_to_close_indices) > 0 else float(theta - sigma)
     
     return SwitchingBoundaries(
         open_to_buy=open_to_buy,
@@ -484,7 +489,7 @@ def backtest_optimal_switching(
     boundaries: SwitchingBoundaries,
     transaction_cost_bps: float = 10.0,
     initial_capital: float = 100000.0
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Backtest optimal switching strategy
     
@@ -505,8 +510,8 @@ def backtest_optimal_switching(
         
     Returns:
     --------
-    pd.DataFrame
-        Backtest results with trades and P&L
+    Tuple[pd.DataFrame, pd.DataFrame]
+        (equity_curve, trades) - Backtest results with trades and P&L
     """
     # Align price series
     common_idx = prices1.index.intersection(prices2.index)
@@ -523,6 +528,12 @@ def backtest_optimal_switching(
     trades = []
     equity_curve = []
     
+    # Position tracking variables
+    qty1 = 0.0
+    qty2 = 0.0
+    entry_cost = 0.0
+    entry_proceeds = 0.0
+    
     tc = transaction_cost_bps / 10000.0  # Convert to decimal
     
     for t, (idx, s) in enumerate(spread.items()):
@@ -536,8 +547,8 @@ def backtest_optimal_switching(
                 # Long asset 1, short asset 2
                 qty1 = initial_capital / (2 * p1.iloc[t])
                 qty2 = hedge_ratio * qty1
-                cost = qty1 * p1.iloc[t] * (1 + tc) + qty2 * p2.iloc[t] * (1 - tc)
-                cash -= cost
+                entry_cost = qty1 * p1.iloc[t] * (1 + tc) + qty2 * p2.iloc[t] * (1 - tc)
+                cash -= entry_cost
                 position_value = qty1 * p1.iloc[t] - qty2 * p2.iloc[t]
                 trades.append({
                     'timestamp': idx,
@@ -545,7 +556,7 @@ def backtest_optimal_switching(
                     'spread': s,
                     'qty1': qty1,
                     'qty2': -qty2,
-                    'cost': cost
+                    'cost': entry_cost
                 })
             elif s >= boundaries.open_to_sell:
                 # Enter short spread position
@@ -553,8 +564,8 @@ def backtest_optimal_switching(
                 # Short asset 1, long asset 2
                 qty1 = initial_capital / (2 * p1.iloc[t])
                 qty2 = hedge_ratio * qty1
-                proceeds = qty1 * p1.iloc[t] * (1 - tc) + qty2 * p2.iloc[t] * (1 + tc)
-                cash += proceeds
+                entry_proceeds = qty1 * p1.iloc[t] * (1 - tc) - qty2 * p2.iloc[t] * (1 + tc)
+                cash += entry_proceeds
                 position_value = -qty1 * p1.iloc[t] + qty2 * p2.iloc[t]
                 trades.append({
                     'timestamp': idx,
@@ -562,44 +573,52 @@ def backtest_optimal_switching(
                     'spread': s,
                     'qty1': -qty1,
                     'qty2': qty2,
-                    'proceeds': proceeds
+                    'proceeds': entry_proceeds
                 })
         
         elif state == 'buy':
-            # Update position value
+            # Update position value (mark to market)
             position_value = qty1 * p1.iloc[t] - qty2 * p2.iloc[t]
             
             if s >= boundaries.buy_to_close:
                 # Close long spread position
                 state = 'open'
-                proceeds = qty1 * p1.iloc[t] * (1 - tc) + qty2 * p2.iloc[t] * (1 + tc)
-                cash += proceeds
+                exit_proceeds = qty1 * p1.iloc[t] * (1 - tc) - qty2 * p2.iloc[t] * (1 + tc)
+                cash += exit_proceeds
+                pnl = exit_proceeds - entry_cost
                 trades.append({
                     'timestamp': idx,
                     'action': 'close_long_spread',
                     'spread': s,
-                    'proceeds': proceeds,
-                    'pnl': proceeds - cost
+                    'proceeds': exit_proceeds,
+                    'pnl': pnl
                 })
                 position_value = 0.0
+                qty1 = 0.0
+                qty2 = 0.0
+                entry_cost = 0.0
         
         elif state == 'sell':
-            # Update position value
+            # Update position value (mark to market)
             position_value = -qty1 * p1.iloc[t] + qty2 * p2.iloc[t]
             
             if s <= boundaries.sell_to_close:
                 # Close short spread position
                 state = 'open'
-                cost_to_close = qty1 * p1.iloc[t] * (1 + tc) + qty2 * p2.iloc[t] * (1 - tc)
-                cash -= cost_to_close
+                exit_cost = qty1 * p1.iloc[t] * (1 + tc) + qty2 * p2.iloc[t] * (1 - tc)
+                cash -= exit_cost
+                pnl = entry_proceeds - exit_cost
                 trades.append({
                     'timestamp': idx,
                     'action': 'close_short_spread',
                     'spread': s,
-                    'cost': cost_to_close,
-                    'pnl': proceeds - cost_to_close
+                    'cost': exit_cost,
+                    'pnl': pnl
                 })
                 position_value = 0.0
+                qty1 = 0.0
+                qty2 = 0.0
+                entry_proceeds = 0.0
         
         # Record equity
         total_equity = cash + position_value

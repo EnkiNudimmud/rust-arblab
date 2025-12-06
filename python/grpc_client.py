@@ -24,7 +24,7 @@ class GrpcConfig:
     port: int = 50051
     max_retries: int = 3
     timeout: float = 30.0
-    compression: bool = True
+    compression: bool = False  # Disabled by default for Rust tonic compatibility
 
 
 class TradingGrpcClient:
@@ -71,7 +71,7 @@ class TradingGrpcClient:
     
     def calculate_mean_reversion(
         self,
-        prices: np.ndarray,
+        prices,
         threshold: float = 2.0,
         lookback: int = 20
     ) -> Dict:
@@ -79,7 +79,7 @@ class TradingGrpcClient:
         Calculate mean reversion signals using Rust implementation.
         
         Args:
-            prices: Price series
+            prices: Price series (list, tuple, or np.ndarray)
             threshold: Z-score threshold for signals
             lookback: Lookback period
             
@@ -89,8 +89,14 @@ class TradingGrpcClient:
         if self._stub is None:
             raise RuntimeError("Not connected. Call connect() first.")
         
+        # Convert to list if needed
+        if isinstance(prices, np.ndarray):
+            prices = prices.tolist()
+        elif not isinstance(prices, (list, tuple)):
+            prices = list(prices)
+        
         request = trading_pb2.MeanReversionRequest(
-            prices=prices.tolist(),
+            prices=prices,
             threshold=threshold,
             lookback=lookback
         )
@@ -110,7 +116,7 @@ class TradingGrpcClient:
     
     def optimize_portfolio(
         self,
-        prices: Dict[str, np.ndarray],
+        prices,
         method: str = "markowitz",
         parameters: Optional[Dict[str, float]] = None
     ) -> Dict:
@@ -118,7 +124,7 @@ class TradingGrpcClient:
         Optimize portfolio weights using Rust implementation.
         
         Args:
-            prices: Dictionary of symbol -> price series
+            prices: Dictionary of symbol -> price series OR list of dicts with 'symbol' and 'prices'
             method: Optimization method (markowitz, risk_parity, etc.)
             parameters: Method-specific parameters
             
@@ -128,10 +134,22 @@ class TradingGrpcClient:
         if self._stub is None:
             raise RuntimeError("Not connected. Call connect() first.")
         
-        price_vectors = [
-            trading_pb2.PriceVector(symbol=sym, prices=p.tolist())
-            for sym, p in prices.items()
-        ]
+        # Handle both dict and list formats
+        if isinstance(prices, dict):
+            price_vectors = [
+                trading_pb2.PriceVector(symbol=sym, prices=p.tolist() if isinstance(p, np.ndarray) else p)
+                for sym, p in prices.items()
+            ]
+        elif isinstance(prices, list):
+            price_vectors = [
+                trading_pb2.PriceVector(
+                    symbol=item.get('symbol', f'Asset_{i}'),
+                    prices=item['prices'].tolist() if isinstance(item['prices'], np.ndarray) else item['prices']
+                )
+                for i, item in enumerate(prices)
+            ]
+        else:
+            raise ValueError("prices must be dict or list")
         
         request = trading_pb2.PortfolioOptimizationRequest(
             prices=price_vectors,
@@ -236,7 +254,7 @@ class TradingGrpcClient:
     
     def run_hmm(
         self,
-        observations: np.ndarray,
+        observations,
         n_states: int = 3,
         max_iterations: int = 100,
         tolerance: float = 1e-6
@@ -245,7 +263,7 @@ class TradingGrpcClient:
         Run Hidden Markov Model in Rust.
         
         Args:
-            observations: Observation sequence
+            observations: Observation sequence (list, tuple, or np.ndarray)
             n_states: Number of hidden states
             max_iterations: Maximum EM iterations
             tolerance: Convergence tolerance
@@ -256,8 +274,14 @@ class TradingGrpcClient:
         if self._stub is None:
             raise RuntimeError("Not connected. Call connect() first.")
         
+        # Convert to list if needed
+        if isinstance(observations, np.ndarray):
+            observations = observations.tolist()
+        elif not isinstance(observations, (list, tuple)):
+            observations = list(observations)
+        
         request = trading_pb2.HMMRequest(
-            observations=observations.tolist(),
+            observations=observations,
             n_states=n_states,
             max_iterations=max_iterations,
             tolerance=tolerance
@@ -333,7 +357,7 @@ class TradingGrpcClient:
     
     def calculate_sparse_portfolio(
         self,
-        prices: Dict[str, np.ndarray],
+        prices,
         method: str = "lasso",
         lambda_param: float = 0.1,
         alpha: float = 0.5
@@ -342,7 +366,7 @@ class TradingGrpcClient:
         Calculate sparse portfolio using Rust implementation.
         
         Args:
-            prices: Dictionary of symbol -> price series
+            prices: Dictionary of symbol -> price series OR list of dicts with 'symbol' and 'prices'
             method: Sparse method (lasso, elastic_net, adaptive_lasso)
             lambda_param: Regularization parameter
             alpha: Elastic net mixing parameter
@@ -353,15 +377,27 @@ class TradingGrpcClient:
         if self._stub is None:
             raise RuntimeError("Not connected. Call connect() first.")
         
-        price_vectors = [
-            trading_pb2.PriceVector(symbol=sym, prices=p.tolist())
-            for sym, p in prices.items()
-        ]
+        # Handle both dict and list formats
+        if isinstance(prices, dict):
+            price_vectors = [
+                trading_pb2.PriceVector(symbol=sym, prices=p.tolist() if isinstance(p, np.ndarray) else p)
+                for sym, p in prices.items()
+            ]
+        elif isinstance(prices, list):
+            price_vectors = [
+                trading_pb2.PriceVector(
+                    symbol=item.get('symbol', f'Asset_{i}'),
+                    prices=item['prices'].tolist() if isinstance(item['prices'], np.ndarray) else item['prices']
+                )
+                for i, item in enumerate(prices)
+            ]
+        else:
+            raise ValueError("prices must be dict or list")
         
         request = trading_pb2.SparsePortfolioRequest(
             prices=price_vectors,
             method=method,
-            lambda_=lambda_param,
+            **{'lambda': lambda_param},  # Using dict unpacking since 'lambda' is a Python keyword
             alpha=alpha
         )
         

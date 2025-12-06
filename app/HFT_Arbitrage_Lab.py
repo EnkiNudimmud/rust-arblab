@@ -12,7 +12,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import shared UI components
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
 from utils.data_persistence import load_all_datasets, list_datasets, get_storage_stats
 
 # Page configuration
@@ -65,6 +65,9 @@ if 'datasets_loaded' not in st.session_state:
     except Exception as e:
         # Silently fail if data directory doesn't exist yet
         st.session_state.datasets_loaded = True
+
+# Auto-load most recent dataset if no data is loaded
+ensure_data_loaded()
 
 # Render sidebar navigation and apply custom CSS
 render_sidebar_navigation(current_page="Home")
@@ -701,6 +704,15 @@ with col3:
 
 with col4:
     st.markdown('<div class="status-card" style="text-align: center;"><div class="metric-big">10-100x</div><strong>Speed Boost</strong><br/>Rust-powered analytics</div>', unsafe_allow_html=True)
+
+st.markdown("---")
+
+# Backend comparison section (if triggered)
+try:
+    from utils.backend_selector import render_backend_comparison
+    render_backend_comparison()
+except:
+    pass
 
 st.markdown("---")
 

@@ -1,0 +1,185 @@
+syntax = "proto3";
+
+package hft;
+
+// Trading service for high-performance Rust-Python communication
+service TradingService {
+  // Strategy operations
+  rpc CalculateMeanReversion(MeanReversionRequest) returns (MeanReversionResponse);
+  rpc OptimizePortfolio(PortfolioOptimizationRequest) returns (PortfolioOptimizationResponse);
+  rpc DetectRegime(RegimeDetectionRequest) returns (RegimeDetectionResponse);
+  
+  // Market data operations
+  rpc StreamMarketData(StreamRequest) returns (stream MarketDataUpdate);
+  rpc GetOrderBook(OrderBookRequest) returns (OrderBookResponse);
+  
+  // Optimization operations
+  rpc RunHMM(HMMRequest) returns (HMMResponse);
+  rpc RunMCMC(MCMCRequest) returns (MCMCResponse);
+  
+  // Portfolio operations  
+  rpc CalculateSparsePortfolio(SparsePortfolioRequest) returns (SparsePortfolioResponse);
+  rpc BoxTaoDecomposition(BoxTaoRequest) returns (BoxTaoResponse);
+}
+
+// Request/Response messages
+message MeanReversionRequest {
+  repeated double prices = 1;
+  double threshold = 2;
+  int32 lookback = 3;
+}
+
+message MeanReversionResponse {
+  double signal = 1;
+  double zscore = 2;
+  bool entry_signal = 3;
+  bool exit_signal = 4;
+  map<string, double> metrics = 5;
+}
+
+message PortfolioOptimizationRequest {
+  repeated PriceVector prices = 1;
+  string method = 2; // "markowitz", "risk_parity", "equal_weight", "min_variance"
+  map<string, double> parameters = 3;
+}
+
+message PriceVector {
+  string symbol = 1;
+  repeated double prices = 2;
+}
+
+message PortfolioOptimizationResponse {
+  repeated double weights = 1;
+  double expected_return = 2;
+  double volatility = 3;
+  double sharpe_ratio = 4;
+  map<string, double> metrics = 5;
+}
+
+message RegimeDetectionRequest {
+  repeated double returns = 1;
+  int32 n_regimes = 2;
+  int32 n_iterations = 3;
+}
+
+message RegimeDetectionResponse {
+  int32 current_regime = 1;
+  repeated double regime_probabilities = 2;
+  repeated RegimeParameters regimes = 3;
+}
+
+message RegimeParameters {
+  double mean = 1;
+  double volatility = 2;
+  double persistence = 3;
+}
+
+message StreamRequest {
+  repeated string symbols = 1;
+  string exchange = 2;
+  int32 interval_ms = 3;
+}
+
+message MarketDataUpdate {
+  string symbol = 1;
+  int64 timestamp = 2;
+  double bid = 3;
+  double ask = 4;
+  double mid = 5;
+  double volume = 6;
+}
+
+message OrderBookRequest {
+  string symbol = 1;
+  string exchange = 2;
+  int32 depth = 3;
+}
+
+message OrderBookResponse {
+  string symbol = 1;
+  int64 timestamp = 2;
+  repeated OrderLevel bids = 3;
+  repeated OrderLevel asks = 4;
+}
+
+message OrderLevel {
+  double price = 1;
+  double quantity = 2;
+}
+
+message HMMRequest {
+  repeated double observations = 1;
+  int32 n_states = 2;
+  int32 max_iterations = 3;
+  double tolerance = 4;
+}
+
+message HMMResponse {
+  repeated double state_probabilities = 1;
+  repeated double transition_matrix = 2;
+  repeated double emission_means = 3;
+  repeated double emission_stds = 4;
+  double log_likelihood = 5;
+  bool converged = 6;
+}
+
+message MCMCRequest {
+  repeated ParameterSpace parameters = 1;
+  int32 n_iterations = 2;
+  int32 burn_in = 3;
+  double step_size = 4;
+}
+
+message ParameterSpace {
+  string name = 1;
+  double min = 2;
+  double max = 3;
+}
+
+message MCMCResponse {
+  repeated ParameterSample samples = 1;
+  map<string, double> best_params = 2;
+  double best_score = 3;
+  int32 acceptance_rate = 4;
+}
+
+message ParameterSample {
+  map<string, double> values = 1;
+  double score = 2;
+}
+
+message SparsePortfolioRequest {
+  repeated PriceVector prices = 1;
+  string method = 2; // "lasso", "elastic_net", "adaptive_lasso"
+  double lambda = 3;
+  double alpha = 4;
+}
+
+message SparsePortfolioResponse {
+  repeated double weights = 1;
+  int32 n_assets_selected = 2;
+  double objective_value = 3;
+  map<string, double> metrics = 4;
+}
+
+message BoxTaoRequest {
+  repeated PriceVector prices = 1;
+  double lambda = 2;
+  double mu = 3;
+  int32 max_iterations = 4;
+  double tolerance = 5;
+}
+
+message BoxTaoResponse {
+  Matrix low_rank = 1;
+  Matrix sparse = 2;
+  Matrix noise = 3;
+  int32 iterations = 4;
+  bool converged = 5;
+}
+
+message Matrix {
+  int32 rows = 1;
+  int32 cols = 2;
+  repeated double data = 3; // Flattened row-major
+}

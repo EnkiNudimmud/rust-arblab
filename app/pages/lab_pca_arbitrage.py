@@ -16,7 +16,7 @@ from sklearn.preprocessing import StandardScaler
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
 
 # Page configuration
 st.set_page_config(
@@ -25,13 +25,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# Apply custom styling and navigation
-apply_custom_css()
-render_sidebar_navigation(current_page="PCA Arbitrage Lab")
-
 # Initialize session state
 if 'historical_data' not in st.session_state:
     st.session_state.historical_data = None
+
+# Auto-load most recent dataset if no data is loaded
+data_available = ensure_data_loaded()
+
+# Apply custom styling and navigation
+apply_custom_css()
+render_sidebar_navigation(current_page="PCA Arbitrage Lab")
 if 'theme_mode' not in st.session_state:
     st.session_state.theme_mode = 'light'
 if 'portfolio' not in st.session_state:
@@ -42,7 +45,7 @@ st.markdown('<h1 class="lab-header">🎯 PCA Arbitrage Lab</h1>', unsafe_allow_h
 st.markdown("**Principal Component Analysis for dimensionality reduction and factor-based trading**")
 
 # Check if data is loaded
-if st.session_state.historical_data is None:
+if not data_available or st.session_state.historical_data is None:
     st.warning("⚠️ No historical data loaded. Please load data first.")
     if st.button("💾 Go to Data Loader"):
         st.switch_page("pages/data_loader.py")

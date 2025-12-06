@@ -26,9 +26,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from python.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
+from python.data.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
 from python.rust_bridge import list_connectors, get_connector
-from python.data_persistence import (
+from python.utils.data_persistence import (
     save_dataset, load_dataset, list_datasets, delete_dataset,
     stack_data, generate_dataset_name, get_total_storage_size, format_size
 )
@@ -185,12 +185,12 @@ def render():
     # Initialize session state
     if 'theme_mode' not in st.session_state:
         st.session_state.theme_mode = 'light'
-    if 'historical_data' not in st.session_state:
-        st.session_state.historical_data = None
-    if 'symbols' not in st.session_state:
-        st.session_state.symbols = ["AAPL", "MSFT", "GOOGL"]  # Default symbols
     if 'data_load_mode' not in st.session_state:
         st.session_state.data_load_mode = "replace"  # 'replace', 'append', 'update'
+    
+    # Ensure data is loaded (will auto-load most recent dataset if needed)
+    from utils.ui_components import ensure_data_loaded
+    ensure_data_loaded()
     
     st.title("📊 Historical Data Loading")
     st.markdown("Load and preview market data for backtesting strategies")
@@ -1295,11 +1295,11 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
         try:
             # For CCXT, pass exchange_id through params
             if source == 'ccxt' and exchange_id:
-                from python.data_fetcher import _fetch_ccxt
+                from python.data.data_fetcher import _fetch_ccxt
                 new_df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
             # For Massive, use transparent fetch_data with method selection
             elif source == 'massive':
-                from python.massive_helper import fetch_data
+                from python.data.fetchers.massive_helper import fetch_data
                 new_df = fetch_data(
                     symbols=symbols,
                     start=start,

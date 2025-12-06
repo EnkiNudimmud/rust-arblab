@@ -388,12 +388,17 @@ def _fetch_yfinance(symbols: List[str], start: str, end: str, interval: str) -> 
                 
                 if not df.empty:
                     # Filter to exact date range requested (handle timezone-aware timestamps)
-                    if df.index.tz is not None:
-                        # Make comparison timestamps timezone-aware
-                        start_dt_tz = start_dt.tz_localize('UTC').tz_convert(df.index.tz)
-                        end_dt_tz = end_dt.tz_localize('UTC').tz_convert(df.index.tz)
-                        df = df[(df.index >= start_dt_tz) & (df.index <= end_dt_tz)]
-                    else:
+                    try:
+                        # Try to access tz attribute (exists for DatetimeIndex)
+                        index_tz = getattr(df.index, 'tz', None)
+                        if index_tz is not None:
+                            # Make comparison timestamps timezone-aware
+                            start_dt_tz = start_dt.tz_localize('UTC').tz_convert(index_tz)
+                            end_dt_tz = end_dt.tz_localize('UTC').tz_convert(index_tz)
+                            df = df[(df.index >= start_dt_tz) & (df.index <= end_dt_tz)]
+                        else:
+                            df = df[(df.index >= start_dt) & (df.index <= end_dt)]
+                    except (AttributeError, TypeError):
                         df = df[(df.index >= start_dt) & (df.index <= end_dt)]
                     
                     if not df.empty:

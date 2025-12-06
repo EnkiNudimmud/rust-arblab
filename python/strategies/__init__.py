@@ -6,30 +6,47 @@ Strategy execution and backtesting framework.
 from .executor import StrategyExecutor, StrategyConfig
 from .definitions import AVAILABLE_STRATEGIES
 from .adaptive_strategies import (
-    HMMRegimeStrategy,
     RegimeConfig,
-    MeanReversionRegimeStrategy,
-    MomentumRegimeStrategy,
-    PairTradingRegimeStrategy
+    RegimeStats,
+    AdaptiveStrategy,
+    AdaptiveMeanReversion,
+    AdaptiveMomentum,
+    AdaptiveStatArb
 )
-from .meanrev import MeanReversionStrategy
+# from .meanrev import MeanReversionStrategy  # meanrev.py contains only functions, not classes
 from .sparse_meanrev import (
-    sparse_portfolio_selection,
+    sparse_pca,
     box_tao_decomposition,
-    box_tao_decomposition_rust
+    hurst_exponent,
+    sparse_cointegration,
+    generate_sparse_meanrev_signals,
+    compute_risk_metrics
 )
+
+# Aliases for backward compatibility
+HMMRegimeStrategy = AdaptiveStrategy
+MeanReversionRegimeStrategy = AdaptiveMeanReversion
+MomentumRegimeStrategy = AdaptiveMomentum
+PairTradingRegimeStrategy = AdaptiveStatArb
 
 __all__ = [
     "StrategyExecutor", 
     "StrategyConfig", 
     "AVAILABLE_STRATEGIES",
-    'HMMRegimeStrategy',
     'RegimeConfig',
+    'RegimeStats',
+    'AdaptiveStrategy',
+    'AdaptiveMeanReversion',
+    'AdaptiveMomentum',
+    'AdaptiveStatArb',
+    'HMMRegimeStrategy',
     'MeanReversionRegimeStrategy',
     'MomentumRegimeStrategy',
     'PairTradingRegimeStrategy',
-    'MeanReversionStrategy',
-    'sparse_portfolio_selection',
+    'sparse_pca',
     'box_tao_decomposition',
-    'box_tao_decomposition_rust'
+    'hurst_exponent',
+    'sparse_cointegration',
+    'generate_sparse_meanrev_signals',
+    'compute_risk_metrics'
 ]

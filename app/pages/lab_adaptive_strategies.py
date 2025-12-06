@@ -17,21 +17,37 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import sys
+import time
 sys.path.append('/app')
 
 try:
-    from python.adaptive_strategies import (
+    from python.strategies.adaptive_strategies import (
         AdaptiveMeanReversion,
         AdaptiveMomentum,
         AdaptiveStatArb,
         RegimeConfig
     )
-    from python.advanced_optimization import RUST_AVAILABLE
+    from python.optimization.advanced_optimization import RUST_AVAILABLE
 except ImportError:
     st.error("⚠️ Adaptive strategies not available")
     st.stop()
 
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
+
+# Helper function for time estimation
+def estimate_remaining_time(start_time, completed, total):
+    """Estimate remaining time based on current progress"""
+    if completed == 0:
+        return "Calculating..."
+    elapsed = time.time() - start_time
+    rate = elapsed / completed
+    remaining = rate * (total - completed)
+    if remaining < 60:
+        return f"{int(remaining)}s"
+    elif remaining < 3600:
+        return f"{int(remaining/60)}m {int(remaining%60)}s"
+    else:
+        return f"{int(remaining/3600)}h {int((remaining%3600)/60)}m"
 
 # Page config
 st.set_page_config(
@@ -55,8 +71,11 @@ Features:
 - Interactive 3D visualizations
 """)
 
+# Auto-load most recent dataset if no data is loaded
+data_available = ensure_data_loaded()
+
 # Check for data
-if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
+if not data_available or 'historical_data' not in st.session_state or st.session_state.historical_data is None:
     st.warning("⚠️ Please load market data first using the Data Loader page")
     if st.button("📊 Go to Data Loader"):
         st.switch_page("pages/data_loader.py")
@@ -176,13 +195,16 @@ with tab1:
     
     with col2:
         if st.button("🚀 Run Backtest", type="primary"):
+            start_time = time.time()
             progress_bar = st.progress(0, text="Initializing strategy...")
+            time_text = st.empty()
             with st.spinner(f"Running adaptive strategy backtest on {len(selected_symbols)} symbol(s)..."):
                 # Optimize HMM update frequency for multi-symbol
                 opt_update_freq = update_frequency * len(selected_symbols) if len(selected_symbols) > 1 else update_frequency
                 
                 # Initialize strategy
                 progress_bar.progress(10, text="Creating strategy instance...")
+                time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 10, 100)}")
                 if strategy_type == "Mean Reversion":
                     strategy = AdaptiveMeanReversion(
                         n_regimes=n_regimes,
@@ -233,6 +255,7 @@ with tab1:
                     ref_df = symbol_dfs[ref_symbol]
                     
                     progress_bar.progress(20, text="Preparing data...")
+                    time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 20, 100)}")
                     
                     # Process bars for all symbols simultaneously
                     total_bars = min(max_bars, len(ref_df)) - lookback_period
@@ -241,6 +264,7 @@ with tab1:
                         if idx % 50 == 0:
                             progress = min(95, 20 + int((idx / total_bars) * 75))
                             progress_bar.progress(progress, text=f"Processing bar {idx}/{total_bars}...")
+                            time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, progress, 100)}")
                         
                         # Update regime once per bar using reference symbol
                         ref_window = ref_df.iloc[:i+1]
@@ -340,6 +364,7 @@ with tab1:
                 else:
                     # Single symbol backtest (original logic)
                     progress_bar.progress(20, text="Preparing data...")
+                    time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 20, 100)}")
                     test_df = test_data.iloc[-test_period:].copy()
                     selected_symbol = selected_symbols[0]
                     position = None
@@ -351,6 +376,7 @@ with tab1:
                         if idx % 50 == 0:
                             progress = min(95, 20 + int((idx / total_bars) * 75))
                             progress_bar.progress(progress, text=f"Processing bar {idx}/{total_bars}...")
+                            time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, progress, 100)}")
                         
                         window = test_df.iloc[:i+1]
                         current_price = window['close'].iloc[-1]
@@ -433,6 +459,7 @@ with tab1:
                 
                 # Store results
                 progress_bar.progress(100, text="Finalizing results...")
+                time_text.text(f"⏱️ Total time: {int(time.time() - start_time)}s")
                 st.session_state['backtest_results'] = {
                     'strategy': strategy,
                     'trades': trades,
@@ -593,14 +620,18 @@ with tab2:
         
         emission_params = strategy.get_emission_params()
         if emission_params:
-            col1, col2, col3 = st.columns(3)
+            # Create columns dynamically based on number of regimes (max 5 per row)
+            n_regimes = len(emission_params)
+            n_cols = min(n_regimes, 5)
+            cols = st.columns(n_cols)
             
             for i, (mean, var) in enumerate(emission_params):
                 regime_name = ["Bear", "Sideways", "Bull"][i] if i < 3 else f"Regime {i}"
+                col_idx = i % n_cols
                 
                 # Handle NaN/inf values gracefully
                 if not np.isfinite(mean) or not np.isfinite(var) or var < 0:
-                    with [col1, col2, col3][i]:
+                    with cols[col_idx]:
                         st.metric(
                             regime_name,
                             "Not yet fitted",
@@ -608,7 +639,7 @@ with tab2:
                         )
                 else:
                     std = np.sqrt(var)
-                    with [col1, col2, col3][i]:
+                    with cols[col_idx]:
                         st.metric(
                             regime_name,
                             f"μ={mean:.4f}",

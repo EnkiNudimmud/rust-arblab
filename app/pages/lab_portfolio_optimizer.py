@@ -11,6 +11,7 @@ from plotly.subplots import make_subplots
 from scipy.optimize import minimize
 from scipy.stats import norm
 import sys
+import time
 from pathlib import Path
 
 project_root = Path(__file__).parent.parent.parent
@@ -19,6 +20,24 @@ sys.path.insert(0, str(project_root))
 # Import shared UI components
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
+
+def estimate_remaining_time(start_time, completed, total):
+    """Estimate remaining time for a task"""
+    if completed == 0:
+        return "Calculating..."
+    elapsed = time.time() - start_time
+    rate = elapsed / completed
+    remaining = rate * (total - completed)
+    if remaining < 60:
+        return f"{int(remaining)}s"
+    elif remaining < 3600:
+        minutes = int(remaining // 60)
+        seconds = int(remaining % 60)
+        return f"{minutes}m {seconds}s"
+    else:
+        hours = int(remaining // 3600)
+        minutes = int((remaining % 3600) // 60)
+        return f"{hours}h {minutes}m"
 
 # Try to import drift uncertainty module
 try:
@@ -43,6 +62,23 @@ else:
     st.info("💡 **Optional Feature**: Build Rust bindings to enable drift uncertainty portfolio optimization. See the Jupyter notebook in `examples/notebooks/portfolio_drift_uncertainty.ipynb`")
 
 st.markdown("---")
+
+# Ensure data is loaded (will auto-load most recent dataset if needed)
+from utils.ui_components import ensure_data_loaded
+data_available = ensure_data_loaded()
+
+# Check data availability
+if not data_available or st.session_state.historical_data is None or st.session_state.historical_data.empty:
+    st.markdown("""
+    <div class="info-card">
+        <h3>📊 No Data Loaded</h3>
+        <p>Please load historical data first to use the Portfolio Optimizer Lab.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚀 Go to Data Loader", type="primary", use_container_width=True):
+        st.switch_page("pages/data_loader.py")
+    st.stop()
 
 # Mode selector at top
 optimization_mode = st.radio(
@@ -435,7 +471,9 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                         delta_levels = [0.0, 0.01, 0.02, 0.03, 0.05, 0.10]
                                         sensitivity_data = []
                                         
+                                        start_time = time.time()
                                         progress_bar = st.progress(0)
+                                        time_text = st.empty()
                                         for i, delta in enumerate(delta_levels):
                                             r = pdrift.portfolio_choice_drift_uncertainty(
                                                 mu=mu, cov=cov,
@@ -448,8 +486,11 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                                 'Worst-Case Return (%)': r['worst_case_return'] * 100,
                                                 'Utility': r['utility']
                                             })
-                                            progress_bar.progress((i + 1) / len(delta_levels))
+                                            progress_pct = (i + 1) / len(delta_levels)
+                                            progress_bar.progress(progress_pct)
+                                            time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, (i + 1), len(delta_levels))}")
                                         progress_bar.empty()
+                                        time_text.empty()
                                         
                                         sens_df = pd.DataFrame(sensitivity_data)
                                         
@@ -915,7 +956,9 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                             conf_levels = [0.90, 0.95, 0.975, 0.99, 0.995]
                                             risk_comparison = []
                                             
+                                            start_time = time.time()
                                             progress = st.progress(0)
+                                            time_text = st.empty()
                                             for i, alpha in enumerate(conf_levels):
                                                 var_val = pdrift.var_drift_uncertainty(
                                                     mu=mu, cov=cov, weights=risk_weights,
@@ -935,8 +978,11 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                                     'CVaR (%)': cvar_val * 100,
                                                     'CVaR - VaR (%)': (cvar_val - var_val) * 100
                                                 })
-                                                progress.progress((i + 1) / len(conf_levels))
+                                                progress_pct = (i + 1) / len(conf_levels)
+                                                progress.progress(progress_pct)
+                                                time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, (i + 1), len(conf_levels))}")
                                             progress.empty()
+                                            time_text.empty()
                                             
                                             risk_df = pd.DataFrame(risk_comparison)
                                             

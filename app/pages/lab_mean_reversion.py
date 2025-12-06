@@ -17,7 +17,7 @@ sys.path.insert(0, str(project_root))
 
 # Import shared UI components
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
 
 st.set_page_config(page_title="Mean Reversion Lab", page_icon="📉", layout="wide")
 
@@ -26,6 +26,9 @@ if 'historical_data' not in st.session_state:
     st.session_state.historical_data = None
 if 'meanrev_results' not in st.session_state:
     st.session_state.meanrev_results = None
+
+# Auto-load most recent dataset if no data is loaded
+data_available = ensure_data_loaded()
 
 # Render sidebar navigation and apply CSS
 render_sidebar_navigation(current_page="Mean Reversion Lab")
@@ -36,7 +39,7 @@ st.markdown("### Statistical arbitrage with Z-score analysis and cointegration t
 st.markdown("---")
 
 # Check if data is loaded
-if st.session_state.historical_data is None or st.session_state.historical_data.empty:
+if not data_available or st.session_state.historical_data is None or st.session_state.historical_data.empty:
     st.markdown("""
     <div class="info-card">
         <h3>📊 No Data Loaded</h3>
@@ -192,10 +195,25 @@ with tab2:
     
     if test_pairs and len(available_symbols) >= 2:
         try:
-            from python.meanrev import engle_granger_test
+            from python.strategies.meanrev import engle_granger_test
             
-            prices1 = data[selected_symbol].dropna() if data is not None else pd.Series()
-            prices2 = data[symbol2].dropna() if data is not None else pd.Series()
+            # Extract price data for both symbols
+            if data is not None and 'symbol' in data.columns:
+                # Long format data
+                symbol1_data = data[data['symbol'] == selected_symbol].copy()
+                symbol2_data = data[data['symbol'] == symbol2].copy()
+                if 'timestamp' in symbol1_data.columns:
+                    symbol1_data = symbol1_data.set_index('timestamp').sort_index()
+                    symbol2_data = symbol2_data.set_index('timestamp').sort_index()
+                prices1 = symbol1_data['close'].dropna()
+                prices2 = symbol2_data['close'].dropna()
+            elif data is not None and selected_symbol in data.columns:
+                # Wide format data
+                prices1 = data[selected_symbol].dropna()
+                prices2 = data[symbol2].dropna()
+            else:
+                prices1 = pd.Series()
+                prices2 = pd.Series()
             
             # Align data
             common_idx = prices1.index.intersection(prices2.index)
@@ -615,7 +633,7 @@ with tab5:
     st.markdown("Advanced sparse decomposition algorithms for identifying small, mean-reverting portfolios")
     
     try:
-        from python.sparse_meanrev import (
+        from python.strategies.sparse_meanrev import (
             sparse_pca, box_tao_decomposition, hurst_exponent, 
             sparse_cointegration, RUST_AVAILABLE
         )

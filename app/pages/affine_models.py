@@ -14,9 +14,9 @@ import sys
 from pathlib import Path
 
 # Add python directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "python"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from rough_heston import (
+from python.models.rough_heston import (
     RoughHestonParams,
     RoughHestonCharFunc,
     rough_heston_kernel,

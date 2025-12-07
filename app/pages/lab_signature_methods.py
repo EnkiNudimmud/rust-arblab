@@ -31,7 +31,7 @@ except ImportError:
 
 # Try to import new Rust signature portfolio methods
 try:
-    from python.signature_methods import SignaturePortfolio, RUST_AVAILABLE
+    from python.optimization.signature_methods import SignaturePortfolio, RUST_AVAILABLE
     RUST_SIG_AVAILABLE = RUST_AVAILABLE
 except ImportError as e:
     RUST_SIG_AVAILABLE = False
@@ -653,7 +653,7 @@ with tab4:
                                 # Use Rust backend if available for signature computation
                                 if use_rust:
                                     try:
-                                        from python.signature_methods import SignaturePortfolio
+                                        from python.optimization.signature_methods import SignaturePortfolio
                                     
                                         # Initialize signature portfolio optimizer
                                         sig_portfolio = SignaturePortfolio(

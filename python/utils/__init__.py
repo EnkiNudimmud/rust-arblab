@@ -7,7 +7,12 @@ from .data_persistence import (
     delete_dataset,
     get_dataset_info
 )
-from .retry_utils import retry_with_backoff
+from .retry_utils import (
+    RetryConfig,
+    with_retry,
+    retry_request,
+    make_retriable_request
+)
 from .signal_monitor import SignalMonitor
 
 __all__ = [
@@ -16,6 +21,9 @@ __all__ = [
     'list_datasets',
     'delete_dataset',
     'get_dataset_info',
-    'retry_with_backoff',
+    'RetryConfig',
+    'with_retry',
+    'retry_request',
+    'make_retriable_request',
     'SignalMonitor'
 ]

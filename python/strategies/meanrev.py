@@ -36,9 +36,7 @@ except ImportError:
     STATSMODELS_AVAILABLE = False
     print("⚠️  statsmodels not available - Engle-Granger test will be disabled")
 
-try:
-    # helper exists in repo
-    from python.finnhub_helper import fetch_ohlcv as fh_fetch_ohlcv
+
 except Exception:
     fh_fetch_ohlcv = None
 
@@ -86,7 +84,8 @@ def fetch_price_series(connector, symbol: str, start: str, end: str, freq: str =
     if fh_fetch_ohlcv is not None:
         df = fh_fetch_ohlcv(symbol, start_dt, end_dt)
         if isinstance(df, pd.DataFrame) and "c" in df.columns:
-            series = pd.Series(df["c"].values, index=pd.to_datetime(df["t"], unit="s"))
+            timestamps: pd.DatetimeIndex = pd.to_datetime(df["t"], unit="s")  # type: ignore[assignment]
+            series = pd.Series(df["c"].values, index=timestamps)
             return series.resample(freq).last().ffill()
 
     # Fallback: generate synthetic geometric Brownian motion
@@ -111,7 +110,8 @@ def compute_log_returns(price_df: pd.DataFrame) -> pd.DataFrame:
         except Exception:
             pass  # Fall back to Python
     
-    return np.log(price_df).diff().dropna()
+    log_prices = pd.DataFrame(np.log(price_df.values), columns=price_df.columns, index=price_df.index)
+    return log_prices.diff().dropna()
 
 
 def pca_portfolios(returns_df: pd.DataFrame, n_components: int = 5) -> Tuple[np.ndarray, Dict]:
@@ -122,10 +122,10 @@ def pca_portfolios(returns_df: pd.DataFrame, n_components: int = 5) -> Tuple[np.
     
     Uses Rust implementation if available for better performance.
     """
-    if RUST_AVAILABLE:
+    if RUST_AVAILABLE and hasattr(rust_connector, 'compute_pca_rust'):
         try:
             returns_list = returns_df.fillna(0).values.tolist()
-            result = rust_connector.compute_pca_rust(returns_list, n_components)
+            result = rust_connector.compute_pca_rust(returns_list, n_components)  # type: ignore[union-attr]
             components = np.array(result["components"])
             pca_info = {"explained_variance_ratio_": np.array(result["explained_variance"])}
             return components, pca_info
@@ -182,14 +182,16 @@ def estimate_ou_params(ts: pd.Series) -> Dict:
         x_curr = x.loc[x_lag.index]
         # Simple linear regression: x_t = a + b*x_{t-1}
         # Estimate b using covariance
-        cov = np.cov(x_lag, x_curr)
-        b = cov[0, 1] / cov[0, 0] if cov[0, 0] != 0 else 1.0
-        a = np.mean(x_curr) - b * np.mean(x_lag)
+        x_lag_arr = np.array(x_lag)
+        x_curr_arr = np.array(x_curr)
+        cov = np.cov(x_lag_arr, x_curr_arr)
+        b = float(cov[0, 1] / cov[0, 0]) if cov[0, 0] != 0 else 1.0
+        a = float(np.mean(x_curr_arr) - b * np.mean(x_lag_arr))
         
         theta = -np.log(b) if b > 0 and b < 1 else 0.01
-        mu = a / (1 - b) if b != 1 else np.mean(x)
-        resid = x_curr - (a + b * x_lag)
-        sigma = np.std(resid)
+        mu = a / (1 - b) if b != 1 else float(np.mean(x))
+        resid = x_curr_arr - (a + b * x_lag_arr)
+        sigma = float(np.std(resid))
         
         return {"theta": theta, "mu": mu, "sigma": sigma}
     
@@ -249,10 +251,10 @@ def simulate_ou_strategy(weights: np.ndarray, price_df: pd.DataFrame, entry_z: f
     
     # Python fallback
     ps = portfolio_time_series(weights, price_df)
-    log_ps = np.log(ps).dropna()
-    rol_mean = log_ps.rolling(window=20).mean()
-    rol_std = log_ps.rolling(window=20).std()
-    z = (log_ps - rol_mean) / rol_std
+    log_ps_series = pd.Series(np.log(ps.values), index=ps.index).dropna()
+    rol_mean = log_ps_series.rolling(window=20).mean()
+    rol_std = log_ps_series.rolling(window=20).std()
+    z = (log_ps_series - rol_mean) / rol_std
 
     position = 0.0
     cash = 0.0
@@ -538,9 +540,10 @@ def multiperiod_optimize(returns_df: pd.DataFrame, covariance: np.ndarray, gamma
     if RUST_AVAILABLE and hasattr(rust_connector, 'multiperiod_optimize_rust'):
         try:
             returns_list = returns_df.fillna(0).values.tolist()
-            return rust_connector.multiperiod_optimize_rust(
+            result = rust_connector.multiperiod_optimize_rust(  # type: ignore[union-attr]
                 returns_list, gamma, transaction_cost, n_periods
-            )  # type: ignore[union-attr]
+            )
+            return result
         except Exception as e:
             print(f"Rust multiperiod optimization failed: {e}, falling back to Python")
     

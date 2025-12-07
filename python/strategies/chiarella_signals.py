@@ -179,7 +179,7 @@ class ChiarellaSignalGenerator:
         else:
             consistency = 0.5
         
-        return max(0.3, min(0.95, consistency))
+        return float(max(0.3, min(0.95, consistency)))
     
     def _calculate_risk(self) -> float:
         """Calculate risk as realized volatility"""
@@ -191,7 +191,7 @@ class ChiarellaSignalGenerator:
         returns = np.diff(prices) / prices[:-1]
         
         if len(returns) > 0:
-            return max(0.01, np.std(returns))
+            return float(max(0.01, np.std(returns)))
         else:
             return 0.02
     
@@ -240,16 +240,16 @@ def estimate_fundamental_price(prices: list, method: str = 'ma') -> float:
     
     if method == 'ma':
         # Moving average
-        return np.mean(prices_array[-50:]) if len(prices_array) >= 50 else np.mean(prices_array)
+        return float(np.mean(prices_array[-50:]) if len(prices_array) >= 50 else np.mean(prices_array))
     elif method == 'ema':
         # Exponential moving average
         alpha_ema = 2.0 / (50 + 1)
         ema = prices_array[0]
         for price in prices_array[1:]:
             ema = alpha_ema * price + (1 - alpha_ema) * ema
-        return ema
+        return float(ema)
     elif method == 'median':
         # Median (robust to outliers)
-        return np.median(prices_array[-50:]) if len(prices_array) >= 50 else np.median(prices_array)
+        return float(np.median(prices_array[-50:]) if len(prices_array) >= 50 else np.median(prices_array))
     else:
-        return np.mean(prices_array)
+        return float(np.mean(prices_array))

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import Rust implementation
 try:
-    from hft_py.signature import (
+    from hft_py.signature import (  # type: ignore[import-not-found]
         compute_signature,
         compute_log_signature,
         expected_signature,
@@ -33,6 +33,17 @@ try:
 except ImportError as e:
     RUST_AVAILABLE = False
     logger.warning(f"Rust signature methods not available: {e}")
+    # Define stub functions for type checking
+    compute_signature = None  # type: ignore[assignment]
+    compute_log_signature = None  # type: ignore[assignment]
+    expected_signature = None  # type: ignore[assignment]
+    signature_kernel = None  # type: ignore[assignment]
+    signature_covariance = None  # type: ignore[assignment]
+    signature_portfolio_weights = None  # type: ignore[assignment]
+    rank_based_portfolio = None  # type: ignore[assignment]
+    portfolio_metrics = None  # type: ignore[assignment]
+    signature_optimal_stopping = None  # type: ignore[assignment]
+    randomized_signature_features = None  # type: ignore[assignment]
 
 
 class SignaturePortfolio:
@@ -75,8 +86,9 @@ class SignaturePortfolio:
         Returns:
             Signature vector of length ∑_{k=0}^N d^k
         """
+        assert compute_signature is not None, "Rust signature methods not available"
         path_list = path.tolist()
-        sig = compute_signature(path_list, self.signature_level)
+        sig = compute_signature(path_list, self.signature_level)  # type: ignore[misc]
         return np.array(sig)
     
     def compute_signature_kernel(self, path1: np.ndarray, path2: np.ndarray) -> float:
@@ -93,9 +105,10 @@ class SignaturePortfolio:
         Returns:
             Kernel value (similarity measure)
         """
+        assert signature_kernel is not None, "Rust signature methods not available"
         p1 = path1.tolist()
         p2 = path2.tolist()
-        return signature_kernel(p1, p2, self.signature_level)
+        return signature_kernel(p1, p2, self.signature_level)  # type: ignore[misc]
     
     def optimize_portfolio(
         self,
@@ -118,8 +131,9 @@ class SignaturePortfolio:
         Returns:
             Optimal weights vector, shape (n_assets,)
         """
+        assert signature_portfolio_weights is not None, "Rust signature methods not available"
         returns_list = returns.tolist()
-        weights = signature_portfolio_weights(
+        weights = signature_portfolio_weights(  # type: ignore[misc]
             returns_list,
             self.signature_level,
             self.risk_aversion,
@@ -150,8 +164,9 @@ class SignaturePortfolio:
         Returns:
             Portfolio weights vector
         """
+        assert rank_based_portfolio is not None, "Rust signature methods not available"
         returns_list = returns.tolist()
-        weights = rank_based_portfolio(returns_list, method)
+        weights = rank_based_portfolio(returns_list, method)  # type: ignore[misc]
         return np.array(weights)
     
     def compute_metrics(self, returns: np.ndarray) -> Dict[str, float]:
@@ -165,8 +180,9 @@ class SignaturePortfolio:
                 - max_drawdown: Maximum drawdown
                 - volatility: Return volatility
         """
+        assert portfolio_metrics is not None, "Rust signature methods not available"
         returns_list = returns.tolist()
-        return portfolio_metrics(returns_list)
+        return portfolio_metrics(returns_list)  # type: ignore[misc]
     
     def optimal_stopping_time(
         self,
@@ -188,8 +204,9 @@ class SignaturePortfolio:
         Returns:
             Optimal stopping time (index)
         """
+        assert signature_optimal_stopping is not None, "Rust signature methods not available"
         path_list = path.tolist()
-        return signature_optimal_stopping(
+        return signature_optimal_stopping(  # type: ignore[misc]
             path_list,
             self.signature_level,
             threshold,
@@ -214,10 +231,11 @@ class SignaturePortfolio:
             seed: Random seed for reproducibility
             
         Returns:
-            Feature vector of length n_features
+            Feature matrix of shape (n_samples, n_features)
         """
+        assert randomized_signature_features is not None, "Rust signature methods not available"
         path_list = path.tolist()
-        features = randomized_signature_features(
+        features = randomized_signature_features(  # type: ignore[misc]
             path_list,
             self.signature_level,
             n_features,
@@ -315,7 +333,8 @@ class StochasticPortfolioTheory:
         Returns:
             Portfolio weights
         """
-        return rank_based_portfolio(returns.tolist(), "diversity")
+        assert rank_based_portfolio is not None, "Rust signature methods not available"
+        return rank_based_portfolio(returns.tolist(), "diversity")  # type: ignore[misc]
     
     def entropy_weighted_portfolio(
         self,
@@ -333,7 +352,8 @@ class StochasticPortfolioTheory:
         Returns:
             Portfolio weights
         """
-        return rank_based_portfolio(returns.tolist(), "entropy")
+        assert rank_based_portfolio is not None, "Rust signature methods not available"
+        return rank_based_portfolio(returns.tolist(), "entropy")  # type: ignore[misc]
 
 
 # Convenience functions
@@ -341,7 +361,8 @@ def compute_signature_rust(path: np.ndarray, level: int = 3) -> np.ndarray:
     """Compute path signature (convenience function)."""
     if not RUST_AVAILABLE:
         raise RuntimeError("Rust not available")
-    sig = compute_signature(path.tolist(), level)
+    assert compute_signature is not None
+    sig = compute_signature(path.tolist(), level)  # type: ignore[misc]
     return np.array(sig)
 
 
@@ -354,7 +375,8 @@ def optimize_portfolio_rust(
     """Optimize portfolio using signature methods (convenience function)."""
     if not RUST_AVAILABLE:
         raise RuntimeError("Rust not available")
-    weights = signature_portfolio_weights(
+    assert signature_portfolio_weights is not None
+    weights = signature_portfolio_weights(  # type: ignore[misc]
         returns.tolist(),
         level,
         risk_aversion,
@@ -367,7 +389,8 @@ def compute_portfolio_metrics_rust(returns: np.ndarray) -> Dict[str, float]:
     """Compute portfolio metrics (convenience function)."""
     if not RUST_AVAILABLE:
         raise RuntimeError("Rust not available")
-    return portfolio_metrics(returns.tolist())
+    assert portfolio_metrics is not None
+    return portfolio_metrics(returns.tolist())  # type: ignore[misc]
 
 
 __all__ = [

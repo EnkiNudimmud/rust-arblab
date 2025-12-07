@@ -215,7 +215,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/CalculateMeanReversion',
@@ -242,7 +242,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/OptimizePortfolio',
@@ -269,7 +269,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/DetectRegime',
@@ -296,7 +296,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
+        return grpc.experimental.unary_stream(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/StreamMarketData',
@@ -323,7 +323,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/GetOrderBook',
@@ -350,7 +350,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/RunHMM',
@@ -377,7 +377,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/RunMCMC',
@@ -404,7 +404,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/CalculateSparsePortfolio',
@@ -431,7 +431,7 @@ class TradingService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
             request,
             target,
             '/hft.TradingService/BoxTaoDecomposition',

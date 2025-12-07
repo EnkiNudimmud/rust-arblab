@@ -77,6 +77,8 @@ try:
         
         # ADF test
         portfolio_value = prices @ sparse_weights
+        # Ensure 1D array for adfuller
+        portfolio_value = np.asarray(portfolio_value).ravel()
         adf_result = adfuller(portfolio_value, maxlag=10)
         
         # Half-life

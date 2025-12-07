@@ -2,6 +2,7 @@
 /// 
 /// Pure Rust implementation optimized for gRPC latency
 
+#[allow(unused_imports)]
 use nalgebra::{DMatrix, DVector, SVD};
 use std::collections::HashMap;
 

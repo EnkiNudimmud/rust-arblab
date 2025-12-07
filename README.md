@@ -51,11 +51,21 @@ A modular, production-ready framework for high-frequency trading (HFT) and arbit
 git clone https://github.com/YOUR_USERNAME/rust-hft-arbitrage-lab.git
 cd rust-hft-arbitrage-lab
 
-# Build and start services
-docker compose up --build
+# Build and start services (includes gRPC server, Streamlit, Jupyter)
+make docker-build
+make docker-up
 
-# Access dashboard at http://localhost:8501
+# Access services:
+# - Streamlit:     http://localhost:8501
+# - Jupyter:       http://localhost:8889
+# - gRPC Server:   localhost:50051 (internal)
 ```
+
+> **📖 Full Docker Documentation**: See [docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md) for:
+> - Architecture overview
+> - gRPC backend usage
+> - Environment configuration
+> - Troubleshooting guide
 
 #### Option 2: Local Development
 

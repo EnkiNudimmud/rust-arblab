@@ -1,0 +1,182 @@
+syntax = "proto3";
+
+package pair_discovery;
+
+// Pair Discovery Service for high-performance cointegration analysis
+service PairDiscoveryService {
+  // Test a single pair for cointegration and mean-reversion
+  rpc TestPair(PairTestRequest) returns (PairTestResponse);
+  
+  // Batch discovery with parallel processing
+  rpc DiscoverPairs(BatchDiscoveryRequest) returns (stream PairDiscoveryUpdate);
+  
+  // Solve HJB equation for optimal boundaries
+  rpc SolveHJB(HJBRequest) returns (HJBResponse);
+  
+  // Estimate OU parameters
+  rpc EstimateOU(OUEstimationRequest) returns (OUEstimationResponse);
+  
+  // Test cointegration
+  rpc TestCointegration(CointegrationRequest) returns (CointegrationResponse);
+  
+  // Calculate Hurst exponent
+  rpc CalculateHurst(HurstRequest) returns (HurstResponse);
+  
+  // Backtest strategy
+  rpc BacktestStrategy(BacktestRequest) returns (BacktestResponse);
+}
+
+// Single pair test
+message PairTestRequest {
+  string symbol1 = 1;
+  string symbol2 = 2;
+  repeated double prices1 = 3;
+  repeated double prices2 = 4;
+  double significance = 5;        // Default: 0.05
+  double min_hurst = 6;           // Default: 0.45
+  double transaction_cost = 7;    // Default: 0.001
+}
+
+message PairTestResponse {
+  bool success = 1;
+  string symbol1 = 2;
+  string symbol2 = 3;
+  
+  // Cointegration results
+  double beta = 4;
+  double p_value = 5;
+  bool is_cointegrated = 6;
+  
+  // Mean-reversion results
+  double hurst = 7;
+  
+  // OU parameters
+  double kappa = 8;
+  double theta = 9;
+  double sigma = 10;
+  double half_life = 11;
+  
+  // Optimal boundaries
+  double lower_boundary = 12;
+  double upper_boundary = 13;
+  
+  // Backtest results
+  double total_return = 14;
+  double sharpe_ratio = 15;
+  double max_drawdown = 16;
+  int32 num_trades = 17;
+  double win_rate = 18;
+  
+  // Scores
+  double coint_score = 19;
+  double meanrev_score = 20;
+  double profit_score = 21;
+  double combined_score = 22;
+  
+  // Error message if failed
+  string error = 23;
+}
+
+// Batch discovery
+message BatchDiscoveryRequest {
+  repeated SymbolData symbols = 1;
+  double significance = 2;
+  double min_hurst = 3;
+  double transaction_cost = 4;
+  int32 max_pairs = 5;            // Limit pairs to test (0 = all)
+  int32 parallel_workers = 6;     // Default: CPU cores
+}
+
+message SymbolData {
+  string symbol = 1;
+  repeated double prices = 2;
+}
+
+message PairDiscoveryUpdate {
+  int32 pairs_tested = 1;
+  int32 pairs_found = 2;
+  double progress = 3;
+  PairTestResponse result = 4;
+  bool is_final = 5;
+}
+
+// HJB solver
+message HJBRequest {
+  double kappa = 1;
+  double theta = 2;
+  double sigma = 3;
+  double rho = 4;                 // Default: 0.04
+  double transaction_cost = 5;    // Default: 0.001
+  int32 n_points = 6;             // Default: 200
+  int32 max_iter = 7;             // Default: 2000
+  double tolerance = 8;           // Default: 1e-6
+  double n_std = 9;               // Default: 4.0
+}
+
+message HJBResponse {
+  double lower_boundary = 1;
+  double upper_boundary = 2;
+  double residual = 3;
+  int32 iterations = 4;
+  repeated double x_grid = 5;
+  repeated double value_function = 6;
+}
+
+// OU estimation
+message OUEstimationRequest {
+  repeated double spread = 1;
+  double dt = 2;                  // Default: 1/252
+  bool use_mle = 3;               // Use MLE instead of OLS
+}
+
+message OUEstimationResponse {
+  double kappa = 1;
+  double theta = 2;
+  double sigma = 3;
+  double half_life = 4;
+}
+
+// Cointegration test
+message CointegrationRequest {
+  repeated double y = 1;
+  repeated double x = 2;
+  double significance = 3;        // Default: 0.05
+}
+
+message CointegrationResponse {
+  double beta = 1;
+  double adf_statistic = 2;
+  double p_value = 3;
+  bool is_cointegrated = 4;
+  repeated double spread = 5;
+}
+
+// Hurst exponent
+message HurstRequest {
+  repeated double series = 1;
+  int32 max_lag = 2;              // Default: 20
+  bool use_dfa = 3;               // Use DFA instead of R/S
+}
+
+message HurstResponse {
+  double hurst = 1;
+}
+
+// Backtest
+message BacktestRequest {
+  repeated double spread = 1;
+  double lower_bound = 2;
+  double upper_bound = 3;
+  double transaction_cost = 4;    // Default: 0.001
+}
+
+message BacktestResponse {
+  double total_return = 1;
+  double sharpe_ratio = 2;
+  double max_drawdown = 3;
+  int32 num_trades = 4;
+  double win_rate = 5;
+  repeated double pnl = 6;
+  double avg_holding_period = 7;
+  double profit_factor = 8;
+}

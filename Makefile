@@ -113,21 +113,48 @@ verify:
 	@$(PY) -c "import rust_connector; print('✓ rust_connector installed')" || echo "✗ rust_connector NOT installed"
 	@$(PY) -c "from python.rust_bridge import list_connectors; print('✓ Connectors:', ', '.join(list_connectors()))"
 
-# Docker build
+# Generate protobuf code
+proto:
+	@echo "Generating Python gRPC stubs..."
+	bash scripts/generate_proto.sh
+
+# Docker build with optimizr
 docker-build:
-	@echo "Building Docker image..."
-	docker compose build
+	@echo "Building Docker image with gRPC server and optimizr..."
+	DOCKER_BUILDKIT=1 docker compose build --parallel
 
 # Docker up
 docker-up:
 	@echo "Starting Docker services..."
-	@echo "Access Streamlit at: http://localhost:8501"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  Access services at:"
+	@echo "    🌐 Streamlit:     http://localhost:8501"
+	@echo "    📓 Jupyter:       http://localhost:8889"
+	@echo "    ⚡ gRPC Server:   localhost:50051"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	docker compose up
+
+# Docker up in detached mode
+docker-up-d:
+	@echo "Starting Docker services in detached mode..."
+	docker compose up -d
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  Services running in background"
+	@echo "    🌐 Streamlit:     http://localhost:8501"
+	@echo "    📓 Jupyter:       http://localhost:8889"
+	@echo "    ⚡ gRPC Server:   localhost:50051"
+	@echo "  View logs: make docker-logs"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Docker down
 docker-down:
 	@echo "Stopping Docker services..."
 	docker compose down
+
+# Docker logs
+docker-logs:
+	@echo "Tailing Docker logs (Ctrl+C to exit)..."
+	docker compose logs -f
 
 # Docker clean rebuild
 docker-clean:

@@ -34,7 +34,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl pkg-config libssl-dev \
-    python3-dev patchelf \
+    python3-dev patchelf gfortran libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust for maturin
@@ -45,10 +45,12 @@ WORKDIR /workspace
 # Install maturin
 RUN pip install --no-cache-dir maturin
 
-# Copy rust_connector files
-COPY rust_connector/ ./rust_connector/
+# Copy and build optimizr (generic optimization library)
+COPY ../optimiz-r/ ./optimiz-r/
+RUN cd optimiz-r && maturin build --release --features python-bindings
 
-# Build wheel
+# Copy and build rust_connector (HFT-specific bindings)
+COPY rust_connector/ ./rust_connector/
 RUN cd rust_connector && maturin build --release
 
 # ============================================
@@ -72,12 +74,24 @@ COPY docker/requirements.txt /app/docker/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r docker/requirements.txt
 
+# Generate Python gRPC stubs from proto files
+COPY proto/ /app/proto/
+RUN mkdir -p /app/python && \
+    python -m grpc_tools.protoc \
+        -I/app/proto \
+        --python_out=/app/python \
+        --grpc_python_out=/app/python \
+        /app/proto/pair_discovery.proto
+
 # Copy pre-built binaries from builders
 COPY --from=rust-builder /workspace/hft-grpc-server/target/release/hft-server /app/target/release/hft-server
-COPY --from=python-builder /workspace/rust_connector/target/wheels/*.whl /tmp/wheels/
+COPY --from=python-builder /workspace/optimiz-r/target/wheels/*.whl /tmp/wheels/optimiz-r/
+COPY --from=python-builder /workspace/rust_connector/target/wheels/*.whl /tmp/wheels/rust_connector/
 
-# Install rust_connector wheel
-RUN pip install --no-cache-dir /tmp/wheels/*.whl && rm -rf /tmp/wheels
+# Install Python wheels (optimizr and rust_connector)
+RUN pip install --no-cache-dir /tmp/wheels/optimiz-r/*.whl && \
+    pip install --no-cache-dir /tmp/wheels/rust_connector/*.whl && \
+    rm -rf /tmp/wheels
 
 # Copy application code
 COPY app/ /app/app/

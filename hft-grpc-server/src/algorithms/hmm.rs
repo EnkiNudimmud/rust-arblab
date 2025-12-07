@@ -23,7 +23,7 @@ pub fn fit_hmm(
     let mut prev_log_likelihood = f64::NEG_INFINITY;
     let mut converged = false;
     
-    for iter in 0..n_iterations {
+    for _iter in 0..n_iterations {
         // E-step: Forward-Backward
         let alpha = forward(observations, &params);
         let beta = backward(observations, &params);

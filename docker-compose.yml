@@ -11,7 +11,7 @@ services:
     volumes:
       - ./mock_apis/data:/data:ro
 
-  # gRPC Server for ultra-fast backend
+  # gRPC Server for ultra-fast pair discovery backend
   grpc-server:
     build:
       context: .
@@ -21,16 +21,20 @@ services:
     ports:
       - "50051:50051"  # gRPC
     volumes:
-      - ./app:/app/app:ro
-      - ./python:/app/python:ro
-      - ./scripts:/app/scripts:ro
+      - ./data:/app/data
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/workspace/target
     working_dir: /app
     environment:
       - RUST_LOG=info
+      - GRPC_BIND_ADDRESS=0.0.0.0:50051
     command: ["./target/release/hft-server"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # Main lab environment
   lab:
@@ -61,7 +65,7 @@ services:
       - grpc-server
     restart: unless-stopped
 
-  # Jupyter notebook server
+  # Jupyter notebook server with optimizr and gRPC client
   jupyter:
     build:
       context: .
@@ -73,7 +77,7 @@ services:
     volumes:
       - ./app:/app/app:ro
       - ./python:/app/python:ro
-      - ./examples:/app/examples:ro
+      - ./examples:/app/examples
       - ./scripts:/app/scripts:ro
       - ./api_keys.properties:/app/api_keys.properties:ro
       - hft_data:/app/data
@@ -81,9 +85,15 @@ services:
       - target-cache:/workspace/target
     environment:
       - PYTHONPATH=/app
+      - GRPC_HOST=grpc-server
+      - GRPC_PORT=50051
+      - RUST_LOG=info
     command: ["bash", "scripts/start_jupyter.sh"]
     depends_on:
-      - mock_apis
+      grpc-server:
+        condition: service_healthy
+      mock_apis:
+        condition: service_started
 
 volumes:
   hft_data:

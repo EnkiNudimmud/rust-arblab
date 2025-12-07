@@ -168,6 +168,8 @@ def engle_granger_cointegration(
     spread = y_aligned - hedge_ratio * x_aligned
     
     # Step 2: ADF test on residuals
+    # Ensure 1D array for adfuller
+    spread = np.asarray(spread).ravel()
     adf_result = adfuller(spread, maxlag=1, regression='c')
     
     test_stat = float(adf_result[0])

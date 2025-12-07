@@ -2,6 +2,7 @@
 /// 
 /// Efficient frontier, mean-variance optimization, risk parity
 
+#[allow(unused_imports)]
 use nalgebra::{DMatrix, DVector};
 use std::collections::HashMap;
 
@@ -10,14 +11,14 @@ pub fn optimize_portfolio(
     prices: &[Vec<f64>],
     method: &str,
     risk_free_rate: f64,
-    target_return: Option<f64>,
+    _target_return: Option<f64>,
 ) -> PortfolioResult {
     if prices.is_empty() || prices[0].is_empty() {
         return PortfolioResult::default();
     }
     
     let n_assets = prices.len();
-    let n_periods = prices[0].len();
+    let _n_periods = prices[0].len();
     
     // Calculate returns
     let returns = calculate_returns(prices);

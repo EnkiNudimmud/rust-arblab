@@ -122,3 +122,5 @@ htmlcov/
 .*.swo
 *.sublime-project
 *.sublime-workspace
+.gitignore_local/
+# Private study materials

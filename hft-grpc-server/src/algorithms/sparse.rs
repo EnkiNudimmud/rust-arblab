@@ -17,7 +17,7 @@ pub fn sparse_pca(
     }
     
     let n_assets = returns.len();
-    let n_periods = returns[0].len();
+    let _n_periods = returns[0].len();
     
     // Compute covariance matrix
     let cov = compute_covariance(returns);
@@ -89,7 +89,7 @@ pub fn sparse_meanrev_portfolio(
         return SparsePortfolioResult::default();
     }
     
-    let n_assets = prices.len();
+    let _n_assets = prices.len();
     let n_periods = prices[0].len();
     
     // Validate lookback

@@ -1,0 +1,18 @@
+[package]
+name = "signature_optimal_stopping"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "signature_optimal_stopping"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ndarray = "0.15"
+# Using pure Rust implementation (no external LAPACK/BLAS dependencies)
+# For production, consider using openblas-system or intel-mkl features
+ndarray-linalg = "0.16"
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"

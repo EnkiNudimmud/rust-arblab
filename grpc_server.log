@@ -1,0 +1,3 @@
+[2025-12-09T09:32:45Z INFO  hft_server] 🚀 HFT gRPC Server starting on [::1]:50051
+[2025-12-09T09:32:45Z INFO  hft_server] 📊 Services: Trading, Portfolio, Optimization
+[2025-12-09T09:32:45Z INFO  hft_server] ⚡ Low-latency Rust-Python communication enabled

@@ -1,0 +1,20 @@
+# Docker Compose for Standalone Mode (No Authentication)
+services:
+  lab:
+    build: .
+    container_name: hft-lab-standalone
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+      - ./api_keys.properties:/app/api_keys.properties:ro
+      - hft_data_standalone:/app/data  # Persistent data storage
+    environment:
+      - PYTHONPATH=/app
+      - ENABLE_AUTH=false
+    command: ["streamlit", "run", "app/HFT_Arbitrage_Lab.py", "--server.port", "8501", "--server.headless", "true"]
+    restart: unless-stopped
+
+volumes:
+  hft_data_standalone:
+    driver: local

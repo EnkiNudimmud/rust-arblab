@@ -1,0 +1,27 @@
+[I 2025-12-09 10:32:51.401 ServerApp] jupyter_lsp | extension was successfully linked.
+[I 2025-12-09 10:32:51.405 ServerApp] jupyter_server_terminals | extension was successfully linked.
+[W 2025-12-09 10:32:51.407 LabApp] 'token' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2025-12-09 10:32:51.407 LabApp] 'password' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2025-12-09 10:32:51.407 LabApp] 'allow_origin' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2025-12-09 10:32:51.409 ServerApp] ServerApp.token config is deprecated in 2.0. Use IdentityProvider.token.
+[I 2025-12-09 10:32:51.409 ServerApp] jupyterlab | extension was successfully linked.
+[I 2025-12-09 10:32:51.413 ServerApp] notebook | extension was successfully linked.
+[I 2025-12-09 10:32:51.990 ServerApp] notebook_shim | extension was successfully linked.
+[W 2025-12-09 10:32:52.043 ServerApp] All authentication is disabled.  Anyone who can connect to this server will be able to run code.
+[I 2025-12-09 10:32:52.044 ServerApp] notebook_shim | extension was successfully loaded.
+[I 2025-12-09 10:32:52.047 ServerApp] jupyter_lsp | extension was successfully loaded.
+[I 2025-12-09 10:32:52.048 ServerApp] jupyter_server_terminals | extension was successfully loaded.
+[I 2025-12-09 10:32:52.054 LabApp] JupyterLab extension loaded from /Users/melvinalvarez/miniconda3/lib/python3.13/site-packages/jupyterlab
+[I 2025-12-09 10:32:52.055 LabApp] JupyterLab application directory is /Users/melvinalvarez/miniconda3/share/jupyter/lab
+[I 2025-12-09 10:32:52.056 LabApp] Extension Manager is 'pypi'.
+[I 2025-12-09 10:32:52.156 ServerApp] jupyterlab | extension was successfully loaded.
+[I 2025-12-09 10:32:52.161 ServerApp] notebook | extension was successfully loaded.
+[I 2025-12-09 10:32:52.162 ServerApp] Serving notebooks from local directory: /Users/melvinalvarez/Documents/Workspace/rust-arblab/examples/notebooks
+[I 2025-12-09 10:32:52.162 ServerApp] Jupyter Server 2.17.0 is running at:
+[I 2025-12-09 10:32:52.162 ServerApp] http://localhost:8889/tree
+[I 2025-12-09 10:32:52.162 ServerApp]     http://127.0.0.1:8889/tree
+[I 2025-12-09 10:32:52.162 ServerApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[I 2025-12-09 10:32:52.204 ServerApp] Skipped non-installed server(s): basedpyright, bash-language-server, dockerfile-language-server-nodejs, javascript-typescript-langserver, jedi-language-server, julia-language-server, pyrefly, pyright, python-language-server, python-lsp-server, r-languageserver, sql-language-server, texlab, typescript-language-server, unified-language-server, vscode-css-languageserver-bin, vscode-html-languageserver-bin, vscode-json-languageserver-bin, yaml-language-server
+[I 2025-12-09 10:32:52.654 ServerApp] 302 GET / (@::1) 0.52ms
+[C 2025-12-09 10:46:36.576 ServerApp] received signal 15, stopping
+[I 2025-12-09 10:46:36.585 ServerApp] Shutting down 5 extensions

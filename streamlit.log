@@ -1,0 +1,9 @@
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://localhost:8501
+
+INFO:utils.data_persistence:Loaded dataset 'merged_20251205_134324': 1109860 rows
+INFO:python.grpc_client:Connected to gRPC server at localhost:50051
+  Stopping...
+  Stopping...

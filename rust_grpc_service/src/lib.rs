@@ -7,6 +7,8 @@ use tracing::info;
 use std::net::SocketAddr;
 
 mod service;
+mod models;
+
 use service::MeanRevServiceImpl;
 
 pub async fn run_server(host: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {

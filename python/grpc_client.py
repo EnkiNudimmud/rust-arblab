@@ -17,11 +17,10 @@ PROTO_PATH = Path(__file__).parent.parent / "proto"
 
 logger = logging.getLogger(__name__)
 
-# Note: Proto files need to be compiled with:
-# python -m grpc_tools.grpc_python_protoc -I/path/to/proto --python_out=/path/to/python --grpc_python_out=/path/to/python proto/meanrev.proto
+# Proto files compiled with:
+# python -m grpc_tools.protoc -I./proto --python_out=python --grpc_python_out=python proto/meanrev.proto
 
-# Placeholder - will be replaced with actual imports after compilation
-# from python import meanrev_pb2, meanrev_pb2_grpc
+from python import meanrev_pb2, meanrev_pb2_grpc
 
 
 class MeanRevClient:
@@ -53,7 +52,7 @@ class MeanRevClient:
             ) if self.host != "localhost" else grpc.aio.insecure_channel(
                 f"{self.host}:{self.port}"
             )
-            # self.stub = meanrev_pb2_grpc.MeanRevServiceStub(self.channel)
+            self.stub = meanrev_pb2_grpc.MeanRevServiceStub(self.channel)
             logger.info(f"Connected to gRPC server at {self.host}:{self.port}")
         except Exception as e:
             logger.error(f"Failed to connect to gRPC server: {e}")

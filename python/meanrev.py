@@ -2,24 +2,51 @@
 Mean-Reversion Portfolio Analysis Module
 
 This module provides high-performance mean-reversion portfolio analysis functions,
-with automatic fallback to pure Python implementations when Rust bindings are unavailable.
+using gRPC client to connect to Rust backend service.
+Includes fallback to pure Python implementations when gRPC is unavailable.
 """
 
 import numpy as np
 import pandas as pd
 from typing import Dict, Tuple, List, Any
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
-# Try to import Rust backend
+# Try to import gRPC client
 try:
-    import rust_connector
-    RUST_AVAILABLE = True
-    logger.info("✓ Rust backend available for mean-reversion analysis")
+    from python.grpc_client import MeanRevClient
+    GRPC_AVAILABLE = True
+    logger.info("✓ gRPC backend available for mean-reversion analysis")
 except ImportError:
-    RUST_AVAILABLE = False
-    logger.warning("⚠ Rust backend unavailable - using Python fallback")
+    GRPC_AVAILABLE = False
+    logger.warning("⚠ gRPC backend unavailable - using Python fallback")
+
+# Global gRPC client instance (lazy-initialized)
+_grpc_client = None
+
+def get_grpc_client():
+    """Get or create gRPC client instance"""
+    global _grpc_client
+    if not GRPC_AVAILABLE:
+        return None
+    if _grpc_client is None:
+        try:
+            _grpc_client = MeanRevClient(host="localhost", port=50051)
+        except Exception as e:
+            logger.warning(f"Failed to create gRPC client: {e}")
+            return None
+    return _grpc_client
+
+def _async_call(func):
+    """Helper to run async gRPC calls synchronously"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(func)
 
 
 def compute_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
@@ -48,18 +75,16 @@ def pca_portfolios(returns: pd.DataFrame, n_components: int = 10) -> Tuple[np.nd
         - components: (n_components x N) matrix of principal components
         - info_dict: Dictionary with "explained_variance_ratio_"
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            prices_list = returns.values.tolist()
-            result = rust_connector.compute_pca_rust(prices_list, n_components)
-            
-            # Convert to expected format
-            components = np.array(result['components'])
-            explained_var = np.array(result['explained_variance'])
-            
-            return components, {'explained_variance_ratio_': explained_var}
+            client = get_grpc_client()
+            if client:
+                result = _async_call(client.pca_portfolios(returns.values.tolist(), n_components))
+                components = np.array(result['components'])
+                explained_var = np.array(result['variance_explained'])
+                return components, {'explained_variance_ratio_': explained_var}
         except Exception as e:
-            logger.warning(f"Rust PCA failed, falling back to Python: {e}")
+            logger.warning(f"gRPC PCA failed, falling back to Python: {e}")
     
     # Python fallback
     from sklearn.decomposition import PCA
@@ -79,13 +104,15 @@ def estimate_ou_params(prices: np.ndarray) -> Dict[str, float]:
     Returns:
         Dictionary with keys: theta, mu, sigma, half_life
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            prices_list = prices.tolist() if isinstance(prices, (np.ndarray, pd.Series)) else list(prices)
-            result = rust_connector.estimate_ou_process_rust(prices_list)
-            return result
+            client = get_grpc_client()
+            if client:
+                prices_list = prices.tolist() if isinstance(prices, (np.ndarray, pd.Series)) else list(prices)
+                result = _async_call(client.estimate_ou_params(prices_list))
+                return result
         except Exception as e:
-            logger.warning(f"Rust OU estimation failed, falling back to Python: {e}")
+            logger.warning(f"gRPC OU estimation failed, falling back to Python: {e}")
     
     # Python fallback
     prices_arr = np.array(prices)
@@ -134,14 +161,16 @@ def cara_optimal_weights(expected_returns: np.ndarray, covariance: np.ndarray,
     Returns:
         Dictionary with keys: weights, expected_return, expected_variance
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            returns_list = expected_returns.tolist() if isinstance(expected_returns, np.ndarray) else list(expected_returns)
-            cov_list = covariance.tolist() if isinstance(covariance, np.ndarray) else [list(row) for row in covariance]
-            result = rust_connector.cara_optimal_weights_rust(returns_list, cov_list, gamma)
-            return result
+            client = get_grpc_client()
+            if client:
+                returns_list = expected_returns.tolist() if isinstance(expected_returns, np.ndarray) else list(expected_returns)
+                cov_list = covariance.tolist() if isinstance(covariance, np.ndarray) else [list(row) for row in covariance]
+                result = _async_call(client.cara_optimal_weights(returns_list, cov_list, gamma))
+                return result
         except Exception as e:
-            logger.warning(f"Rust CARA optimization failed, falling back to Python: {e}")
+            logger.warning(f"gRPC CARA optimization failed, falling back to Python: {e}")
     
     # Python fallback
     expected_returns = np.array(expected_returns)
@@ -180,14 +209,16 @@ def sharpe_optimal_weights(expected_returns: np.ndarray, covariance: np.ndarray,
     Returns:
         Dictionary with keys: weights, sharpe_ratio, expected_return, expected_std
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            returns_list = expected_returns.tolist() if isinstance(expected_returns, np.ndarray) else list(expected_returns)
-            cov_list = covariance.tolist() if isinstance(covariance, np.ndarray) else [list(row) for row in covariance]
-            result = rust_connector.sharpe_optimal_weights_rust(returns_list, cov_list, risk_free_rate)
-            return result
+            client = get_grpc_client()
+            if client:
+                returns_list = expected_returns.tolist() if isinstance(expected_returns, np.ndarray) else list(expected_returns)
+                cov_list = covariance.tolist() if isinstance(covariance, np.ndarray) else [list(row) for row in covariance]
+                result = _async_call(client.sharpe_optimal_weights(returns_list, cov_list, risk_free_rate))
+                return result
         except Exception as e:
-            logger.warning(f"Rust Sharpe optimization failed, falling back to Python: {e}")
+            logger.warning(f"gRPC Sharpe optimization failed, falling back to Python: {e}")
     
     # Python fallback
     expected_returns = np.array(expected_returns)

@@ -14,7 +14,7 @@ pub fn compute_pca_rust(
     n_components: usize,
 ) -> PyResult<PyObject> {
     if prices.is_empty() || prices[0].is_empty() {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("components", Vec::<Vec<f64>>::new())?;
         result.set_item("explained_variance", Vec::<f64>::new())?;
         return Ok(result.into());
@@ -67,7 +67,7 @@ pub fn compute_pca_rust(
         .collect();
     
     // Return as Python dict
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("components", components)?;
     result.set_item("explained_variance", explained_variance)?;
     
@@ -79,7 +79,7 @@ pub fn compute_pca_rust(
 #[pyfunction]
 pub fn estimate_ou_process_rust(py: Python, prices: Vec<f64>) -> PyResult<PyObject> {
     if prices.len() < 3 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("theta", 0.0)?;
         result.set_item("mu", 0.0)?;
         result.set_item("sigma", 0.0)?;
@@ -137,7 +137,7 @@ pub fn estimate_ou_process_rust(py: Python, prices: Vec<f64>) -> PyResult<PyObje
         f64::INFINITY
     };
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("theta", theta)?;
     result.set_item("mu", mu)?;
     result.set_item("sigma", sigma)?;
@@ -155,7 +155,7 @@ pub fn cointegration_test_rust(
     prices2: Vec<f64>,
 ) -> PyResult<PyObject> {
     if prices1.len() != prices2.len() || prices1.len() < 3 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("statistic", 0.0)?;
         result.set_item("p_value", 1.0)?;
         result.set_item("is_cointegrated", false)?;
@@ -222,7 +222,7 @@ pub fn cointegration_test_rust(
     
     let is_cointegrated = p_value < 0.05;
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("statistic", adf_stat)?;
     result.set_item("p_value", p_value)?;
     result.set_item("is_cointegrated", is_cointegrated)?;
@@ -240,7 +240,7 @@ pub fn backtest_strategy_rust(
     exit_z: f64,
 ) -> PyResult<PyObject> {
     if prices.len() < 3 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("returns", Vec::<f64>::new())?;
         result.set_item("positions", Vec::<i32>::new())?;
         result.set_item("pnl", Vec::<f64>::new())?;
@@ -329,7 +329,7 @@ pub fn backtest_strategy_rust(
         0.0
     };
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("returns", returns)?;
     result.set_item("positions", positions)?;
     result.set_item("pnl", pnl)?;
@@ -352,7 +352,7 @@ pub fn cara_optimal_weights_rust(
     let n = expected_returns.len();
     
     if n == 0 || covariance_matrix.len() != n || gamma <= 0.0 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("weights", vec![0.0; n])?;
         result.set_item("expected_return", 0.0)?;
         result.set_item("expected_variance", 0.0)?;
@@ -393,7 +393,7 @@ pub fn cara_optimal_weights_rust(
     let sigma_w = &sigma * &w_vec;
     let expected_variance = w_vec.dot(&sigma_w);
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("weights", weights)?;
     result.set_item("expected_return", expected_return)?;
     result.set_item("expected_variance", expected_variance)?;
@@ -414,7 +414,7 @@ pub fn sharpe_optimal_weights_rust(
     let n = expected_returns.len();
     
     if n == 0 || covariance_matrix.len() != n {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("weights", vec![0.0; n])?;
         result.set_item("sharpe_ratio", 0.0)?;
         result.set_item("expected_return", 0.0)?;
@@ -472,7 +472,7 @@ pub fn sharpe_optimal_weights_rust(
         0.0
     };
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("weights", weights)?;
     result.set_item("sharpe_ratio", sharpe_ratio)?;
     result.set_item("expected_return", expected_return)?;
@@ -493,7 +493,7 @@ pub fn backtest_with_costs_rust(
     transaction_cost: f64,
 ) -> PyResult<PyObject> {
     if prices.len() < 3 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("returns", Vec::<f64>::new())?;
         result.set_item("positions", Vec::<i32>::new())?;
         result.set_item("pnl", Vec::<f64>::new())?;
@@ -586,7 +586,7 @@ pub fn backtest_with_costs_rust(
         0.0
     };
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("returns", returns)?;
     result.set_item("positions", positions)?;
     result.set_item("pnl", pnl)?;
@@ -609,7 +609,7 @@ pub fn optimal_thresholds_rust(
     transaction_cost: f64,
 ) -> PyResult<PyObject> {
     if theta <= 0.0 || sigma <= 0.0 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("optimal_entry", 2.0)?;
         result.set_item("optimal_exit", 0.5)?;
         result.set_item("expected_holding_period", 10.0)?;
@@ -632,7 +632,7 @@ pub fn optimal_thresholds_rust(
     // E[time to cross threshold] ≈ 1/(2*theta) for small threshold
     let expected_holding_period = half_life * 0.5;
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("optimal_entry", optimal_entry)?;
     result.set_item("optimal_exit", optimal_exit)?;
     result.set_item("expected_holding_period", expected_holding_period)?;
@@ -653,7 +653,7 @@ pub fn multiperiod_optimize_rust(
     n_periods: usize,
 ) -> PyResult<PyObject> {
     if returns_history.is_empty() || n_periods == 0 {
-        let result = PyDict::new(py);
+        let result = PyDict::new_bound(py);
         result.set_item("weights_sequence", Vec::<Vec<f64>>::new())?;
         result.set_item("rebalance_times", Vec::<usize>::new())?;
         result.set_item("expected_utility", 0.0)?;
@@ -746,7 +746,7 @@ pub fn multiperiod_optimize_rust(
     
     expected_utility /= n_periods as f64;
     
-    let result = PyDict::new(py);
+    let result = PyDict::new_bound(py);
     result.set_item("weights_sequence", weights_sequence)?;
     result.set_item("rebalance_times", rebalance_times)?;
     result.set_item("expected_utility", expected_utility)?;

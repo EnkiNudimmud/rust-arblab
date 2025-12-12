@@ -7,7 +7,7 @@ import sys
 import time
 
 # Add path to the compiled Rust module
-sys.path.insert(0, '/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab/target/release')
+sys.path.insert(0, '/Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab/target/release')
 
 try:
     import rust_connector

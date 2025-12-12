@@ -82,7 +82,7 @@ with col_gh:
     <div style='padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center;'>
         <h3 style='color: white; margin: 0;'>📦 Open Source</h3>
         <p style='color: white; margin: 0.5rem 0;'>
-            <a href='https://github.com/ThotDjehuty/rust-hft-arbitrage-lab' target='_blank' style='color: white; text-decoration: none; font-weight: bold;'>
+            <a href='https://github.com/ThotDjehuty/rust-arblab' target='_blank' style='color: white; text-decoration: none; font-weight: bold;'>
                 ⭐ GitHub Repository
             </a>
         </p>
@@ -739,7 +739,7 @@ with st.expander("📖 Learn More About HFT Arbitrage Lab"):
     
     ### 🔗 Resources
     
-    - [GitHub Repository](https://github.com/ThotDjehuty/rust-hft-arbitrage-lab)
+    - [GitHub Repository](https://github.com/ThotDjehuty/rust-arblab)
     - [Documentation](docs/README.md)
     - [Quick Start Guide](docs/QUICKSTART_APP.md)
     """)

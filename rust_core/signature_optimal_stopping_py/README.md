@@ -232,4 +232,4 @@ Signatures provide a **principled way** to extract features from such rough data
 
 ## License
 
-Part of the rust-hft-arbitrage-lab project. See LICENSE in repository root.
+Part of the rust-arblab project. See LICENSE in repository root.

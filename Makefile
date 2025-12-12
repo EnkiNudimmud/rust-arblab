@@ -1,4 +1,4 @@
-# Makefile for rust-hft-arbitrage-lab
+# Makefile for rust-arblab
 # Quick commands for building and running the project
 
 # Detect Python (prefer python3.11, fallback to python3)
@@ -19,7 +19,7 @@ endif
 
 help:
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  rust-hft-arbitrage-lab - Quick Commands"
+	@echo "  rust-arblab - Quick Commands"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
 	@echo "🚀 Quick Start:"

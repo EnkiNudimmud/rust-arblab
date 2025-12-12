@@ -8,7 +8,7 @@
 
 ### Option 1: Use Pre-Built Wheel (Fastest)
 ```bash
-cd /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab
+cd /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab
 pip install target/wheels/rust_connector-0.1.0-*.whl
 ```
 
@@ -30,7 +30,7 @@ python -c "from python.sparse_meanrev import RUST_AVAILABLE; print(f'Rust: {RUST
 
 ### 2. Run Built-in Demo
 ```bash
-cd /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab
+cd /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab
 python python/sparse_meanrev.py
 ```
 

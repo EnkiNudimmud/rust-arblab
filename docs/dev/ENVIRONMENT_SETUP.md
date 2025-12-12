@@ -31,7 +31,7 @@ This guide provides all commands needed to set up, build, and rebuild the projec
 ### Initial Build & Run
 ```bash
 # From project root
-cd /path/to/rust-hft-arbitrage-lab
+cd /path/to/rust-arblab
 
 # Build and start all services
 docker compose build

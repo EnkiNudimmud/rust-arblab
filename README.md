@@ -48,8 +48,8 @@ A modular, production-ready framework for high-frequency trading (HFT) and arbit
 #### Option 1: Docker (Recommended)
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/rust-hft-arbitrage-lab.git
-cd rust-hft-arbitrage-lab
+git clone https://github.com/YOUR_USERNAME/rust-arblab.git
+cd rust-arblab
 
 # Build and start services
 docker compose up --build
@@ -470,7 +470,7 @@ See [`docs/README.md`](docs/README.md) for the complete documentation index.
 ## 🏗️ Project Structure
 
 ```
-rust-hft-arbitrage-lab/
+rust-arblab/
 ├── app/                      # Streamlit dashboard
 │   ├── pages/               # Strategy pages
 │   │   ├── affine_models.py

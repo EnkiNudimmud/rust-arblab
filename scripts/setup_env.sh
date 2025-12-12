@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Environment Setup Helper for rust-hft-arbitrage-lab
+# Environment Setup Helper for rust-arblab
 # This script detects your system and guides you through the setup process
 
 set -e
@@ -375,7 +375,7 @@ verify_installation() {
 # Main setup flow
 main() {
     clear
-    print_header "rust-hft-arbitrage-lab Environment Setup"
+    print_header "rust-arblab Environment Setup"
     echo ""
     echo "This script will help you set up your development environment."
     echo ""

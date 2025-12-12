@@ -2,6 +2,8 @@
 // Implementation of algorithms from "Identifying Small Mean Reverting Portfolios" (d'Aspremont, 2011)
 // and related sparse cointegration methods
 
+#![allow(non_snake_case)]
+
 use nalgebra::{DMatrix, DVector};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -128,11 +130,10 @@ pub fn sparse_pca_rust(
     }
     
     // Convert to Python
-    let dict = PyDict::new(py);
+    let dict = PyDict::new_bound(py);
     
     // Convert weights to 2D numpy array
-    let weights_vec: Vec<f64> = weights_matrix.iter().cloned().collect();
-    let weights_py = PyArray2::from_vec2(
+    let weights_py = PyArray2::from_vec2_bound(
         py,
         &(0..n_components)
             .map(|i| weights_matrix.row(i).iter().cloned().collect::<Vec<_>>())
@@ -231,22 +232,22 @@ pub fn box_tao_decomposition_rust(
     let N = &X_mat - &L - &S;
     
     // Convert to Python
-    let dict = PyDict::new(py);
+    let dict = PyDict::new_bound(py);
     
     let L_vec: Vec<Vec<f64>> = (0..n_samples)
         .map(|i| L.row(i).iter().cloned().collect())
         .collect();
-    dict.set_item("low_rank", PyArray2::from_vec2(py, &L_vec)?)?;
+    dict.set_item("low_rank", PyArray2::from_vec2_bound(py, &L_vec)?)?;
     
     let S_vec: Vec<Vec<f64>> = (0..n_samples)
         .map(|i| S.row(i).iter().cloned().collect())
         .collect();
-    dict.set_item("sparse", PyArray2::from_vec2(py, &S_vec)?)?;
+    dict.set_item("sparse", PyArray2::from_vec2_bound(py, &S_vec)?)?;
     
     let N_vec: Vec<Vec<f64>> = (0..n_samples)
         .map(|i| N.row(i).iter().cloned().collect())
         .collect();
-    dict.set_item("noise", PyArray2::from_vec2(py, &N_vec)?)?;
+    dict.set_item("noise", PyArray2::from_vec2_bound(py, &N_vec)?)?;
     
     dict.set_item("objective_values", objective_values.into_py(py))?;
     
@@ -377,7 +378,7 @@ pub fn hurst_exponent_rust(
     // Determine if mean-reverting (H < 0.5 with statistical significance)
     let is_mean_reverting = confidence_upper < 0.5;
     
-    let dict = PyDict::new(py);
+    let dict = PyDict::new_bound(py);
     dict.set_item("hurst_exponent", hurst)?;
     dict.set_item("confidence_interval", vec![confidence_lower, confidence_upper].into_py(py))?;
     dict.set_item("is_mean_reverting", is_mean_reverting)?;
@@ -486,7 +487,7 @@ pub fn sparse_cointegration_rust(
     // Compute Hurst exponent on residuals
     let residuals_vec: Vec<f64> = residuals.iter().cloned().collect();
     
-    let dict = PyDict::new(py);
+    let dict = PyDict::new_bound(py);
     dict.set_item("weights", full_weights.into_py(py))?;
     dict.set_item("residuals", residuals_vec.into_py(py))?;
     dict.set_item("sparsity", sparsity)?;
@@ -559,12 +560,12 @@ fn elastic_net_regression(
     max_iter: usize,
     tol: f64,
 ) -> DVector<f64> {
-    let (n_samples, n_features) = (X.nrows(), X.ncols());
+    let (_n_samples, n_features) = (X.nrows(), X.ncols());
     let mut weights = DVector::zeros(n_features);
     
     // Precompute X^T X and X^T y for efficiency
-    let XtX = X.transpose() * X;
-    let Xty = X.transpose() * y;
+    let xtx = X.transpose() * X;
+    let _xty = X.transpose() * y;
     
     for _iter in 0..max_iter {
         let weights_old = weights.clone();
@@ -581,7 +582,7 @@ fn elastic_net_regression(
             
             // Compute optimal update for j-th weight
             let rho = X.column(j).dot(&residual);
-            let z = XtX[(j, j)] + lambda_l2;
+            let z = xtx[(j, j)] + lambda_l2;
             
             // Soft thresholding
             weights[j] = if rho > lambda_l1 {

@@ -273,7 +273,7 @@ else:
 
 ### Test Script
 ```bash
-cd /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab
+cd /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab
 python python/sparse_meanrev.py
 ```
 

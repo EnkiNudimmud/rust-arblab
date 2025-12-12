@@ -81,7 +81,7 @@ The Rust connector already has WebSocket streaming via `start_stream()` method. 
 After making Rust changes, rebuild the connector:
 
 ```bash
-cd /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab
+cd /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab
 maturin develop --manifest-path rust_connector/Cargo.toml
 ```
 

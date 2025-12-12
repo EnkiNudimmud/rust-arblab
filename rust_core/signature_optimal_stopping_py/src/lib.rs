@@ -96,8 +96,8 @@ impl PySignatureStopper {
 
         // prepare return dict
         let weights = guard.weights.as_ref().ok_or_else(|| PySigError::Internal("weights missing after training".to_string()))?;
-        let py_weights = PyList::new(py, weights.iter().cloned());
-        let out = PyDict::new(py);
+        let py_weights = PyList::new_bound(py, weights.iter().cloned());
+        let out = PyDict::new_bound(py);
         out.set_item("weights", py_weights)?;
         out.set_item("params", serde_json::json!({"truncation": trunc, "ridge": ridge}).to_string())?;
         Ok(out.to_object(py))
@@ -155,7 +155,7 @@ impl PySignatureStopper {
         let py = unsafe { Python::assume_gil_acquired() };
         let guard = self.inner.lock().map_err(|_| PySigError::Internal("mutex poisoned".to_string()))?;
         if let Some(w) = &guard.weights {
-            let list = PyList::new(py, w.iter().cloned());
+            let list = PyList::new_bound(py, w.iter().cloned());
             Ok(Some(list.to_object(py)))
         } else {
             Ok(None)
@@ -171,7 +171,7 @@ impl PySignatureStopper {
 
 /// Python module
 #[pymodule]
-fn signature_optimal_stopping_py(_py: Python, m: &PyModule) -> PyResult<()> {
+fn signature_optimal_stopping_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySignatureStopper>()?;
     Ok(())
 }

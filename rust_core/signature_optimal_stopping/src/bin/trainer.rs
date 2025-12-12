@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use signature_optimal_stopping::*;
 use std::fs::File;
 use std::io::Read;

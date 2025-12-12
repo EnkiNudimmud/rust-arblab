@@ -3,6 +3,9 @@ name = "rust_core"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+large-datasets = []
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.20"

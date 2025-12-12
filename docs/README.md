@@ -27,7 +27,7 @@
 ## Project Structure
 
 ```
-rust-hft-arbitrage-lab/
+rust-arblab/
 ├── app/                    # Streamlit application
 │   ├── pages/             # Strategy dashboards
 │   └── utils/             # UI utilities

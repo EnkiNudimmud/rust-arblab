@@ -1,0 +1,268 @@
+syntax = "proto3";
+
+package meanrev;
+
+// High-performance, streaming-oriented gRPC service for mean-reversion portfolio analysis
+// Designed for: real-time price streams, incremental portfolio optimization, signal generation
+
+service MeanRevService {
+  // ============ PRICE & DATA STREAMS ============
+  
+  // Bi-directional: Receive price stream, emit OU parameter updates
+  rpc EstimateOUParams(stream PriceUpdate) returns (stream OUEstimate) {}
+  
+  // Uni-directional: Send price history, receive optimized portfolio immediately
+  rpc OptimalThresholds(ThresholdRequest) returns (ThresholdResponse) {}
+  
+  // Bi-directional: Stream prices, receive continuous backtest metrics
+  rpc BacktestWithCosts(stream BacktestInput) returns (stream BacktestMetric) {}
+  
+  // ============ PORTFOLIO OPTIMIZATION ============
+  
+  // Unary: Batch computation for historical analysis
+  rpc ComputeLogReturns(ReturnsRequest) returns (ReturnsResponse) {}
+  
+  // Unary: PCA portfolio decomposition
+  rpc PCAPortfolios(PCARequest) returns (PCAResponse) {}
+  
+  // Bi-directional: Stream returns over time, get optimal weights continuously
+  rpc CARAOptimalWeights(stream OptimizationInput) returns (stream WeightsOutput) {}
+  
+  rpc SharpeOptimalWeights(stream OptimizationInput) returns (stream WeightsOutput) {}
+  
+  // ============ ADVANCED ANALYSIS ============
+  
+  // Unary: Multi-period portfolio optimization
+  rpc MultiperiodOptimize(MultiperiodRequest) returns (MultiperiodResponse) {}
+  
+  // Unary: Get portfolio correlations and statistics
+  rpc PortfolioStats(PortfolioStatsRequest) returns (PortfolioStatsResponse) {}
+  
+  // Unary: Signal generation from thresholds and current price
+  rpc GenerateSignals(SignalRequest) returns (SignalResponse) {}
+  
+  // Uni-directional server streaming: Emit periodic portfolio health checks
+  rpc PortfolioHealthStream(HealthRequest) returns (stream HealthMetric) {}
+}
+
+// ============ MESSAGE TYPES - GENERIC & MODULAR ============
+
+// Core numeric types (scalable precision)
+message FloatArray {
+  repeated float values = 1;
+}
+
+message DoubleArray {
+  repeated double values = 1;
+}
+
+message Matrix {
+  int32 rows = 1;
+  int32 cols = 2;
+  repeated double values = 3; // Row-major order
+}
+
+// Price & Time Series
+message PriceUpdate {
+  string asset_id = 1;        // Asset identifier (e.g., "BTC/USD")
+  double price = 2;           // Current price
+  int64 timestamp_ms = 3;     // Unix timestamp in milliseconds
+  double volume = 4;          // Optional: trading volume
+  string metadata = 5;        // Optional: JSON metadata
+}
+
+message PriceHistory {
+  string asset_id = 1;
+  repeated double prices = 2; // Time series of prices
+  repeated int64 timestamps_ms = 3;
+  string metadata = 4;        // JSON: {"interval": "1h", "source": "ccxt"}
+}
+
+// Returns & Statistics
+message ReturnsRequest {
+  string asset_ids = 1;           // Comma-separated asset list
+  repeated double prices = 2;     // Price series
+  string return_type = 3;         // "log", "simple"
+  string metadata = 4;            // JSON context
+}
+
+message ReturnsResponse {
+  repeated double log_returns = 1;
+  double mean_return = 2;
+  double std_return = 3;
+  int32 n_periods = 4;
+}
+
+// OU Process Estimation
+message OUEstimate {
+  double theta = 1;           // Mean reversion speed
+  double mu = 2;              // Long-term mean
+  double sigma = 3;           // Volatility
+  double half_life = 4;       // Implied half-life in periods
+  int32 n_samples = 5;        // Samples used for estimation
+  double r_squared = 6;       // Model fit quality
+  string status = 7;          // "updating", "converged", "error"
+  int64 timestamp_ms = 8;
+}
+
+message ThresholdRequest {
+  OUEstimate ou_params = 1;
+  double transaction_cost = 2; // e.g., 0.001 for 0.1%
+  string optimization_objective = 3; // "profit", "sharpe", "kelly"
+  string metadata = 4;
+}
+
+message ThresholdResponse {
+  double entry_zscore = 1;      // Entry signal z-score threshold
+  double exit_zscore = 2;       // Exit signal z-score threshold
+  double expected_holding_periods = 3;
+  double expected_return_per_trade = 4;
+  double win_rate_estimate = 5;
+  string metadata = 6;
+}
+
+// Backtest Streaming
+message BacktestInput {
+  double price = 1;
+  int64 timestamp_ms = 2;
+  double entry_zscore = 3;
+  double exit_zscore = 4;
+  double transaction_cost = 5;
+  int32 update_frequency = 6; // Emit metric every N bars
+}
+
+message BacktestMetric {
+  int32 bar_number = 1;
+  double cumulative_return = 2;
+  double daily_return = 3;
+  int32 open_positions = 4;
+  double unrealized_pnl = 5;
+  double realized_pnl = 6;
+  double max_drawdown = 7;
+  double sharpe_ratio = 8;
+  int32 num_trades = 9;
+  double win_rate = 10;
+  double avg_profit_per_trade = 11;
+  string status = 12; // "in_trade", "flat", "error"
+  int64 timestamp_ms = 13;
+}
+
+// PCA Analysis
+message PCARequest {
+  Matrix returns_matrix = 1;  // T x N matrix (T periods, N assets)
+  int32 n_components = 2;
+  string scaling = 3;         // "zscore", "minmax", "none"
+  string metadata = 4;
+}
+
+message PCAResponse {
+  repeated double explained_variance_ratio = 1;
+  Matrix components = 2;      // n_components x N_assets
+  Matrix transformed = 3;     // T x n_components
+  double total_variance_explained = 4;
+  string metadata = 5;
+}
+
+// Portfolio Optimization
+message OptimizationInput {
+  Matrix returns = 1;         // Historical returns
+  double gamma = 2;           // Risk aversion coefficient (for CARA)
+  double risk_free_rate = 3;  // For Sharpe ratio
+  double transaction_cost = 4;
+  int64 timestamp_ms = 5;
+  string metadata = 6;
+}
+
+message WeightsOutput {
+  repeated double weights = 1;     // Portfolio weights (normalized to 1.0)
+  double expected_return = 2;
+  double expected_volatility = 3;
+  double sharpe_ratio = 4;
+  double utility = 5;              // Objective value
+  string status = 6;               // "optimized", "constrained", "error"
+  int64 timestamp_ms = 7;
+  string metadata = 8;
+}
+
+// Multi-period Optimization
+message MultiperiodRequest {
+  repeated Matrix returns_sequence = 1; // List of return matrices for each period
+  double gamma = 2;
+  double transaction_cost = 3;
+  int32 rebalance_frequency = 4;       // Periods between rebalances
+  string metadata = 5;
+}
+
+message MultiperiodResponse {
+  repeated WeightsOutput weights_sequence = 1;
+  double cumulative_utility = 2;
+  double avg_turnover = 3;
+  repeated int64 rebalance_times = 4;
+  string metadata = 5;
+}
+
+// Portfolio Statistics
+message PortfolioStatsRequest {
+  Matrix returns = 1;
+  repeated double weights = 2;     // Optional: for weighted stats
+  string metadata = 3;
+}
+
+message PortfolioStatsResponse {
+  double mean_return = 1;
+  double std_return = 2;
+  double skewness = 3;
+  double kurtosis = 4;
+  Matrix correlation = 5;          // Correlation matrix
+  Matrix covariance = 6;            // Covariance matrix
+  repeated double marginal_contrib = 7; // Risk contribution by asset
+  string metadata = 8;
+}
+
+// Signal Generation
+message SignalRequest {
+  PriceHistory price_history = 1;
+  OUEstimate ou_params = 2;
+  ThresholdResponse thresholds = 3;
+  string position_state = 4;        // "flat", "long", "short"
+  string metadata = 5;
+}
+
+message SignalResponse {
+  string signal = 1;                // "buy", "sell", "hold"
+  double confidence = 2;            // 0.0 to 1.0
+  double zscore = 3;                // Current z-score
+  double expected_profit = 4;       // Expected return if signal taken
+  int64 timestamp_ms = 5;
+  string reasoning = 6;             // Explanation of signal
+  string metadata = 7;
+}
+
+// Portfolio Health Monitoring
+message HealthRequest {
+  string portfolio_id = 1;
+  int32 update_frequency_ms = 2;    // Emit health check every N ms
+  repeated string asset_ids = 3;
+  string metadata = 4;
+}
+
+message HealthMetric {
+  string portfolio_id = 1;
+  int64 timestamp_ms = 2;
+  double total_value = 3;
+  double daily_return = 4;
+  double volatility_24h = 5;
+  double max_drawdown = 6;
+  int32 open_positions = 7;
+  string status = 8;                // "healthy", "warning", "risk"
+  repeated string alerts = 9;       // Warning messages
+  string metadata = 10;
+}
+
+// Error Handling
+message Error {
+  int32 code = 1;               // gRPC error code
+  string message = 2;
+  string details = 3;           // Detailed error info
+  string timestamp = 4;
+}

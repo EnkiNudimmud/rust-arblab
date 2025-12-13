@@ -5,6 +5,9 @@ A comprehensive platform for arbitrage strategy development and testing
 
 import streamlit as st
 import sys
+import os
+import subprocess
+import time
 from pathlib import Path
 
 # Add project root to path
@@ -14,6 +17,60 @@ sys.path.insert(0, str(project_root))
 # Import shared UI components
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
 from utils.data_persistence import load_all_datasets, list_datasets, get_storage_stats
+
+# ===== gRPC Server Initialization =====
+@st.cache_resource
+def init_grpc_server():
+    """
+    Initialize gRPC server in background process
+    Runs once per Streamlit session
+    """
+    try:
+        # Check if server is already running
+        try:
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex(('localhost', 50051))
+            sock.close()
+            if result == 0:
+                st.sidebar.success("✅ gRPC Server: Running on localhost:50051")
+                return True
+        except:
+            pass
+        
+        # Start gRPC server in background
+        server_process = subprocess.Popen(
+            ["cargo", "run", "-p", "rust_grpc_service", "--release"],
+            cwd=str(project_root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True
+        )
+        
+        # Wait for server to start
+        time.sleep(2)
+        
+        # Verify server is running
+        try:
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex(('localhost', 50051))
+            sock.close()
+            if result == 0:
+                st.sidebar.success("✅ gRPC Server: Started on localhost:50051")
+                return True
+        except:
+            pass
+        
+        st.sidebar.warning("⚠️ gRPC Server: Failed to start, running in local mode")
+        return False
+        
+    except Exception as e:
+        st.sidebar.error(f"❌ gRPC Server Error: {str(e)}")
+        return False
+
+# Initialize gRPC server on app start
+_ = init_grpc_server()
 
 # Page configuration
 st.set_page_config(

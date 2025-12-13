@@ -94,23 +94,22 @@ class MeanRevClient:
         # Stream prices to server
         async def price_stream():
             for i, price in enumerate(prices):
-                # yield meanrev_pb2.PriceUpdate(
-                #     asset_id="BTC/USD",
-                #     price=float(price),
-                #     timestamp_ms=int((i) * 60000)  # Assuming 1-minute bars
-                # )
-                pass
+                yield meanrev_pb2.PriceUpdate(
+                    asset_id="BTC/USD",
+                    price=float(price),
+                    timestamp_ms=int((i) * 60000)  # Assuming 1-minute bars
+                )
 
         # Receive OU estimates
-        # async for estimate in self.stub.EstimateOUParams(price_stream()):
-        #     return {
-        #         "theta": estimate.theta,
-        #         "mu": estimate.mu,
-        #         "sigma": estimate.sigma,
-        #         "half_life": estimate.half_life,
-        #         "r_squared": estimate.r_squared,
-        #         "n_samples": estimate.n_samples,
-        #     }
+        async for estimate in self.stub.EstimateOUParams(price_stream()):
+            return {
+                "theta": estimate.theta,
+                "mu": estimate.mu,
+                "sigma": estimate.sigma,
+                "half_life": estimate.half_life,
+                "r_squared": estimate.r_squared,
+                "n_samples": estimate.n_samples,
+            }
 
         return {}
 
@@ -137,20 +136,19 @@ class MeanRevClient:
                 "win_rate_estimate": Estimated win rate
             }
         """
-        # request = meanrev_pb2.ThresholdRequest(
-        #     ou_params=meanrev_pb2.OUEstimate(**ou_params),
-        #     transaction_cost=transaction_cost,
-        #     optimization_objective=optimization_objective
-        # )
-        # response = await self.stub.OptimalThresholds(request)
-        # return {
-        #     "entry_zscore": response.entry_zscore,
-        #     "exit_zscore": response.exit_zscore,
-        #     "expected_holding_periods": response.expected_holding_periods,
-        #     "expected_return_per_trade": response.expected_return_per_trade,
-        #     "win_rate_estimate": response.win_rate_estimate,
-        # }
-        return {}
+        request = meanrev_pb2.ThresholdRequest(
+            ou_params=meanrev_pb2.OUEstimate(**ou_params),
+            transaction_cost=transaction_cost,
+            optimization_objective=optimization_objective
+        )
+        response = await self.stub.OptimalThresholds(request)
+        return {
+            "entry_zscore": response.entry_zscore,
+            "exit_zscore": response.exit_zscore,
+            "expected_holding_periods": response.expected_holding_periods,
+            "expected_return_per_trade": response.expected_return_per_trade,
+            "win_rate_estimate": response.win_rate_estimate,
+        }
 
     async def backtest_with_costs(
         self,
@@ -187,15 +185,14 @@ class MeanRevClient:
         
         async def backtest_stream():
             for i, price in enumerate(prices):
-                # yield meanrev_pb2.BacktestInput(
-                #     price=float(price),
-                #     timestamp_ms=int(i * 60000),
-                #     entry_zscore=entry_z,
-                #     exit_zscore=exit_z,
-                #     transaction_cost=transaction_cost,
-                #     update_frequency=update_frequency
-                # )
-                pass
+                yield meanrev_pb2.BacktestInput(
+                    price=float(price),
+                    timestamp_ms=int(i * 60000),
+                    entry_zscore=entry_z,
+                    exit_zscore=exit_z,
+                    transaction_cost=transaction_cost,
+                    update_frequency=update_frequency
+                )
 
         results = {
             "returns": [],
@@ -205,12 +202,12 @@ class MeanRevClient:
             "win_rate": 0.0
         }
 
-        # async for metric in self.stub.BacktestWithCosts(backtest_stream()):
-        #     results["returns"].append(metric.cumulative_return)
-        #     results["sharpe"] = metric.sharpe_ratio
-        #     results["max_drawdown"] = metric.max_drawdown
-        #     results["num_trades"] = metric.num_trades
-        #     results["win_rate"] = metric.win_rate
+        async for metric in self.stub.BacktestWithCosts(backtest_stream()):
+            results["returns"].append(metric.cumulative_return)
+            results["sharpe"] = metric.sharpe_ratio
+            results["max_drawdown"] = metric.max_drawdown
+            results["num_trades"] = metric.num_trades
+            results["win_rate"] = metric.win_rate
 
         return results
 
@@ -228,20 +225,18 @@ class MeanRevClient:
         """
         prices = np.asarray(prices, dtype=np.float64)
         
-        # request = meanrev_pb2.ReturnsRequest(
-        #     asset_ids="BTC/USD",
-        #     prices=prices.tolist(),
-        #     return_type="log"
-        # )
-        # response = await self.stub.ComputeLogReturns(request)
+        request = meanrev_pb2.ReturnsRequest(
+            asset_ids="BTC/USD",
+            prices=prices.tolist(),
+            return_type="log"
+        )
+        response = await self.stub.ComputeLogReturns(request)
         
-        # return pd.DataFrame({
-        #     "log_returns": response.log_returns,
-        #     "mean": response.mean_return,
-        #     "std": response.std_return
-        # })
-        
-        return pd.DataFrame()
+        return pd.DataFrame({
+            "log_returns": response.log_returns,
+            "mean": response.mean_return,
+            "std": response.std_return
+        })
 
     async def pca_portfolios(
         self,
@@ -265,26 +260,24 @@ class MeanRevClient:
         """
         returns = np.asarray(returns, dtype=np.float64)
         
-        # request = meanrev_pb2.PCARequest(
-        #     returns_matrix=meanrev_pb2.Matrix(
-        #         rows=returns.shape[0],
-        #         cols=returns.shape[1],
-        #         values=returns.flatten().tolist()
-        #     ),
-        #     n_components=n_components,
-        #     scaling="zscore"
-        # )
-        # response = await self.stub.PCAPortfolios(request)
+        request = meanrev_pb2.PcaRequest(
+            returns_matrix=meanrev_pb2.Matrix(
+                rows=returns.shape[0],
+                cols=returns.shape[1],
+                values=returns.flatten().tolist()
+            ),
+            n_components=n_components,
+            scaling="zscore"
+        )
+        response = await self.stub.PcaPortfolios(request)
         
-        # return {
-        #     "components": np.array(response.components.values).reshape(
-        #         response.components.rows, response.components.cols
-        #     ),
-        #     "variance_explained": response.explained_variance_ratio,
-        #     "total_variance": response.total_variance_explained
-        # }
-        
-        return {}
+        return {
+            "components": np.array(response.components.values).reshape(
+                response.components.rows, response.components.cols
+            ),
+            "variance_explained": response.explained_variance_ratio,
+            "total_variance": response.total_variance_explained
+        }
 
     async def cara_optimal_weights(
         self,
@@ -314,26 +307,25 @@ class MeanRevClient:
         returns = np.asarray(returns, dtype=np.float64)
         
         async def opt_stream():
-            # yield meanrev_pb2.OptimizationInput(
-            #     returns=meanrev_pb2.Matrix(
-            #         rows=returns.shape[0],
-            #         cols=returns.shape[1],
-            #         values=returns.flatten().tolist()
-            #     ),
-            #     gamma=gamma,
-            #     risk_free_rate=0.0
-            # )
-            pass
+            yield meanrev_pb2.OptimizationInput(
+                returns=meanrev_pb2.Matrix(
+                    rows=returns.shape[0],
+                    cols=returns.shape[1],
+                    values=returns.flatten().tolist()
+                ),
+                gamma=gamma,
+                risk_free_rate=0.0
+            )
 
-        # async for output in self.stub.CARAOptimalWeights(opt_stream()):
-        #     return {
-        #         "weights": output.weights,
-        #         "expected_return": output.expected_return,
-        #         "expected_volatility": output.expected_volatility,
-        #         "sharpe_ratio": output.sharpe_ratio,
-        #         "utility": output.utility,
-        #         "status": output.status
-        #     }
+        async for output in self.stub.CaraOptimalWeights(opt_stream()):
+            return {
+                "weights": output.weights,
+                "expected_return": output.expected_return,
+                "expected_volatility": output.expected_volatility,
+                "sharpe_ratio": output.sharpe_ratio,
+                "utility": output.utility,
+                "status": output.status
+            }
         
         return {}
 
@@ -362,23 +354,22 @@ class MeanRevClient:
         returns = np.asarray(returns, dtype=np.float64)
         
         async def opt_stream():
-            # yield meanrev_pb2.OptimizationInput(
-            #     returns=meanrev_pb2.Matrix(
-            #         rows=returns.shape[0],
-            #         cols=returns.shape[1],
-            #         values=returns.flatten().tolist()
-            #     ),
-            #     risk_free_rate=risk_free_rate
-            # )
-            pass
+            yield meanrev_pb2.OptimizationInput(
+                returns=meanrev_pb2.Matrix(
+                    rows=returns.shape[0],
+                    cols=returns.shape[1],
+                    values=returns.flatten().tolist()
+                ),
+                risk_free_rate=risk_free_rate
+            )
 
-        # async for output in self.stub.SharpeOptimalWeights(opt_stream()):
-        #     return {
-        #         "weights": output.weights,
-        #         "sharpe_ratio": output.sharpe_ratio,
-        #         "expected_return": output.expected_return,
-        #         "expected_volatility": output.expected_volatility
-        #     }
+        async for output in self.stub.SharpeOptimalWeights(opt_stream()):
+            return {
+                "weights": output.weights,
+                "sharpe_ratio": output.sharpe_ratio,
+                "expected_return": output.expected_return,
+                "expected_volatility": output.expected_volatility
+            }
         
         return {}
 
@@ -405,26 +396,25 @@ class MeanRevClient:
                 "avg_turnover": Average portfolio turnover
             }
         """
-        # matrices = [
-        #     meanrev_pb2.Matrix(
-        #         rows=r.shape[0],
-        #         cols=r.shape[1],
-        #         values=r.flatten().tolist()
-        #     ) for r in returns_sequence
-        # ]
-        # request = meanrev_pb2.MultiperiodRequest(
-        #     returns_sequence=matrices,
-        #     gamma=gamma,
-        #     transaction_cost=transaction_cost,
-        #     rebalance_frequency=rebalance_frequency
-        # )
-        # response = await self.stub.MultiperiodOptimize(request)
-        # return {
-        #     "weights_sequence": response.weights_sequence,
-        #     "cumulative_utility": response.cumulative_utility,
-        #     "avg_turnover": response.avg_turnover
-        # }
-        return {}
+        matrices = [
+            meanrev_pb2.Matrix(
+                rows=r.shape[0],
+                cols=r.shape[1],
+                values=r.flatten().tolist()
+            ) for r in returns_sequence
+        ]
+        request = meanrev_pb2.MultiperiodRequest(
+            returns_sequence=matrices,
+            gamma=gamma,
+            transaction_cost=transaction_cost,
+            rebalance_frequency=rebalance_frequency
+        )
+        response = await self.stub.MultiperiodOptimize(request)
+        return {
+            "weights_sequence": response.weights_sequence,
+            "cumulative_utility": response.cumulative_utility,
+            "avg_turnover": response.avg_turnover
+        }
 
     async def portfolio_stats(
         self,
@@ -450,29 +440,27 @@ class MeanRevClient:
         """
         returns = np.asarray(returns, dtype=np.float64)
         
-        # request = meanrev_pb2.PortfolioStatsRequest(
-        #     returns=meanrev_pb2.Matrix(
-        #         rows=returns.shape[0],
-        #         cols=returns.shape[1],
-        #         values=returns.flatten().tolist()
-        #     ),
-        #     weights=weights or []
-        # )
-        # response = await self.stub.PortfolioStats(request)
-        # return {
-        #     "mean_return": response.mean_return,
-        #     "std_return": response.std_return,
-        #     "skewness": response.skewness,
-        #     "kurtosis": response.kurtosis,
-        #     "correlation": np.array(response.correlation.values).reshape(
-        #         response.correlation.rows, response.correlation.cols
-        #     ),
-        #     "covariance": np.array(response.covariance.values).reshape(
-        #         response.covariance.rows, response.covariance.cols
-        #     )
-        # }
-        
-        return {}
+        request = meanrev_pb2.PortfolioStatsRequest(
+            returns=meanrev_pb2.Matrix(
+                rows=returns.shape[0],
+                cols=returns.shape[1],
+                values=returns.flatten().tolist()
+            ),
+            weights=weights or []
+        )
+        response = await self.stub.PortfolioStats(request)
+        return {
+            "mean_return": response.mean_return,
+            "std_return": response.std_return,
+            "skewness": response.skewness,
+            "kurtosis": response.kurtosis,
+            "correlation": np.array(response.correlation.values).reshape(
+                response.correlation.rows, response.correlation.cols
+            ),
+            "covariance": np.array(response.covariance.values).reshape(
+                response.covariance.rows, response.covariance.cols
+            )
+        }
 
     async def generate_signals(
         self,
@@ -499,25 +487,23 @@ class MeanRevClient:
                 "reasoning": Explanation
             }
         """
-        # request = meanrev_pb2.SignalRequest(
-        #     price_history=meanrev_pb2.PriceHistory(
-        #         asset_id="BTC/USD",
-        #         prices=list(price_history)
-        #     ),
-        #     ou_params=meanrev_pb2.OUEstimate(**ou_params),
-        #     thresholds=meanrev_pb2.ThresholdResponse(**thresholds),
-        #     position_state=position_state
-        # )
-        # response = await self.stub.GenerateSignals(request)
-        # return {
-        #     "signal": response.signal,
-        #     "confidence": response.confidence,
-        #     "zscore": response.zscore,
-        #     "expected_profit": response.expected_profit,
-        #     "reasoning": response.reasoning
-        # }
-        
-        return {}
+        request = meanrev_pb2.SignalRequest(
+            price_history=meanrev_pb2.PriceHistory(
+                asset_id="BTC/USD",
+                prices=list(price_history)
+            ),
+            ou_params=meanrev_pb2.OUEstimate(**ou_params),
+            thresholds=meanrev_pb2.ThresholdResponse(**thresholds),
+            position_state=position_state
+        )
+        response = await self.stub.GenerateSignals(request)
+        return {
+            "signal": response.signal,
+            "confidence": response.confidence,
+            "zscore": response.zscore,
+            "expected_profit": response.expected_profit,
+            "reasoning": response.reasoning
+        }
 
     async def portfolio_health_stream(
         self,
@@ -536,24 +522,23 @@ class MeanRevClient:
         Yields:
             Health metrics every update_frequency_ms
         """
-        # request = meanrev_pb2.HealthRequest(
-        #     portfolio_id=portfolio_id,
-        #     asset_ids=asset_ids,
-        #     update_frequency_ms=update_frequency_ms
-        # )
-        # async for metric in self.stub.PortfolioHealthStream(request):
-        #     yield {
-        #         "portfolio_id": metric.portfolio_id,
-        #         "timestamp": metric.timestamp_ms,
-        #         "total_value": metric.total_value,
-        #         "daily_return": metric.daily_return,
-        #         "volatility_24h": metric.volatility_24h,
-        #         "max_drawdown": metric.max_drawdown,
-        #         "open_positions": metric.open_positions,
-        #         "status": metric.status,
-        #         "alerts": metric.alerts
-        #     }
-        pass
+        request = meanrev_pb2.HealthRequest(
+            portfolio_id=portfolio_id,
+            asset_ids=asset_ids,
+            update_frequency_ms=update_frequency_ms
+        )
+        async for metric in self.stub.PortfolioHealthStream(request):
+            yield {
+                "portfolio_id": metric.portfolio_id,
+                "timestamp": metric.timestamp_ms,
+                "total_value": metric.total_value,
+                "daily_return": metric.daily_return,
+                "volatility_24h": metric.volatility_24h,
+                "max_drawdown": metric.max_drawdown,
+                "open_positions": metric.open_positions,
+                "status": metric.status,
+                "alerts": metric.alerts
+            }
 
 
 # ============ SYNCHRONOUS WRAPPER (for backward compatibility) ============

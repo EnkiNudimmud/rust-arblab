@@ -42,7 +42,7 @@ except ImportError:
 
 
 # Cache configuration
-CACHE_DIR = Path.home() / ".cache" / "rust-arblab" / "yfinance"
+CACHE_DIR = Path.home() / ".cache" / "rust-hft-arbitrage-lab" / "yfinance"
 CACHE_EXPIRY_MINUTES = {
     "1m": 5,      # 1-minute data expires after 5 minutes
     "5m": 15,     # 5-minute data expires after 15 minutes

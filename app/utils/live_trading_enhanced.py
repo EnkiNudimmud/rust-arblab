@@ -46,7 +46,7 @@ except ImportError:
     RUST_AVAILABLE = False
 
 try:
-    from python.adaptive_strategies import (
+    from python.strategies.adaptive_strategies import (
         AdaptiveMeanReversion,
         AdaptiveMomentum,
         AdaptiveStatArb
@@ -565,7 +565,7 @@ def configure_multi_strategy_mode():
 def train_hmm_model(n_states: int, lookback: int):
     """Train HMM model on historical data"""
     try:
-        from python.advanced_optimization import HMMRegimeDetector
+        from python.optimization.advanced_optimization import HMMRegimeDetector
         
         # Get historical returns from buffer
         buffer = st.session_state.get('live_data_buffer', [])
@@ -591,7 +591,7 @@ def train_hmm_model(n_states: int, lookback: int):
 def run_parameter_optimization(method: str, param_ranges: Dict, **method_params):
     """Run parameter optimization with method-specific parameters"""
     try:
-        from python.advanced_optimization import (
+        from python.optimization.advanced_optimization import (
             MCMCOptimizer, MLEOptimizer, InformationTheoryOptimizer, 
             ParameterSpace, OptimizationResult
         )
@@ -803,7 +803,7 @@ def run_parameter_optimization(method: str, param_ranges: Dict, **method_params)
 def optimize_multi_strategy_allocation():
     """Optimize allocation across multiple strategies and assets"""
     try:
-        from python.advanced_optimization import MultiStrategyOptimizer
+        from python.optimization.advanced_optimization import MultiStrategyOptimizer
         
         config = st.session_state.get('multi_strategy_config')
         if not config:

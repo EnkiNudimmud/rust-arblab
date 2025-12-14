@@ -3,10 +3,14 @@
 
 import numpy as np
 import sys
+import os
+
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 try:
-    import rust_connector
-    print("✅ rust_connector imported successfully")
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
+    print("✅ rust_connector bridge imported successfully")
     
     # Test 1: PCA
     print("\n=== Testing PCA ===")

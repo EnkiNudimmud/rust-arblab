@@ -170,7 +170,7 @@ def clean_price_data(df: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data(ttl=3600)
 def cached_data_fetch(symbols: List[str], start: str, end: str, interval: str, source: str) -> pd.DataFrame:
     """Cached wrapper for data fetching"""
-    from python.data_fetcher import fetch_intraday_data
+    from python.data.data_fetcher import fetch_intraday_data
     return fetch_intraday_data(symbols, start, end, interval, source)
 
 # Formatting helpers

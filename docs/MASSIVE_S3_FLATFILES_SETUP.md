@@ -305,4 +305,4 @@ print(f"Saved to: {filepath}")
 - **Massive.com Docs**: https://docs.massive.com
 - **S3 API Docs**: https://docs.massive.com/flat-files
 - **Support**: support@massive.com
-- **Issue Tracker**: File issues in rust-arblab repo
+- **Issue Tracker**: File issues in rust-hft-arbitrage-lab repo

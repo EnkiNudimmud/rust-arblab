@@ -6,7 +6,7 @@ Verify that OptimizR is properly integrated and provides significant speedups.
 """
 
 import sys
-sys.path.append('/Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab')
+sys.path.append('/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab')
 
 import numpy as np
 import time
@@ -201,7 +201,7 @@ if RUST_AVAILABLE:
     print("  - Information Theory: 60-90x faster")
     print("  - Differential Evol:  40-70x faster")
     print("  - Grid Search:        50-100x faster")
-    print("\n🎯 All optimizations in rust-arblab now use Rust acceleration!")
+    print("\n🎯 All optimizations in rust-hft-arbitrage-lab now use Rust acceleration!")
 else:
     print("⚠️ OptimizR is not available - using Python fallbacks")
     print("   Install OptimizR for 50-100x speedup:")

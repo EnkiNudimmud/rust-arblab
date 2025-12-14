@@ -11,5 +11,5 @@ members = [
   "rust_core/signature_optimal_stopping",
   "rust_core/signature_optimal_stopping_py",
   "rust_python_bindings",
-  "rust_grpc_service"
+  "hft-grpc-server"
 ]

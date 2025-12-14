@@ -14,7 +14,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
 
 # Page configuration
 st.set_page_config(
@@ -22,10 +22,6 @@ st.set_page_config(
     page_icon="📈",
     layout="wide"
 )
-
-# Apply custom styling and navigation
-apply_custom_css()
-render_sidebar_navigation(current_page="Momentum Trading Lab")
 
 # Initialize session state
 if 'historical_data' not in st.session_state:
@@ -35,12 +31,19 @@ if 'theme_mode' not in st.session_state:
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = {'positions': {}, 'cash': 100000.0}
 
+# Auto-load most recent dataset if no data is loaded
+data_available = ensure_data_loaded()
+
+# Apply custom styling and navigation
+apply_custom_css()
+render_sidebar_navigation(current_page="Momentum Trading Lab")
+
 # Header
 st.markdown('<h1 class="lab-header">📈 Momentum Trading Lab</h1>', unsafe_allow_html=True)
 st.markdown("**Multi-timeframe trend following with adaptive position sizing**")
 
 # Check if data is loaded
-if st.session_state.historical_data is None:
+if not data_available or st.session_state.historical_data is None:
     st.warning("⚠️ No historical data loaded. Please load data first.")
     if st.button("💾 Go to Data Loader"):
         st.switch_page("pages/data_loader.py")

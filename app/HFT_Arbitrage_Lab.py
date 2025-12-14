@@ -5,9 +5,6 @@ A comprehensive platform for arbitrage strategy development and testing
 
 import streamlit as st
 import sys
-import os
-import subprocess
-import time
 from pathlib import Path
 
 # Add project root to path
@@ -15,62 +12,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import shared UI components
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
 from utils.data_persistence import load_all_datasets, list_datasets, get_storage_stats
-
-# ===== gRPC Server Initialization =====
-@st.cache_resource
-def init_grpc_server():
-    """
-    Initialize gRPC server in background process
-    Runs once per Streamlit session
-    """
-    try:
-        # Check if server is already running
-        try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('localhost', 50051))
-            sock.close()
-            if result == 0:
-                st.sidebar.success("✅ gRPC Server: Running on localhost:50051")
-                return True
-        except:
-            pass
-        
-        # Start gRPC server in background
-        server_process = subprocess.Popen(
-            ["cargo", "run", "-p", "rust_grpc_service", "--release"],
-            cwd=str(project_root),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True
-        )
-        
-        # Wait for server to start
-        time.sleep(2)
-        
-        # Verify server is running
-        try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('localhost', 50051))
-            sock.close()
-            if result == 0:
-                st.sidebar.success("✅ gRPC Server: Started on localhost:50051")
-                return True
-        except:
-            pass
-        
-        st.sidebar.warning("⚠️ gRPC Server: Failed to start, running in local mode")
-        return False
-        
-    except Exception as e:
-        st.sidebar.error(f"❌ gRPC Server Error: {str(e)}")
-        return False
-
-# Initialize gRPC server on app start
-_ = init_grpc_server()
 
 # Page configuration
 st.set_page_config(
@@ -123,6 +66,9 @@ if 'datasets_loaded' not in st.session_state:
         # Silently fail if data directory doesn't exist yet
         st.session_state.datasets_loaded = True
 
+# Auto-load most recent dataset if no data is loaded
+ensure_data_loaded()
+
 # Render sidebar navigation and apply custom CSS
 render_sidebar_navigation(current_page="Home")
 apply_custom_css()
@@ -139,7 +85,7 @@ with col_gh:
     <div style='padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center;'>
         <h3 style='color: white; margin: 0;'>📦 Open Source</h3>
         <p style='color: white; margin: 0.5rem 0;'>
-            <a href='https://github.com/ThotDjehuty/rust-arblab' target='_blank' style='color: white; text-decoration: none; font-weight: bold;'>
+            <a href='https://github.com/ThotDjehuty/rust-hft-arbitrage-lab' target='_blank' style='color: white; text-decoration: none; font-weight: bold;'>
                 ⭐ GitHub Repository
             </a>
         </p>
@@ -168,12 +114,12 @@ st.markdown("## 🖥️ System Status")
 col1, col2, col3, col4 = st.columns(4)
 
 try:
-    import rust_connector
-    rust_status = "🟢 ENABLED (10-100x faster)"
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
+    rust_status = "🟢 ENABLED (gRPC backend)"
     rust_class = "status-online"
     rust_available = True
 except:
-    rust_status = "🔴 DISABLED (build required)"
+    rust_status = "🟡 FALLBACK (numpy/pandas)"
     rust_class = "status-offline"
     rust_available = False
 
@@ -761,6 +707,15 @@ with col4:
 
 st.markdown("---")
 
+# Backend comparison section (if triggered)
+try:
+    from utils.backend_selector import render_backend_comparison
+    render_backend_comparison()
+except:
+    pass
+
+st.markdown("---")
+
 # Documentation
 st.markdown("## 📚 Documentation")
 
@@ -796,7 +751,7 @@ with st.expander("📖 Learn More About HFT Arbitrage Lab"):
     
     ### 🔗 Resources
     
-    - [GitHub Repository](https://github.com/ThotDjehuty/rust-arblab)
+    - [GitHub Repository](https://github.com/ThotDjehuty/rust-hft-arbitrage-lab)
     - [Documentation](docs/README.md)
     - [Quick Start Guide](docs/QUICKSTART_APP.md)
     """)

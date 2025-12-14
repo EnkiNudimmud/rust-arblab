@@ -242,7 +242,7 @@ signals = generate_sparse_meanrev_signals(
 
 ## 📁 File Structure
 ```
-rust-arblab/
+rust-hft-arbitrage-lab/
 ├── rust_connector/
 │   └── src/
 │       └── sparse_meanrev.rs        # 600+ lines Rust implementation

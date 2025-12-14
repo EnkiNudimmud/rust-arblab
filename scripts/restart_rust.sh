@@ -41,29 +41,41 @@ if [ -d "rust_connector/target" ]; then
     rm -rf rust_connector/target/wheels
 fi
 
-# Build Rust connector
-echo -e "${YELLOW}🔨 Building Rust connector (release mode)...${NC}"
-echo "This may take 5-10 minutes on first build..."
-
-cd rust_connector
-if maturin develop --release; then
-    echo -e "${GREEN}✓ Rust connector built successfully${NC}"
+# Build preferred gRPC server and optimizr (if Make available)
+echo -e "${YELLOW}🔨 Building Rust components (prefer gRPC server / optimizr)...${NC}"
+if command -v make &> /dev/null; then
+    $(MAKE) build || true
 else
-    echo -e "${RED}✗ Rust build failed${NC}"
-    exit 1
+    echo -e "${YELLOW}make not available — falling back to maturin for rust_connector if present${NC}"
+    if [ -d "rust_connector" ]; then
+        cd rust_connector
+        maturin develop --release || true
+        cd ..
+    fi
 fi
 
-cd ..
-
-# Verify installation
-echo -e "${YELLOW}🔍 Verifying Rust connector...${NC}"
-if python -c "import rust_connector; print('✓ rust_connector loaded successfully')" 2>/dev/null; then
-    echo -e "${GREEN}✓ Rust connector verified${NC}"
+# Verify gRPC connectivity first
+echo -e "${YELLOW}🔍 Verifying gRPC server connectivity...${NC}"
+if python - <<'PY' 2>/dev/null; then
+import sys
+try:
+    from python.grpc_client import TradingGrpcClient
+    c = TradingGrpcClient()
+    c.connect()
+    c.close()
+    print('OK')
+except Exception:
+    sys.exit(1)
+PY
+then
+    echo -e "${GREEN}✓ gRPC server reachable — using gRPC backend${NC}"
 else
-    echo -e "${RED}✗ Rust connector import failed${NC}"
-    echo -e "${YELLOW}Detailed error:${NC}"
-    python -c "import rust_connector" 2>&1 | head -10
-    exit 1
+    echo -e "${YELLOW}⚠ gRPC server not reachable — checking for native rust_connector${NC}"
+    if python -c "import rust_connector" &> /dev/null; then
+        echo -e "${GREEN}✓ Native rust_connector available${NC}"
+    else
+        echo -e "${RED}✗ No Rust backend available (gRPC or native)${NC}"
+    fi
 fi
 
 # Check if Streamlit is running and offer to restart it

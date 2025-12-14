@@ -34,7 +34,7 @@ from python.lob_recorder import (
     analytics_to_dict, snapshot_to_dict
 )
 from python.virtual_portfolio import VirtualPortfolio, list_portfolios
-from python.advanced_optimization import (
+from python.optimization.advanced_optimization import (
     HMMRegimeDetector, MCMCOptimizer, MLEOptimizer, 
     InformationTheoryOptimizer, MultiStrategyOptimizer,
     ParameterSpace, OptimizationResult
@@ -2295,7 +2295,7 @@ def display_live_backtest():
     st.markdown("### 🧪 Backtest on Recorded Data")
     
     # Load recorded datasets
-    from python.data_persistence import list_datasets
+    from python.utils.data_persistence import list_datasets
     
     recorded_datasets = [d for d in list_datasets() if 'massive_live_' in d or 'live_recorded' in d]
     
@@ -2312,7 +2312,7 @@ def display_live_backtest():
     
     # Load dataset
     try:
-        from python.data_persistence import load_dataset
+        from python.utils.data_persistence import load_dataset
         df_backtest = load_dataset(selected_dataset)
         
         st.success(f"✅ Loaded {len(df_backtest):,} bars")

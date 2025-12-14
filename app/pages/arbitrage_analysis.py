@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from python import meanrev
+from python.strategies import meanrev
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
 
 

@@ -265,12 +265,14 @@ def optimal_thresholds(theta: float, mu: float, sigma: float,
     Returns:
         Dictionary with keys: optimal_entry, optimal_exit, expected_holding_period
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            result = rust_connector.optimal_thresholds_rust(theta, mu, sigma, transaction_cost)
-            return result
+            client = get_grpc_client()
+            if client:
+                result = _async_call(client.optimal_thresholds(theta, mu, sigma, transaction_cost))
+                return result
         except Exception as e:
-            logger.warning(f"Rust threshold optimization failed, falling back to Python: {e}")
+            logger.warning(f"gRPC threshold optimization failed, falling back to Python: {e}")
     
     # Python fallback
     if theta <= 0 or sigma <= 0:
@@ -304,13 +306,15 @@ def backtest_with_costs(prices: np.ndarray, entry_z: float = 2.0, exit_z: float 
     Returns:
         Dictionary with keys: returns, positions, pnl, sharpe, max_drawdown, total_costs
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            prices_list = prices.tolist() if isinstance(prices, (np.ndarray, pd.Series)) else list(prices)
-            result = rust_connector.backtest_with_costs_rust(prices_list, entry_z, exit_z, transaction_cost)
-            return result
+            client = get_grpc_client()
+            if client:
+                prices_list = prices.tolist() if isinstance(prices, (np.ndarray, pd.Series)) else list(prices)
+                result = _async_call(client.backtest_with_costs(prices_list, entry_z, exit_z, transaction_cost))
+                return result
         except Exception as e:
-            logger.warning(f"Rust backtesting failed, falling back to Python: {e}")
+            logger.warning(f"gRPC backtesting failed, falling back to Python: {e}")
     
     # Python fallback
     prices_arr = np.array(prices)
@@ -402,14 +406,16 @@ def multiperiod_optimize(returns_history: pd.DataFrame, covariance: np.ndarray,
     Returns:
         Dictionary with keys: weights_sequence, rebalance_times, expected_utility
     """
-    if RUST_AVAILABLE:
+    if GRPC_AVAILABLE:
         try:
-            returns_list = returns_history.values.tolist()
-            cov_list = covariance.tolist() if isinstance(covariance, np.ndarray) else [list(row) for row in covariance]
-            result = rust_connector.multiperiod_optimize_rust(returns_list, cov_list, gamma, transaction_cost, n_periods)
-            return result
+            client = get_grpc_client()
+            if client:
+                returns_list = returns_history.values.tolist()
+                cov_list = covariance.tolist() if isinstance(covariance, np.ndarray) else [list(row) for row in covariance]
+                result = _async_call(client.multiperiod_optimize(returns_list, cov_list, gamma, transaction_cost, n_periods))
+                return result
         except Exception as e:
-            logger.warning(f"Rust multiperiod optimization failed, falling back to Python: {e}")
+            logger.warning(f"gRPC multiperiod optimization failed, falling back to Python: {e}")
     
     # Python fallback
     if isinstance(returns_history, pd.DataFrame):

@@ -8,7 +8,7 @@
 //! for testing and integration. For production, replace signature computation with a specialized
 //! optimized library.
 
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Axis};
 use ndarray_linalg::solve::Inverse;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -126,7 +126,6 @@ pub fn compute_truncated_signature(traj: &Trajectory, trunc: usize) -> Result<Ve
 
 /// Fit a ridge regression: solves (X^T X + lambda I) w = X^T y.
 /// X: (n_samples x n_features), y: (n_samples)
-#[allow(non_snake_case)]
 pub fn fit_ridge(X: &Array2<f64>, y: &Array1<f64>, lambda: f64) -> Result<Array1<f64>, SigError> {
     let (n, p) = (X.nrows(), X.ncols());
     if y.len() != n {

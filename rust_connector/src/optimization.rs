@@ -44,7 +44,7 @@ impl HMMParams {
     }
     
     fn to_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("n_states", self.n_states)?;
         dict.set_item("transition_matrix", self.transition_matrix.clone())?;
         dict.set_item("emission_means", self.emission_means.clone())?;

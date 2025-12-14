@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn test_portfolio_metrics() {
         let returns = vec![0.01, -0.02, 0.03, 0.01, -0.01];
-        let (total, _sharpe, _dd, vol) = portfolio_metrics(&returns);
+        let (total, _sharpe, dd, vol) = portfolio_metrics(&returns);
         assert!(total != 0.0);
         assert!(vol > 0.0);
     }

@@ -157,9 +157,14 @@ def load_dataset(name: str) -> Tuple[pd.DataFrame, Dict]:
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
     
-    # Restore MultiIndex if we have timestamp and symbol
+    # Convert to column-based MultiIndex format (symbol, ohlcv) if we have timestamp and symbol
     if "timestamp" in df.columns and "symbol" in df.columns:
-        df = df.set_index(["timestamp", "symbol"]).sort_index()
+        df_indexed = df.set_index(["timestamp", "symbol"]).sort_index()
+        # Unstack to get symbols as columns
+        df = df_indexed.unstack(level='symbol')
+        # Swap levels to (symbol, ohlcv)
+        df.columns = df.columns.swaplevel(0, 1)
+        df = df.sort_index(axis=1)
     
     # Load metadata
     meta_path = dataset_dir / "metadata.json"
@@ -243,6 +248,7 @@ def merge_dataframes(
 ) -> pd.DataFrame:
     """
     Merge two DataFrames with different strategies.
+    Preserves column-based MultiIndex format (symbol, ohlcv) if present.
     
     Args:
         existing: Existing DataFrame
@@ -251,41 +257,66 @@ def merge_dataframes(
               'replace' (discard existing)
     
     Returns:
-        Merged DataFrame
+        Merged DataFrame in column-based MultiIndex format
     """
     if mode == "replace":
         return new
     
-    # Ensure both have consistent format
-    if isinstance(existing.index, pd.MultiIndex):
-        existing = existing.reset_index()
-    if isinstance(new.index, pd.MultiIndex):
-        new = new.reset_index()
+    # Check if data is in column-based MultiIndex format
+    existing_is_columnar = isinstance(existing.columns, pd.MultiIndex)
+    new_is_columnar = isinstance(new.columns, pd.MultiIndex)
+    
+    # Convert both to flat format for merging
+    if existing_is_columnar:
+        # Stack to convert from column MultiIndex to row format
+        existing_flat = existing.stack(level=0, future_stack=True).reset_index()
+        existing_flat.columns.name = None
+    elif isinstance(existing.index, pd.MultiIndex):
+        existing_flat = existing.reset_index()
+    else:
+        existing_flat = existing.copy()
+    
+    if new_is_columnar:
+        new_flat = new.stack(level=0, future_stack=True).reset_index()
+        new_flat.columns.name = None
+    elif isinstance(new.index, pd.MultiIndex):
+        new_flat = new.reset_index()
+    else:
+        new_flat = new.copy()
+    
+    # Ensure both have required columns
+    if "timestamp" not in existing_flat.columns or "symbol" not in existing_flat.columns:
+        raise ValueError("existing DataFrame must have 'timestamp' and 'symbol' columns or proper MultiIndex")
+    if "timestamp" not in new_flat.columns or "symbol" not in new_flat.columns:
+        raise ValueError("new DataFrame must have 'timestamp' and 'symbol' columns or proper MultiIndex")
     
     if mode == "append":
         # Concatenate and remove duplicates (keep existing)
-        combined = pd.concat([existing, new], ignore_index=True)
+        combined = pd.concat([existing_flat, new_flat], ignore_index=True)
         combined = combined.drop_duplicates(
             subset=["timestamp", "symbol"],
             keep="first"  # Keep existing data
         )
     elif mode == "update":
         # Concatenate and remove duplicates (prefer new)
-        combined = pd.concat([new, existing], ignore_index=True)
+        combined = pd.concat([new_flat, existing_flat], ignore_index=True)
         combined = combined.drop_duplicates(
             subset=["timestamp", "symbol"],
             keep="first"  # Keep new data
         )
     else:
-        combined = pd.concat([existing, new], ignore_index=True)
+        combined = pd.concat([existing_flat, new_flat], ignore_index=True)
     
     # Sort by timestamp and symbol
     combined = combined.sort_values(["timestamp", "symbol"])
     
-    # Restore MultiIndex
-    combined = combined.set_index(["timestamp", "symbol"]).sort_index()
+    # Convert to column-based MultiIndex format (symbol, ohlcv)
+    combined_indexed = combined.set_index(['timestamp', 'symbol'])
+    combined_unstacked = combined_indexed.unstack(level='symbol')
+    combined_unstacked.columns = combined_unstacked.columns.swaplevel(0, 1)
+    combined_unstacked = combined_unstacked.sort_index(axis=1)
     
-    return combined
+    return combined_unstacked
 
 
 def stack_data(

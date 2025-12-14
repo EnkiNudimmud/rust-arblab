@@ -11,6 +11,7 @@ from plotly.subplots import make_subplots
 from scipy.optimize import minimize
 from scipy.stats import norm
 import sys
+import time
 from pathlib import Path
 
 project_root = Path(__file__).parent.parent.parent
@@ -19,6 +20,24 @@ sys.path.insert(0, str(project_root))
 # Import shared UI components
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
+
+def estimate_remaining_time(start_time, completed, total):
+    """Estimate remaining time for a task"""
+    if completed == 0:
+        return "Calculating..."
+    elapsed = time.time() - start_time
+    rate = elapsed / completed
+    remaining = rate * (total - completed)
+    if remaining < 60:
+        return f"{int(remaining)}s"
+    elif remaining < 3600:
+        minutes = int(remaining // 60)
+        seconds = int(remaining % 60)
+        return f"{minutes}m {seconds}s"
+    else:
+        hours = int(remaining // 3600)
+        minutes = int((remaining % 3600) // 60)
+        return f"{hours}h {minutes}m"
 
 # Try to import drift uncertainty module
 try:
@@ -44,12 +63,40 @@ else:
 
 st.markdown("---")
 
+# Ensure data is loaded (will auto-load most recent dataset if needed)
+from utils.ui_components import ensure_data_loaded
+data_available = ensure_data_loaded()
+
+# Check data availability
+if not data_available or st.session_state.historical_data is None or st.session_state.historical_data.empty:
+    st.markdown("""
+    <div class="info-card">
+        <h3>📊 No Data Loaded</h3>
+        <p>Please load historical data first to use the Portfolio Optimizer Lab.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚀 Go to Data Loader", type="primary", use_container_width=True):
+        st.switch_page("pages/data_loader.py")
+    st.stop()
+
+# Try to import regime portfolio module
+try:
+    import hft_py.regime_portfolio as regime_portfolio
+    REGIME_PORTFOLIO_AVAILABLE = True
+except ImportError:
+    REGIME_PORTFOLIO_AVAILABLE = False
+
 # Mode selector at top
+modes = ["Multi-Factor Analysis", "Drift Uncertainty (Robust)"]
+if REGIME_PORTFOLIO_AVAILABLE:
+    modes.append("Regime Switching Jump Diffusion")
+
 optimization_mode = st.radio(
     "Select Optimization Mode:",
-    ["Multi-Factor Analysis", "Drift Uncertainty (Robust)"],
+    modes,
     horizontal=True,
-    help="Multi-Factor: Traditional portfolio optimization. Drift Uncertainty: Robust optimization accounting for uncertain expected returns."
+    help="Multi-Factor: Traditional portfolio optimization. Drift Uncertainty: Robust optimization accounting for uncertain expected returns. MRSJD: Advanced regime-switching jump-diffusion model."
 )
 
 st.markdown("---")
@@ -435,7 +482,9 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                         delta_levels = [0.0, 0.01, 0.02, 0.03, 0.05, 0.10]
                                         sensitivity_data = []
                                         
+                                        start_time = time.time()
                                         progress_bar = st.progress(0)
+                                        time_text = st.empty()
                                         for i, delta in enumerate(delta_levels):
                                             r = pdrift.portfolio_choice_drift_uncertainty(
                                                 mu=mu, cov=cov,
@@ -448,8 +497,11 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                                 'Worst-Case Return (%)': r['worst_case_return'] * 100,
                                                 'Utility': r['utility']
                                             })
-                                            progress_bar.progress((i + 1) / len(delta_levels))
+                                            progress_pct = (i + 1) / len(delta_levels)
+                                            progress_bar.progress(progress_pct)
+                                            time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, (i + 1), len(delta_levels))}")
                                         progress_bar.empty()
+                                        time_text.empty()
                                         
                                         sens_df = pd.DataFrame(sensitivity_data)
                                         
@@ -915,7 +967,9 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                             conf_levels = [0.90, 0.95, 0.975, 0.99, 0.995]
                                             risk_comparison = []
                                             
+                                            start_time = time.time()
                                             progress = st.progress(0)
+                                            time_text = st.empty()
                                             for i, alpha in enumerate(conf_levels):
                                                 var_val = pdrift.var_drift_uncertainty(
                                                     mu=mu, cov=cov, weights=risk_weights,
@@ -935,8 +989,11 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                                     'CVaR (%)': cvar_val * 100,
                                                     'CVaR - VaR (%)': (cvar_val - var_val) * 100
                                                 })
-                                                progress.progress((i + 1) / len(conf_levels))
+                                                progress_pct = (i + 1) / len(conf_levels)
+                                                progress.progress(progress_pct)
+                                                time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, (i + 1), len(conf_levels))}")
                                             progress.empty()
+                                            time_text.empty()
                                             
                                             risk_df = pd.DataFrame(risk_comparison)
                                             
@@ -998,6 +1055,206 @@ if optimization_mode == "Drift Uncertainty (Robust)":
                                     import traceback
                                     with st.expander("Error Details"):
                                         st.code(traceback.format_exc())
+
+elif optimization_mode == "Regime Switching Jump Diffusion":
+    # MRSJD Mode
+    if not REGIME_PORTFOLIO_AVAILABLE:
+        st.error("⚠️ **Regime Portfolio Module Not Available**")
+        st.markdown("""
+        The Markov Regime Switching Jump Diffusion module requires Rust bindings to be built.
+        
+        **To enable this feature:**
+        1. Ensure `optimiz-r` library is built: `cd optimiz-r && cargo build --release --no-default-features`
+        2. Build bindings: `cd rust-arblab/rust_python_bindings && maturin develop --release`
+        3. Restart Streamlit
+        
+        **For now**, you can explore the implementation in the Jupyter notebook:
+        `examples/notebooks/regime_switching_jump_diffusion.ipynb`
+        """)
+    else:
+        st.markdown("""
+        ### 📊 Markov Regime Switching Jump Diffusion Portfolio Optimization
+        
+        Advanced portfolio optimization combining:
+        - **Regime Switching**: Dynamic adaptation to market states (Bull/Normal/Bear)
+        - **Jump Processes**: Capture tail risk and rare events (crashes, rallies)
+        - **Optimal Control**: Hamilton-Jacobi-Bellman equation solver
+        
+        **Use Case**: Institutional investors needing robust strategies that adapt to changing market conditions.
+        """)
+        
+        mrsjd_tabs = st.tabs([
+            "🎯 Optimal Policy",
+            "📈 Simulation & Backtest",
+            "⚙️ Calibration"
+        ])
+        
+        with mrsjd_tabs[0]:
+            st.markdown("#### Compute Optimal Portfolio Allocation")
+            
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                st.markdown("**Model Parameters:**")
+                risk_free_rate = st.number_input("Risk-Free Rate (%)", 0.0, 10.0, 2.0, 0.5) / 100
+                risk_aversion = st.slider("Risk Aversion (γ)", 1.0, 10.0, 2.0, 0.5,
+                                         help="Higher values = more conservative")
+                time_horizon = st.number_input("Time Horizon (years)", 0.25, 5.0, 1.0, 0.25)
+            
+            with col2:
+                st.markdown("**Numerical Settings:**")
+                n_wealth_points = st.selectbox("Grid Points", [50, 100, 200], index=1,
+                                              help="More points = higher accuracy but slower")
+                max_iterations = st.number_input("Max Iterations", 100, 2000, 500, 100)
+                tolerance = st.selectbox("Convergence Tolerance", [1e-4, 1e-5, 1e-6], index=1)
+            
+            st.markdown("---")
+            st.markdown("**Regime Parameters:**")
+            
+            regime_cols = st.columns(3)
+            
+            with regime_cols[0]:
+                st.markdown("**🟢 Bull Regime**")
+                bull_drift = st.number_input("Drift (μ)", 0.0, 0.5, 0.15, 0.01, key="bull_drift")
+                bull_vol = st.number_input("Volatility (σ)", 0.05, 0.5, 0.15, 0.01, key="bull_vol")
+                bull_lambda = st.number_input("Jump Intensity (λ)", 0.0, 5.0, 0.5, 0.1, key="bull_lambda")
+            
+            with regime_cols[1]:
+                st.markdown("**🔵 Normal Regime**")
+                normal_drift = st.number_input("Drift (μ)", 0.0, 0.5, 0.08, 0.01, key="normal_drift")
+                normal_vol = st.number_input("Volatility (σ)", 0.05, 0.5, 0.20, 0.01, key="normal_vol")
+                normal_lambda = st.number_input("Jump Intensity (λ)", 0.0, 5.0, 1.0, 0.1, key="normal_lambda")
+            
+            with regime_cols[2]:
+                st.markdown("**🔴 Bear Regime**")
+                bear_drift = st.number_input("Drift (μ)", -0.3, 0.2, -0.05, 0.01, key="bear_drift")
+                bear_vol = st.number_input("Volatility (σ)", 0.05, 0.8, 0.30, 0.01, key="bear_vol")
+                bear_lambda = st.number_input("Jump Intensity (λ)", 0.0, 10.0, 2.0, 0.1, key="bear_lambda")
+            
+            st.markdown("---")
+            st.markdown("**Transition Rates (Q Matrix):**")
+            st.caption("Probability of switching regimes per unit time")
+            
+            q_cols = st.columns(3)
+            with q_cols[0]:
+                q01 = st.number_input("Bull → Normal", 0.0, 5.0, 0.5, 0.1)
+                q02 = st.number_input("Bull → Bear", 0.0, 5.0, 0.1, 0.05)
+            with q_cols[1]:
+                q10 = st.number_input("Normal → Bull", 0.0, 5.0, 0.3, 0.1)
+                q12 = st.number_input("Normal → Bear", 0.0, 5.0, 0.3, 0.1)
+            with q_cols[2]:
+                q20 = st.number_input("Bear → Bull", 0.0, 5.0, 0.1, 0.05)
+                q21 = st.number_input("Bear → Normal", 0.0, 5.0, 0.5, 0.1)
+            
+            if st.button("🚀 Solve HJB Equation", type="primary", use_container_width=True):
+                with st.spinner("Solving Hamilton-Jacobi-Bellman equations..."):
+                    try:
+                        # Create configuration
+                        # Build transition rate matrix
+                        Q = np.array([
+                            [-(q01+q02), q01, q02],
+                            [q10, -(q10+q12), q12],
+                            [q20, q21, -(q20+q21)]
+                        ])
+                        
+                        # Note: This is a placeholder - actual API may differ
+                        # Need to check the exact Python API from regime_portfolio_bindings.rs
+                        st.info("HJB solver integration in progress. See notebook for working example.")
+                        
+                        st.code(f"""
+# Example usage (from notebook):
+import hft_py.regime_portfolio as rp
+
+config = rp.calibrate_model_from_data(returns, regimes)
+optimizer = rp.PyRegimeSwitchingPortfolio(config)
+result = optimizer.optimize()
+
+# Access results:
+wealth_grid = result.wealth_grid
+value_functions = result.value_functions  # Per regime
+optimal_policies = result.optimal_policies  # Per regime
+""", language="python")
+                        
+                    except Exception as e:
+                        st.error(f"Optimization failed: {e}")
+                        import traceback
+                        with st.expander("Error Details"):
+                            st.code(traceback.format_exc())
+        
+        with mrsjd_tabs[1]:
+            st.markdown("#### Monte Carlo Simulation & Backtest")
+            st.info("🚧 Simulation interface coming soon. See notebook for examples.")
+            
+            st.markdown("""
+            The simulation module allows you to:
+            - Generate wealth trajectories under optimal policy
+            - Backtest on historical data with regime detection
+            - Compare against buy-and-hold and constant-mix strategies
+            - Analyze risk metrics (Sharpe, drawdown, VaR/CVaR)
+            
+            **Current Status**: Available in Jupyter notebook `regime_switching_jump_diffusion.ipynb`
+            """)
+        
+        with mrsjd_tabs[2]:
+            st.markdown("#### Calibrate from Market Data")
+            
+            if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
+                st.warning("⚠️ Please load data first from the Data Loader page")
+            else:
+                data = st.session_state.historical_data
+                
+                # Get available symbols
+                if isinstance(data, dict):
+                    symbols = list(data.keys())
+                    if len(symbols) > 0:
+                        selected_symbol = st.selectbox("Select Symbol for Calibration", symbols)
+                        
+                        if selected_symbol:
+                            symbol_data = data[selected_symbol]
+                            if 'close' in symbol_data.columns:
+                                # Calculate returns
+                                returns = symbol_data['close'].pct_change().dropna()
+                                
+                                st.markdown(f"**Data Summary for {selected_symbol}:**")
+                                metric_cols = st.columns(4)
+                                with metric_cols[0]:
+                                    st.metric("Observations", len(returns))
+                                with metric_cols[1]:
+                                    st.metric("Mean Return", f"{returns.mean():.4f}")
+                                with metric_cols[2]:
+                                    st.metric("Volatility", f"{returns.std():.4f}")
+                                with metric_cols[3]:
+                                    st.metric("Skewness", f"{returns.skew():.3f}")
+                                
+                                if st.button("📊 Auto-Calibrate Model", type="primary"):
+                                    with st.spinner("Calibrating model parameters..."):
+                                        try:
+                                            returns_list = returns.tolist()
+                                            
+                                            # Calibrate without regimes first
+                                            config = regime_portfolio.calibrate_model_from_data(returns_list, None)
+                                            
+                                            st.success("✅ Calibration complete!")
+                                            
+                                            st.markdown("**Calibrated Parameters:**")
+                                            st.json({
+                                                "risk_free_rate": config.risk_free_rate,
+                                                "risk_aversion": config.risk_aversion,
+                                                "time_horizon": config.time_horizon,
+                                                "regime_drifts": config.regime_drifts,
+                                                "regime_vols": config.regime_vols,
+                                                "jump_intensities": config.jump_intensities
+                                            })
+                                            
+                                            st.info("💡 Use these calibrated values in the Optimal Policy tab")
+                                            
+                                        except Exception as e:
+                                            st.error(f"Calibration failed: {e}")
+                                            import traceback
+                                            with st.expander("Error Details"):
+                                                st.code(traceback.format_exc())
+                else:
+                    st.info("Data format not supported for calibration. Please load symbol data from Data Loader.")
 
 else:
     # Original Multi-Factor Analysis Mode

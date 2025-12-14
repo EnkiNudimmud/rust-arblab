@@ -4,6 +4,7 @@ Common navigation and styling for all pages
 """
 
 import streamlit as st
+from utils.data_persistence import list_datasets, load_dataset
 
 
 def toggle_theme():
@@ -13,6 +14,44 @@ def toggle_theme():
     
     # Toggle
     st.session_state.theme_mode = 'light' if st.session_state.theme_mode == 'dark' else 'dark'
+
+
+def ensure_data_loaded():
+    """
+    Ensure historical data is loaded. If not, automatically load the most recent saved dataset.
+    This function should be called at the start of any page that requires data.
+    
+    Returns:
+        bool: True if data is available, False otherwise
+    """
+    # Initialize session state if needed
+    if 'historical_data' not in st.session_state:
+        st.session_state.historical_data = None
+    if 'symbols' not in st.session_state:
+        st.session_state.symbols = []
+    
+    # If data already loaded, return True
+    if st.session_state.historical_data is not None and not st.session_state.historical_data.empty:
+        return True
+    
+    # Try to auto-load most recent dataset
+    try:
+        datasets = list_datasets()
+        if datasets:
+            # Load the most recent dataset (already sorted by last_updated)
+            most_recent = datasets[0]
+            result = load_dataset(most_recent['name'])
+            if result is not None:
+                df, meta = result
+                st.session_state.historical_data = df
+                st.session_state.symbols = meta.get('symbols', most_recent['symbols'])
+                st.toast(f"✅ Auto-loaded: {most_recent['name']}", icon="📂")
+                return True
+    except Exception as e:
+        # Silently fail - user will see "no data" message
+        pass
+    
+    return False
 
 
 def get_theme_colors():
@@ -79,6 +118,13 @@ def render_sidebar_navigation(current_page="Home"):
                 toggle_theme()
                 st.rerun()
         
+        # Backend selector
+        try:
+            from utils.backend_selector import render_backend_selector
+            render_backend_selector()
+        except Exception as e:
+            pass  # Gracefully handle if backend selector is not available
+        
         st.markdown("---")
         
         # Home
@@ -110,7 +156,7 @@ def render_sidebar_navigation(current_page="Home"):
             "Mean Reversion Lab", "Rough Heston Lab", "Chiarella Model Lab", 
             "Signature Methods Lab", "Portfolio Analytics Lab", "PCA Arbitrage Lab",
             "Momentum Trading Lab", "Market Making Lab", "Advanced Optimization Lab",
-            "Adaptive Strategies Lab", "Sparse Mean-Reversion Lab"
+            "Adaptive Strategies Lab", "Sparse Mean-Reversion Lab", "Superspace Anomaly Lab"
         ]):
             if current_page == "Mean Reversion Lab":
                 st.success("📉 **Mean Reversion Lab**")
@@ -177,6 +223,12 @@ def render_sidebar_navigation(current_page="Home"):
             else:
                 if st.button("🎯 Sparse Mean-Reversion Lab", use_container_width=True, key="nav_sparse_meanrev"):
                     st.switch_page("pages/lab_sparse_meanrev.py")
+            
+            if current_page == "Superspace Anomaly Lab":
+                st.success("🌌 **Superspace Anomaly Lab**")
+            else:
+                if st.button("🌌 Superspace Anomaly Lab", use_container_width=True, key="nav_superspace"):
+                    st.switch_page("pages/lab_superspace_anomaly.py")
         
         # Trading Strategies Section
         with st.expander("⚡ **Trading Strategies**", expanded=current_page in [
@@ -592,6 +644,29 @@ def apply_custom_css():
         div[data-baseweb="notification"] p,
         div[data-baseweb="notification"] span,
         div[data-baseweb="notification"] div {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Toast notifications */
+        .stToast, [data-testid="stToast"], [data-testid="toastContainer"] {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+            border: 1px solid {colors['border']} !important;
+            box-shadow: 0 4px 12px {colors['shadow']} !important;
+        }}
+        
+        .stToast *, [data-testid="stToast"] *, [data-testid="toastContainer"] * {{
+            color: {colors['text_primary']} !important;
+        }}
+        
+        /* Toast message body */
+        div[data-baseweb="toast"] {{
+            background-color: {colors['bg_card']} !important;
+            color: {colors['text_primary']} !important;
+            border: 1px solid {colors['border']} !important;
+        }}
+        
+        div[data-baseweb="toast"] * {{
             color: {colors['text_primary']} !important;
         }}
         

@@ -214,7 +214,7 @@ PnL_t = Cash_t + I_t × P_mid,t
 ### 1. Launch the Dashboard
 
 ```bash
-cd /path/to/rust-arblab
+cd /path/to/rust-hft-arbitrage-lab
 streamlit run app/streamlit_all_strategies.py
 ```
 

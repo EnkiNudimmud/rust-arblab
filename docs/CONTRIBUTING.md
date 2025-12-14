@@ -7,8 +7,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 1. **Fork** the repository on GitHub
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/rust-arblab.git
-   cd rust-arblab
+   git clone https://github.com/YOUR_USERNAME/rust-hft-arbitrage-lab.git
+   cd rust-hft-arbitrage-lab
    ```
 3. **Set up** the development environment (see README.md)
 4. **Create** a branch for your changes:
@@ -20,7 +20,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ### Before You Start
 
-- Check existing [issues](https://github.com/YOUR_USERNAME/rust-arblab/issues) and [pull requests](https://github.com/YOUR_USERNAME/rust-arblab/pulls)
+- Check existing [issues](https://github.com/YOUR_USERNAME/rust-hft-arbitrage-lab/issues) and [pull requests](https://github.com/YOUR_USERNAME/rust-hft-arbitrage-lab/pulls)
 - Open an issue to discuss major changes before implementing them
 - Keep changes focused - one feature or fix per PR
 
@@ -147,7 +147,7 @@ All submissions require review. We review PRs for:
 ## 🏗️ Project Structure
 
 ```
-rust-arblab/
+rust-hft-arbitrage-lab/
 ├── app/                    # Streamlit dashboard
 ├── python/                 # Python implementations
 ├── rust_core/             # Rust core library

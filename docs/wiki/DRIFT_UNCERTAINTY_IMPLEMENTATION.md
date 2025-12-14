@@ -319,4 +319,4 @@ See project LICENSE file.
 ## Contributors
 
 - Implementation based on academic paper by Bismuth, Guéant, and Pu
-- Rust core and Python bindings: rust-arblab project
+- Rust core and Python bindings: rust-hft-arbitrage-lab project

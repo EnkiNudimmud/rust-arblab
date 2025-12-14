@@ -5,14 +5,15 @@ Test script for Rust analytics module
 import numpy as np
 import sys
 import time
+import os
 
-# Add path to the compiled Rust module
-sys.path.insert(0, '/Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab/target/release')
+# Add repo root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 try:
-    import rust_connector
-    print("✓ Successfully imported rust_connector module")
-    print(f"  Module location: {rust_connector.__file__}")
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
+    print("✓ Successfully imported rust_connector bridge")
+    print(f"  Module location: {getattr(rust_connector, '__file__', '<bridge>')}")
     print(f"  Available functions: {[x for x in dir(rust_connector) if not x.startswith('_')]}")
 except ImportError as e:
     print(f"✗ Failed to import rust_connector: {e}")

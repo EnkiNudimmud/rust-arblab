@@ -339,3 +339,7 @@ def make_retriable_request(
         raise last_exception
     
     raise RuntimeError("Retry logic error: no result or exception")
+
+
+# Alias for backward compatibility
+retry_with_backoff = with_retry

@@ -31,7 +31,7 @@
 **Key Features**:
 
 #### Smart Caching System
-- **Auto-caching**: Stores fetched data to `.cache/rust-arblab/yfinance/`
+- **Auto-caching**: Stores fetched data to `.cache/rust-hft-arbitrage-lab/yfinance/`
 - **Smart expiry**: Different TTLs based on interval
   - 1m data: 5 minutes
   - 5m data: 15 minutes

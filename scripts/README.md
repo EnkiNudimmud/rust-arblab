@@ -111,7 +111,7 @@ All scripts now navigate to the project root automatically. Run them from anywhe
 cd scripts && ./quick_rust_build.sh
 
 # From anywhere with absolute path
-/path/to/rust-arblab/scripts/quick_rust_build.sh
+/path/to/rust-hft-arbitrage-lab/scripts/quick_rust_build.sh
 ```
 
 ### Virtual Environment Issues

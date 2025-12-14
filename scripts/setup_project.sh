@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
-ROOT_DIR="$(pwd)/rust-arblab"
+ROOT_DIR="$(pwd)/rust-hft-arbitrage-lab"
 echo "Création de l'arborescence dans ${ROOT_DIR}"
 rm -rf "${ROOT_DIR}"
 mkdir -p "${ROOT_DIR}"
@@ -753,20 +753,20 @@ test:
     cargo test --all
 
 package: build test
-    @rm -f rust-arblab-mods.zip
-    zip -r rust-arblab-mods.zip . -x "target/*" -x ".git/*" -x "venv/*" -x "__pycache__/*"
-    @echo "Created rust-arblab-mods.zip in repo root"
+    @rm -f rust-hft-arbitrage-lab-mods.zip
+    zip -r rust-hft-arbitrage-lab-mods.zip . -x "target/*" -x ".git/*" -x "venv/*" -x "__pycache__/*"
+    @echo "Created rust-hft-arbitrage-lab-mods.zip in repo root"
 
 clean:
     cargo clean
-    @rm -f rust-arblab-mods.zip
+    @rm -f rust-hft-arbitrage-lab-mods.zip
 EOF
 
 cat > "${ROOT_DIR}/package.sh" <<'EOF'
 #!/usr/bin/env bash
 set -e
 make package
-echo "Package ready: rust-arblab-mods.zip"
+echo "Package ready: rust-hft-arbitrage-lab-mods.zip"
 EOF
 chmod +x "${ROOT_DIR}/package.sh"
 

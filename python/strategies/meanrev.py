@@ -42,11 +42,12 @@ try:
 except Exception:
     fh_fetch_ohlcv = None
 
-# Try to import Rust functions for performance
+# Try to import Rust functions for performance via explicit bridge
 try:
-    import rust_connector
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
     RUST_AVAILABLE = True
-except ImportError:
+except Exception:
+    rust_connector = None
     RUST_AVAILABLE = False
 
 
@@ -149,6 +150,16 @@ def engle_granger_test(y: pd.Series, x: pd.Series) -> Dict:
     if not STATSMODELS_AVAILABLE:
         raise ImportError("Engle-Granger test requires statsmodels. Install with: pip install statsmodels")
     
+    # Ensure inputs are 1D (convert DataFrame columns to Series if needed)
+    if isinstance(y, pd.DataFrame):
+        y = y.iloc[:, 0] if y.shape[1] > 0 else y.squeeze()
+    if isinstance(x, pd.DataFrame):
+        x = x.iloc[:, 0] if x.shape[1] > 0 else x.squeeze()
+    
+    # Ensure Series/array, not DataFrame
+    y = np.asarray(y).ravel()
+    x = np.asarray(x).ravel()
+    
     X = sm.add_constant(x)
     res = sm.OLS(y, X).fit()
     resid = res.resid
@@ -164,6 +175,10 @@ def estimate_ou_params(ts: pd.Series) -> Dict:
     
     Uses Rust implementation if available for better performance.
     """
+    # Ensure input is 1D
+    if isinstance(ts, pd.DataFrame):
+        ts = ts.iloc[:, 0] if ts.shape[1] > 0 else ts.squeeze()
+    
     x = ts.dropna().astype(float)
     if len(x) < 3:
         return {"theta": np.nan, "mu": np.nan, "sigma": np.nan}

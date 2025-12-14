@@ -208,7 +208,7 @@ Le notebook complet (`examples/notebooks/chiarella_model_signals.ipynb`) inclut 
 ### Exécuter le Notebook
 
 ```bash
-cd /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab
+cd /Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab
 jupyter notebook examples/notebooks/chiarella_model_signals.ipynb
 ```
 

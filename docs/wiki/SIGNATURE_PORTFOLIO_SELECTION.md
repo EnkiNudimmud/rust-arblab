@@ -304,7 +304,7 @@ where $\epsilon \to 0$ as $N \to \infty$.
 ## Code Structure
 
 ```
-rust-arblab/
+rust-hft-arbitrage-lab/
 ├── examples/notebooks/
 │   ├── signature_optimal_stopping.ipynb          # Basic optimal stopping
 │   ├── signature_portfolio_selection.ipynb       # 🆕 Portfolio selection

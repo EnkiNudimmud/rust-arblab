@@ -10,7 +10,7 @@ Demonstrates regime-adaptive trading strategies with:
 """
 
 import sys
-sys.path.insert(0, '/Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab')
+sys.path.insert(0, '/Users/melvinalvarez/Documents/Workspace/rust-hft-arbitrage-lab')
 
 import numpy as np
 import pandas as pd

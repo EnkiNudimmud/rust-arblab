@@ -30,7 +30,7 @@ typing-extensions>=3.7.4; python_version < "3.8"
 
 # Optional: Additional data sources
 # ccxt>=4.0.0  # For cryptocurrency exchanges
-# alpaca-trade-api>=3.0.0  # For Alpaca trading
+alpaca-trade-api>=3.0.0  # For Alpaca trading
 
 # Development Tools (optional)
 # pytest>=7.4.0

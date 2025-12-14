@@ -41,7 +41,7 @@ Created comprehensive UI with 5 tabs:
 
 ## 🔄 Remaining Tasks
 
-### Task 3: Update rust-arblab to use optimiz-r
+### Task 3: Update rust-hft-arbitrage-lab to use optimiz-r
 
 Need to modify `/python/sparse_meanrev.py` to import from optimizr instead of local implementations:
 
@@ -141,7 +141,7 @@ The new architecture provides:
 - Comprehensive Risk Metrics
 - Monte Carlo Bootstrap
 
-### Still in rust-arblab Only:
+### Still in rust-hft-arbitrage-lab Only:
 - None identified - all major optimization algorithms are now generalized
 
 ## 🚀 Usage Example

@@ -1,0 +1,63 @@
+[0;34m[INFO][0m Configuration Summary:
+[0;34m[INFO][0m   Project Root:    /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab/scripts/..
+[0;34m[INFO][0m   Docker Compose:  /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab/scripts/../docker-compose.yml
+[0;34m[INFO][0m   Build Log:       /Users/melvinalvarez/Documents/Enki/Workspace/rust-arblab/scripts/../.docker-logs/build_20251212_190116.log
+[0;34m[INFO][0m   Rebuild All:     false
+[0;34m[INFO][0m   No Cache:        false
+[0;34m[INFO][0m   Start Services:  true
+[0;34m[INFO][0m   Detach Mode:     true
+[0;34m[INFO][0m   Verbose:         false
+[0;36m▶ Checking Dependencies[0m
+[0;32m[✓][0m Found: docker (/usr/local/bin/docker)
+[0;32m[✓][0m Found: docker-compose (/usr/local/bin/docker-compose)
+[0;32m[✓][0m Found: cargo (/usr/local/opt/rustup/bin/cargo)
+[0;32m[✓][0m All dependencies found
+[0;36m▶ Validating Project Structure[0m
+[0;32m[✓][0m Found: Cargo.toml
+[0;32m[✓][0m Found: docker-compose.yml
+[0;32m[✓][0m Found: requirements.txt
+[0;32m[✓][0m Found: Dockerfile.grpc
+[0;32m[✓][0m Found: Dockerfile.streamlit
+[0;32m[✓][0m Found: Dockerfile.jupyter
+[0;32m[✓][0m Found: meanrev.proto
+[0;32m[✓][0m Project structure validated
+[0;36m▶ Verifying Protocol Buffer Files[0m
+[0;32m[✓][0m Proto Python files found
+[0;36m▶ Building Rust gRPC Service[0m
+[0;34m[INFO][0m Building release binary...
+warning: variable does not need to be mutable
+   --> rust_grpc_service/src/models.rs:325:9
+    |
+325 |     let mut cash = 100000.0;
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `k`
+   --> rust_grpc_service/src/models.rs:449:9
+    |
+449 |     for k in 0..n_components {
+    |         ^ help: if this is intentional, prefix it with an underscore: `_k`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: field `total_costs` is never read
+   --> rust_grpc_service/src/models.rs:416:9
+    |
+411 | pub struct BacktestResult {
+    |            -------------- field in this struct
+...
+416 |     pub total_costs: f64,
+    |         ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `rust_grpc_service` (lib) generated 3 warnings (run `cargo fix --lib -p rust_grpc_service` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 0.68s
+[0;32m[✓][0m Built Rust gRPC binary (size: 3.3M)
+[0;36m▶ Building Docker Images[0m
+[0;34m[INFO][0m Building Docker Compose services...
+[0;31m[✗][0m Docker build failed
+[0;31m[✗][0m Docker image build failed

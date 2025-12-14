@@ -1,0 +1,108 @@
+.PHONY: help build rebuild up down logs clean ps restart
+
+# Colors
+GREEN  := \033[0;32m
+YELLOW := \033[1;33m
+BLUE   := \033[0;34m
+NC     := \033[0m # No Color
+
+help: ## Show this help message
+	@echo "$(BLUE)HFT Arbitrage Lab - Docker Commands$(NC)"
+	@echo "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}'
+	@echo ""
+
+build: ## Build all services (uses cache, parallel)
+	@echo "$(BLUE)🔨 Building all services with BuildKit...$(NC)"
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build --parallel
+
+build-no-cache: ## Build all services from scratch (no cache)
+	@echo "$(YELLOW)🔨 Building from scratch (no cache)...$(NC)"
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose build --no-cache --parallel
+
+rebuild: ## Quick rebuild (only changed code)
+	@echo "$(GREEN)⚡ Quick rebuild...$(NC)"
+	DOCKER_BUILDKIT=1 docker compose build --parallel
+
+up: ## Start all services in detached mode
+	@echo "$(GREEN)🚀 Starting services...$(NC)"
+	docker compose up -d
+	@echo "$(GREEN)✓ Services started!$(NC)"
+	@echo "  Streamlit:  http://localhost:8501"
+	@echo "  Jupyter:    http://localhost:8889"
+	@echo "  gRPC:       localhost:50051"
+
+down: ## Stop all services
+	@echo "$(YELLOW)⏹  Stopping services...$(NC)"
+	docker compose down
+
+down-v: ## Stop all services and remove volumes
+	@echo "$(YELLOW)⏹  Stopping services and removing volumes...$(NC)"
+	docker compose down -v
+
+logs: ## Show logs from all services
+	docker compose logs -f
+
+logs-lab: ## Show logs from lab service only
+	docker compose logs -f lab
+
+logs-grpc: ## Show logs from gRPC server only
+	docker compose logs -f grpc-server
+
+ps: ## List running containers
+	@docker compose ps
+
+restart: ## Restart all services
+	@echo "$(BLUE)🔄 Restarting services...$(NC)"
+	docker compose restart
+
+restart-lab: ## Restart lab service only
+	docker compose restart lab
+
+restart-grpc: ## Restart gRPC server only
+	docker compose restart grpc-server
+
+shell-lab: ## Open shell in lab container
+	docker exec -it hft-lab bash
+
+shell-grpc: ## Open shell in gRPC server container
+	docker exec -it hft-grpc-server bash
+
+clean: ## Remove all containers, images, and volumes
+	@echo "$(YELLOW)🧹 Cleaning up...$(NC)"
+	docker compose down -v --remove-orphans
+	docker system prune -f
+	@echo "$(GREEN)✓ Cleanup complete$(NC)"
+
+clean-all: ## Remove everything including build cache
+	@echo "$(YELLOW)🧹 Deep cleaning...$(NC)"
+	docker compose down -v --remove-orphans
+	docker system prune -af --volumes
+	@echo "$(GREEN)✓ Deep cleanup complete$(NC)"
+
+test: ## Run tests in containers
+	docker compose exec lab pytest tests/
+
+stats: ## Show resource usage
+	docker stats --no-stream
+
+volumes: ## List volumes
+	docker volume ls | grep rust-hft
+
+images: ## List images
+	docker images | grep rust-hft
+
+# Quick workflows
+dev: build up logs ## Build, start, and show logs
+
+refresh: down build up ## Stop, rebuild, and start fresh
+
+# Health checks
+health: ## Check service health
+	@echo "$(BLUE)🏥 Checking service health...$(NC)"
+	@docker compose ps
+	@echo ""
+	@echo "$(BLUE)Testing endpoints:$(NC)"
+	@curl -s http://localhost:8501 > /dev/null && echo "  $(GREEN)✓$(NC) Streamlit (8501)" || echo "  $(YELLOW)✗$(NC) Streamlit (8501)"
+	@curl -s http://localhost:8889 > /dev/null && echo "  $(GREEN)✓$(NC) Jupyter (8889)" || echo "  $(YELLOW)✗$(NC) Jupyter (8889)"
+	@nc -z localhost 50051 && echo "  $(GREEN)✓$(NC) gRPC (50051)" || echo "  $(YELLOW)✗$(NC) gRPC (50051)"

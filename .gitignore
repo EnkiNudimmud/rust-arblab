@@ -3,11 +3,13 @@ target/
 **/*.rs.bk
 *.pdb
 
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -24,15 +26,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-.conda/
-source/
 
 # IDEs
 .vscode/
@@ -40,85 +33,18 @@ source/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
-
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-
-# Environment variables and secrets
-.env
-.env.*
-.env.local
-.env.production
-.env.development
-api_keys.properties
-*.key
-*.pem
-*.crt
-*.cert
-secrets/
-credentials/
-.streamlit/secrets.toml
-
-# Logs
-*.log
-
-# OS specific
 Thumbs.db
 
-# Backup files
-*.bak
-*.save
-*.backup
+# Environment
+.env
+venv/
+ENV/
+env/
 
-# Docker (keep .dockerignore in repo, ignore runtime data)
-docker-volumes/
-*.docker.pid
-
-# GitHub specific
-.github/
-
-# Maturin/PyO3
-*.whl
-wheels/
-
-# Python compiled extensions
-*.so
-*.dylib
-*.dll
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Temporary files
-*.tmp
-*.temp
-*~
-.*.swp
-.*.swo
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Python version files
-.python-version
-.venv*/
-
-# Editor and IDE cache
-.*.swp
-.*.swo
-*.sublime-project
-*.sublime-workspace
+# Data files (optional - uncomment if you don't want to track data)
+# data/
+# *.csv
+# *.parquet

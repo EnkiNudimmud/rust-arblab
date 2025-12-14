@@ -87,19 +87,15 @@ def parse_binance_orderbook(data: dict, symbol: str, exchange: str) -> OrderBook
     """Parse Binance orderbook - overridden by Rust if available"""
     raise NotImplementedError("Rust module required")
 
-# Import Rust implementations (overrides above definitions if available)
+# Import Rust implementations (overrides above definitions if available) via bridge
 try:
-    from rust_connector import (  # type: ignore[import-not-found,no-redef,assignment]
-        OrderBookLevel,  # type: ignore[assignment,misc]
-        OrderBookSnapshot,  # type: ignore[assignment,misc]
-        OrderBookUpdate,  # type: ignore[assignment,misc]
-        LOBAnalytics,  # type: ignore[assignment,misc]
-        calculate_lob_analytics,  # type: ignore[assignment,misc]
-        apply_orderbook_update,  # type: ignore[assignment,misc]
-        parse_binance_orderbook  # type: ignore[assignment,misc]
-    )
+    from python.rust_grpc_bridge import (
+        OrderBookLevel, OrderBookSnapshot, OrderBookUpdate,
+        LOBAnalytics, calculate_lob_analytics, apply_orderbook_update,
+        parse_binance_orderbook
+    )  # type: ignore
     RUST_LOB_AVAILABLE = True
-except ImportError:
+except Exception:
     RUST_LOB_AVAILABLE = False
     print("Warning: Rust LOB module not available. Install with: maturin develop")
 

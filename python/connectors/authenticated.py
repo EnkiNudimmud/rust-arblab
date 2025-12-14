@@ -14,9 +14,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    import rust_connector
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
     RUST_AVAILABLE = True
-except ImportError:
+except Exception:
     rust_connector = None
     RUST_AVAILABLE = False
 

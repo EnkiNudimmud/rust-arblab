@@ -1,4 +1,4 @@
-# Makefile for rust-arblab
+# Makefile for rust-hft-arbitrage-lab
 # Quick commands for building and running the project
 
 # Detect Python (prefer python3.11, fallback to python3)
@@ -19,7 +19,7 @@ endif
 
 help:
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  rust-arblab - Quick Commands"
+	@echo "  rust-hft-arbitrage-lab - Quick Commands"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
 	@echo "🚀 Quick Start:"
@@ -76,11 +76,12 @@ install:
 	$(PIP) install -r docker/requirements.txt
 	@echo "✓ Python dependencies installed"
 
-# Build Rust connector
+# Build Rust connector (DEPRECATED - use gRPC instead via docker-up)
 build:
-	@echo "Building Rust connector..."
+	@echo "⚠️  Building legacy PyO3 rust_connector (DEPRECATED)"
+	@echo "   For production, use gRPC backend: make docker-up"
 	$(MATURIN) develop --manifest-path rust_connector/Cargo.toml --release
-	@echo "✓ Rust connector built"
+	@echo "✓ Legacy Rust connector built (fallback only)"
 
 # Rebuild Rust (clean first)
 rebuild:
@@ -96,7 +97,35 @@ run:
 	@echo "Access at: http://localhost:8501"
 	$(PY) -m streamlit run app/streamlit_app.py
 
-# Run tests
+# Backwards-compatible alias for older docs and scripts
+.PHONY: run-app
+run-app: run
+	@echo "Alias: run-app -> run"
+
+# Run Streamlit with auth disabled (standalone/demo mode)
+.PHONY: run-standalone
+run-standalone:
+	@echo "Starting Streamlit app (standalone; ENABLE_AUTH=false)"
+	ENABLE_AUTH=false $(MAKE) run
+
+# Run Streamlit in background (convenience)
+.PHONY: run-background
+run-background:
+	@echo "Starting Streamlit app in background (logs: streamlit.log)"
+	nohup $(PY) -m streamlit run app/streamlit_app.py > streamlit.log 2>&1 &
+
+# Run gRPC server (for development)
+.PHONY: run-server
+run-server:
+	@echo "Starting gRPC server on localhost:50051..."
+	@echo "Press Ctrl+C to stop"
+	cd rust_grpc_service && cargo run --release 2>&1 || echo "Note: rust_grpc_service may not be configured. Using docker-up for full stack."
+
+# Run smoke test client
+.PHONY: smoke-test-client
+smoke-test-client:
+	@echo "Running gRPC smoke test..."
+	$(PY) scripts/grpc_smoke_test.py
 test:
 	@echo "Running WebSocket tests..."
 	$(PY) test_websocket.py
@@ -110,24 +139,51 @@ jupyter:
 verify:
 	@echo "Verifying installation..."
 	@$(PY) --version
-	@$(PY) -c "import rust_connector; print('✓ rust_connector installed')" || echo "✗ rust_connector NOT installed"
+	@$(PY) -c "from python.rust_grpc_bridge import compute_pca_rust; print('✓ gRPC bridge available')" || echo "⚠ gRPC bridge not available (will use numpy/pandas fallbacks)"
 	@$(PY) -c "from python.rust_bridge import list_connectors; print('✓ Connectors:', ', '.join(list_connectors()))"
 
-# Docker build
+# Generate protobuf code
+proto:
+	@echo "Generating Python gRPC stubs..."
+	bash scripts/generate_proto.sh
+
+# Docker build with optimizr
 docker-build:
-	@echo "Building Docker image..."
-	docker compose build
+	@echo "Building Docker image with gRPC server and optimizr..."
+	DOCKER_BUILDKIT=1 docker compose build --parallel
 
 # Docker up
 docker-up:
 	@echo "Starting Docker services..."
-	@echo "Access Streamlit at: http://localhost:8501"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  Access services at:"
+	@echo "    🌐 Streamlit:     http://localhost:8501"
+	@echo "    📓 Jupyter:       http://localhost:8889"
+	@echo "    ⚡ gRPC Server:   localhost:50051"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	docker compose up
+
+# Docker up in detached mode
+docker-up-d:
+	@echo "Starting Docker services in detached mode..."
+	docker compose up -d
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  Services running in background"
+	@echo "    🌐 Streamlit:     http://localhost:8501"
+	@echo "    📓 Jupyter:       http://localhost:8889"
+	@echo "    ⚡ gRPC Server:   localhost:50051"
+	@echo "  View logs: make docker-logs"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Docker down
 docker-down:
 	@echo "Stopping Docker services..."
 	docker compose down
+
+# Docker logs
+docker-logs:
+	@echo "Tailing Docker logs (Ctrl+C to exit)..."
+	docker compose logs -f
 
 # Docker clean rebuild
 docker-clean:

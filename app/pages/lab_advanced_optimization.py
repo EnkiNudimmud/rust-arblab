@@ -24,10 +24,11 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from typing import Dict, List, Optional
 import sys
+import time
 sys.path.append('/app')
 
 try:
-    from python.advanced_optimization import (
+    from python.optimization.advanced_optimization import (
         HMMRegimeDetector,
         MCMCOptimizer,
         MLEOptimizer,
@@ -41,7 +42,25 @@ except ImportError:
     st.error("⚠️ Advanced optimization modules not available")
     st.stop()
 
-from utils.ui_components import render_sidebar_navigation, apply_custom_css
+from utils.ui_components import render_sidebar_navigation, apply_custom_css, ensure_data_loaded
+
+def estimate_remaining_time(start_time, completed, total):
+    """Estimate remaining time for a task"""
+    if completed == 0:
+        return "Calculating..."
+    elapsed = time.time() - start_time
+    rate = elapsed / completed
+    remaining = rate * (total - completed)
+    if remaining < 60:
+        return f"{int(remaining)}s"
+    elif remaining < 3600:
+        minutes = int(remaining // 60)
+        seconds = int(remaining % 60)
+        return f"{minutes}m {seconds}s"
+    else:
+        hours = int(remaining // 3600)
+        minutes = int((remaining % 3600) // 60)
+        return f"{hours}h {minutes}m"
 
 # Page config
 st.set_page_config(
@@ -66,8 +85,11 @@ This lab provides full implementation of:
 - Multi-objective optimization
 """)
 
+# Auto-load most recent dataset if no data is loaded
+data_available = ensure_data_loaded()
+
 # Check for loaded data
-if 'historical_data' not in st.session_state or st.session_state.historical_data is None:
+if not data_available or 'historical_data' not in st.session_state or st.session_state.historical_data is None:
     st.warning("⚠️ Please load market data first using the Data Loader page")
     if st.button("📊 Go to Data Loader"):
         st.switch_page("pages/data_loader.py")
@@ -316,27 +338,51 @@ with tab2:
         else:
             execution_mode = "Run on first symbol only"
         
-        if st.button("▶️ Run HMM Calibration", use_container_width=True, type="primary"):
+        col_btn1, col_btn2 = st.columns([3, 1])
+        with col_btn1:
+            run_hmm = st.button("▶️ Run HMM Calibration", use_container_width=True, type="primary")
+        with col_btn2:
+            if st.button("🛑 Cancel", key="cancel_hmm"):
+                st.session_state.cancel_hmm = True
+        
+        if run_hmm:
+            st.session_state.cancel_hmm = False
             selected_symbols = st.session_state.get('selected_symbols', ['Dataset'])
-            st.info(f"🔄 Running HMM on {len(selected_symbols)} symbol(s)...")
             
-            with st.spinner("Training HMM model..."):
-                try:
-                    params = st.session_state['hmm_params']
-                    data = st.session_state['selected_symbol_data']
-                    
-                    # Prepare data
-                    if params['use_returns']:
-                        if 'close' in data.columns:
-                            observations = data['close'].pct_change().dropna().values
-                        else:
-                            observations = data.iloc[:, 0].pct_change().dropna().values
+            # Progress tracking
+            progress_container = st.container()
+            with progress_container:
+                start_time = time.time()
+                hmm_progress = st.progress(0)
+                hmm_status = st.empty()
+                hmm_time_text = st.empty()
+            
+            try:
+                params = st.session_state['hmm_params']
+                data = st.session_state['selected_symbol_data']
+                
+                # Prepare data
+                hmm_status.text("Preparing data...")
+                hmm_progress.progress(0.1)
+                hmm_time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 10, 100)}")
+                if params['use_returns']:
+                    if 'close' in data.columns:
+                        observations = data['close'].pct_change().dropna().values
                     else:
-                        observations = data['close'].values if 'close' in data.columns else data.iloc[:, 0].values
-                    
-                    # Train HMM
-                    hmm = HMMRegimeDetector(n_states=params['n_states'])
-                    hmm.fit(observations[-params['lookback']:], n_iterations=params['n_iterations'])
+                        observations = data.iloc[:, 0].pct_change().dropna().values
+                else:
+                    observations = data['close'].values if 'close' in data.columns else data.iloc[:, 0].values
+                
+                # Train HMM
+                hmm_status.text("Training HMM model (this may take a while)...")
+                hmm_progress.progress(0.3)
+                hmm_time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 30, 100)}")
+                hmm = HMMRegimeDetector(n_states=params['n_states'])
+                hmm.fit(observations[-params['lookback']:], n_iterations=params['n_iterations'])
+                
+                if not st.session_state.get('cancel_hmm', False):
+                    hmm_status.text("✅ Training complete!")
+                    hmm_progress.progress(1.0)
                     
                     st.session_state['hmm_model'] = hmm
                     st.session_state['hmm_observations'] = observations
@@ -368,8 +414,10 @@ with tab2:
                             # State distribution
                             state_counts = pd.Series(hmm.state_sequence).value_counts()
                             st.bar_chart(state_counts)
+                else:
+                    st.warning("⚠️ HMM training cancelled")
                 
-                except Exception as e:
+            except Exception as e:
                     st.error(f"❌ Calibration failed: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())
@@ -377,35 +425,64 @@ with tab2:
     elif optimization_method == "MCMC Bayesian":
         st.subheader("MCMC Bayesian Parameter Estimation")
         
-        if st.button("▶️ Run MCMC Sampling", use_container_width=True, type="primary"):
-            with st.spinner("Running MCMC chains..."):
-                try:
-                    params = st.session_state['mcmc_params']
-                    data = st.session_state['selected_symbol_data']
-                    
-                    # Prepare returns
-                    returns = data['close'].pct_change().dropna().values if 'close' in data.columns else data.iloc[:, 0].pct_change().dropna().values
-                    
-                    # Run MCMC
-                    # Create objective function
-                    def objective(p):
-                        # Simple Sharpe ratio objective
-                        return np.mean(returns) / (np.std(returns) + 1e-8)
-                    
-                    # Create parameter space
-                    from python.advanced_optimization import ParameterSpace
-                    param_spaces = [
-                        ParameterSpace('entry_z', (1.5, 3.0)),
-                        ParameterSpace('exit_z', (0.3, 1.0))
-                    ]
-                    
-                    mcmc = MCMCOptimizer(param_spaces, objective)
-                    
-                    # Run MCMC optimization
-                    result = mcmc.optimize(
-                        n_iterations=params['n_samples'],
-                        burn_in=params['burn_in']
-                    )
+        col_btn1, col_btn2 = st.columns([3, 1])
+        with col_btn1:
+            run_mcmc = st.button("▶️ Run MCMC Sampling", use_container_width=True, type="primary")
+        with col_btn2:
+            if st.button("🛑 Cancel", key="cancel_mcmc"):
+                st.session_state.cancel_mcmc = True
+        
+        if run_mcmc:
+            st.session_state.cancel_mcmc = False
+            
+            # Progress tracking
+            progress_container = st.container()
+            with progress_container:
+                start_time = time.time()
+                mcmc_progress = st.progress(0)
+                mcmc_status = st.empty()
+                mcmc_time_text = st.empty()
+            
+            try:
+                params = st.session_state['mcmc_params']
+                data = st.session_state['selected_symbol_data']
+                
+                # Prepare returns
+                mcmc_status.text("Preparing data...")
+                mcmc_progress.progress(0.1)
+                mcmc_time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 10, 100)}")
+                returns = data['close'].pct_change().dropna().values if 'close' in data.columns else data.iloc[:, 0].pct_change().dropna().values
+                
+                # Run MCMC
+                mcmc_status.text("Initializing MCMC chains...")
+                mcmc_progress.progress(0.2)
+                
+                # Create objective function
+                def objective(p):
+                    # Simple Sharpe ratio objective
+                    return np.mean(returns) / (np.std(returns) + 1e-8)
+                
+                # Create parameter space
+                from python.optimization.advanced_optimization import ParameterSpace
+                param_spaces = [
+                    ParameterSpace('entry_z', (1.5, 3.0)),
+                    ParameterSpace('exit_z', (0.3, 1.0))
+                ]
+                
+                mcmc = MCMCOptimizer(param_spaces, objective)
+                
+                # Run MCMC optimization
+                mcmc_status.text(f"Running MCMC sampling ({params['n_samples']} iterations)...")
+                mcmc_progress.progress(0.4)
+                mcmc_time_text.text(f"⏱️ Estimated time remaining: {estimate_remaining_time(start_time, 40, 100)}")
+                result = mcmc.optimize(
+                    n_iterations=params['n_samples'],
+                    burn_in=params['burn_in']
+                )
+                
+                if not st.session_state.get('cancel_mcmc', False):
+                    mcmc_status.text("✅ MCMC complete!")
+                    mcmc_progress.progress(1.0)
                     
                     samples = result.all_params
                     
@@ -416,8 +493,10 @@ with tab2:
                     posterior_df = pd.DataFrame(samples)
                     st.markdown("**Posterior Statistics**")
                     st.dataframe(posterior_df.describe())
+                else:
+                    st.warning("⚠️ MCMC sampling cancelled")
                 
-                except Exception as e:
+            except Exception as e:
                     st.error(f"❌ MCMC sampling failed: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())

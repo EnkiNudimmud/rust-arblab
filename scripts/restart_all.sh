@@ -110,39 +110,37 @@ if [ "$SKIP_RUST" = false ]; then
         pip install maturin
     fi
     
-    cd rust_connector
-    
-    if [ "$QUICK_BUILD" = true ]; then
-        echo -e "${CYAN}⚡ Quick incremental build...${NC}"
-        if maturin develop --release; then
-            echo -e "${GREEN}✓ Rust engine built (incremental)${NC}"
-        else
-            echo -e "${RED}✗ Rust build failed${NC}"
-            exit 1
-        fi
+    # Prefer building the gRPC Rust server (hft-grpc-server) and optimizr
+    echo -e "${CYAN}Building gRPC server and Rust acceleration packages (optimizr)...${NC}"
+    if command -v make &> /dev/null; then
+        $(MAKE) build || true
+        $(MAKE) docker-build || true
     else
-        echo -e "${CYAN}🔨 Full rebuild (this may take 5-10 minutes on first build)...${NC}"
-        # Clean wheels but keep target cache for dependencies
-        rm -rf target/wheels 2>/dev/null || true
-        
-        if maturin develop --release; then
-            echo -e "${GREEN}✓ Rust engine built (full)${NC}"
-        else
-            echo -e "${RED}✗ Rust build failed${NC}"
-            exit 1
+        echo -e "${YELLOW}make not found — falling back to maturin build for rust_connector if present${NC}"
+        if [ -d "rust_connector" ]; then
+            cd rust_connector
+            maturin develop --release || true
+            cd ..
         fi
     fi
-    
-    cd ..
-    
-    # Verify Rust connector
-    echo -e "${CYAN}Verifying installation...${NC}"
-    if python -c "import rust_connector; print('✓ rust_connector loaded successfully')" 2>/dev/null; then
-        echo -e "${GREEN}✓ Rust connector verified and ready${NC}"
+
+    # Verify gRPC server availability as preferred runtime signal
+    echo -e "${CYAN}Verifying gRPC server connectivity...${NC}"
+    if python - <<'PY' 2>/dev/null; then
+import sys
+try:
+    from python.grpc_client import TradingGrpcClient
+    c = TradingGrpcClient()
+    c.connect()
+    c.close()
+    print('OK')
+except Exception:
+    sys.exit(1)
+PY
+    then
+        echo -e "${GREEN}✓ gRPC server reachable${NC}"
     else
-        echo -e "${RED}✗ Rust connector import failed${NC}"
-        python -c "import rust_connector" 2>&1 | head -5
-        exit 1
+        echo -e "${YELLOW}⚠ gRPC server not reachable; native rust_connector may be needed${NC}"
     fi
 else
     echo ""

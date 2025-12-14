@@ -114,12 +114,12 @@ st.markdown("## 🖥️ System Status")
 col1, col2, col3, col4 = st.columns(4)
 
 try:
-    import rust_connector
-    rust_status = "🟢 ENABLED (10-100x faster)"
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
+    rust_status = "🟢 ENABLED (gRPC backend)"
     rust_class = "status-online"
     rust_available = True
 except:
-    rust_status = "🔴 DISABLED (build required)"
+    rust_status = "🟡 FALLBACK (numpy/pandas)"
     rust_class = "status-offline"
     rust_available = False
 

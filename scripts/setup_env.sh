@@ -158,13 +158,29 @@ check_venv() {
 
 # Check if rust_connector is installed
 check_rust_connector() {
-    print_info "Checking rust_connector installation..."
-    
-    if $PYTHON_CMD -c "import rust_connector" 2>/dev/null; then
-        print_success "rust_connector installed"
+    print_info "Checking rust_connector availability..."
+    # Prefer checking gRPC connectivity as primary runtime
+    if $PYTHON_CMD - <<'PY' 2>/dev/null; then
+import sys
+try:
+    from python.grpc_client import TradingGrpcClient
+    c = TradingGrpcClient()
+    c.connect()
+    c.close()
+    print('OK')
+except Exception:
+    sys.exit(1)
+PY
+    then
+        print_success "gRPC backend reachable (preferred)"
+        return 0
+    fi
+
+    if $PYTHON_CMD -c "from python.rust_grpc_bridge import rust_connector" 2>/dev/null; then
+        print_success "rust_connector bridge available"
         return 0
     else
-        print_warning "rust_connector not installed"
+        print_warning "No Rust backend found (gRPC or native)"
         return 1
     fi
 }

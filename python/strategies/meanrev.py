@@ -42,11 +42,12 @@ try:
 except Exception:
     fh_fetch_ohlcv = None
 
-# Try to import Rust functions for performance
+# Try to import Rust functions for performance via explicit bridge
 try:
-    import rust_connector
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
     RUST_AVAILABLE = True
-except ImportError:
+except Exception:
+    rust_connector = None
     RUST_AVAILABLE = False
 
 

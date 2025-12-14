@@ -56,12 +56,27 @@ if [ ! -f "api_keys.properties" ]; then
     echo ""
 fi
 
-# Check if Rust acceleration is available
-if python3 -c "import rust_connector" &> /dev/null 2>&1; then
-    echo -e "${GREEN}✓${NC} Rust acceleration enabled (10-100x speedup)"
+# Check if gRPC server (Rust backend) is reachable; prefer gRPC over native extension
+if python3 - <<'PY' &> /dev/null; then
+import sys
+try:
+    from python.grpc_client import TradingGrpcClient
+    c = TradingGrpcClient()
+    c.connect()
+    c.close()
+    print('OK')
+except Exception:
+    sys.exit(1)
+PY
+then
+    echo -e "${GREEN}✓${NC} gRPC Rust backend reachable (using gRPC)"
 else
-    echo -e "${YELLOW}⚠${NC} Rust acceleration not available (using pure Python)"
-    echo -e "  ${YELLOW}Build rust_connector for better performance${NC}"
+    # Fall back to checking native rust_connector extension
+    if python3 -c "from python.rust_grpc_bridge import rust_connector; print('✓ gRPC bridge available')" 2>&1 | grep -q '✓'; then
+        echo -e "${GREEN}✓${NC} Native rust_connector available (PyO3)"
+    else
+        echo -e "${YELLOW}⚠${NC} No Rust backend reachable (gRPC or native) — using pure Python fallbacks"
+    fi
 fi
 
 echo ""

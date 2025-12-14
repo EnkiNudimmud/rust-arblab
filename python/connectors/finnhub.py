@@ -286,10 +286,10 @@ class FinnhubConnector:
     
     def _create_orderbook(self, bid: float, ask: float):
         """Create synthetic OrderBook-like object from bid/ask prices."""
-        # Try to import Rust OrderBook if available
+        # Try to import Rust OrderBook via gRPC bridge if available
         try:
-            import rust_connector
-            return rust_connector.OrderBook(
+            from python.rust_grpc_bridge import rust_connector as rust_conn  # type: ignore
+            return rust_conn.OrderBook(
                 bids=[(bid, 1.0)],  # type: ignore[arg-type]
                 asks=[(ask, 1.0)]  # type: ignore[arg-type]
             )

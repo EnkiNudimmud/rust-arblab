@@ -20,9 +20,9 @@ A modular, production-ready framework for high-frequency trading (HFT) and arbit
 - **Limit Order Book (LOB)**: Real-time orderbook analytics and visualization
 
 ### Technology Stack
-- 🦀 **Rust Core**: High-performance numerical computation (10-100× speedup)
+- 🦀 **Rust Core**: High-performance numerical computation via gRPC (10-100× speedup)
 - 🐍 **Python**: Research, backtesting, and strategy development
-- 🔗 **PyO3 Bindings**: Seamless Rust-Python integration
+- 🔗 **gRPC Bindings**: Seamless Rust-Python integration (preferred over PyO3)
 - 📊 **Streamlit Dashboard**: Interactive multi-strategy visualization
 - 📈 **Plotly Charts**: Professional-grade financial visualizations
 - 🐳 **Docker**: Reproducible deployment across platforms
@@ -98,27 +98,34 @@ nano api_keys.properties
 **4. Run Application**
 ```bash
 # Quick start (recommended)
-./run_app.sh
+make run
+
+# Run in standalone/demo mode (auth disabled)
+make run-standalone
 
 # OR manually start Streamlit dashboard
 streamlit run app/HFT_Arbitrage_Lab.py
 
 # OR start Jupyter for notebooks
-jupyter notebook examples/notebooks/
+make jupyter
 ```
 
 ### 🔄 Development Workflow
 
-#### Quick Restart Scripts
+#### Quick Restart (Makefile targets)
 
-| Script | Purpose | Use Case |
+Use `make` targets instead of individual scripts. The Makefile centralizes build/run workflows:
+
+| Target | Purpose | Use Case |
 |--------|---------|----------|
-| `./scripts/restart_all.sh` | **Everything** (Rust + Streamlit + Jupyter) | After any code changes |
-| `./scripts/restart_all.sh --quick` | Quick incremental Rust + all services | Fast iteration on Rust code |
-| `./scripts/restart_all.sh --skip-rust` | Python services only | After Python-only changes |
-| `./scripts/restart_rust.sh` | Full Rust rebuild with verification | Major Rust changes |
-| `./scripts/quick_rust_build.sh` | Fast incremental Rust build | Minor Rust tweaks |
-| `./scripts/clean_restart_streamlit.sh` | Streamlit only with cache clear | UI/Python changes |
+| `make run` | Start Streamlit app | Normal development run
+| `make run-standalone` | Start Streamlit with `ENABLE_AUTH=false` | Demo or local standalone runs
+| `make run-background` | Start Streamlit in background (logs to `streamlit.log`) | Long-running background runs
+| `make rebuild` | Clean and rebuild Rust connector | Major Rust changes
+| `make build` | Build Rust connector (maturin develop) | Incremental Rust build
+| `make jupyter` | Start Jupyter server | Work with notebooks
+| `make docker-up` | Start Docker services | Containerized deployment
+| `make smoke-test-client` | Run lightweight gRPC client smoke tests | Validate gRPC endpoints (requires server)
 
 #### Usage Examples
 

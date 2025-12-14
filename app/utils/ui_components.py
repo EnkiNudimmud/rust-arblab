@@ -156,7 +156,7 @@ def render_sidebar_navigation(current_page="Home"):
             "Mean Reversion Lab", "Rough Heston Lab", "Chiarella Model Lab", 
             "Signature Methods Lab", "Portfolio Analytics Lab", "PCA Arbitrage Lab",
             "Momentum Trading Lab", "Market Making Lab", "Advanced Optimization Lab",
-            "Adaptive Strategies Lab", "Sparse Mean-Reversion Lab"
+            "Adaptive Strategies Lab", "Sparse Mean-Reversion Lab", "Superspace Anomaly Lab"
         ]):
             if current_page == "Mean Reversion Lab":
                 st.success("📉 **Mean Reversion Lab**")
@@ -223,6 +223,12 @@ def render_sidebar_navigation(current_page="Home"):
             else:
                 if st.button("🎯 Sparse Mean-Reversion Lab", use_container_width=True, key="nav_sparse_meanrev"):
                     st.switch_page("pages/lab_sparse_meanrev.py")
+            
+            if current_page == "Superspace Anomaly Lab":
+                st.success("🌌 **Superspace Anomaly Lab**")
+            else:
+                if st.button("🌌 Superspace Anomaly Lab", use_container_width=True, key="nav_superspace"):
+                    st.switch_page("pages/lab_superspace_anomaly.py")
         
         # Trading Strategies Section
         with st.expander("⚡ **Trading Strategies**", expanded=current_page in [

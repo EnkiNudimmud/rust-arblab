@@ -3,7 +3,8 @@ services:
   # Mock APIs for testing
   mock_apis:
     build: 
-      context: ./mock_apis
+      context: .
+      dockerfile: mock_apis/Dockerfile
     image: rust-hft-lab:mock-apis-latest
     container_name: mock_apis
     ports:
@@ -14,7 +15,8 @@ services:
   # gRPC Server for ultra-fast pair discovery backend
   grpc-server:
     build:
-      context: .
+      context: ..
+      dockerfile: rust-arblab/Dockerfile
       target: runtime
     image: rust-hft-lab:latest
     container_name: hft-grpc-server
@@ -39,7 +41,8 @@ services:
   # Main lab environment
   lab:
     build:
-      context: .
+      context: ..
+      dockerfile: rust-arblab/Dockerfile
       target: runtime
     image: rust-hft-lab:latest
     container_name: hft-lab
@@ -68,7 +71,8 @@ services:
   # Jupyter notebook server with optimizr and gRPC client
   jupyter:
     build:
-      context: .
+      context: ..
+      dockerfile: rust-arblab/Dockerfile
       target: runtime
     image: rust-hft-lab:latest
     container_name: hft-jupyter

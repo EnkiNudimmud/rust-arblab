@@ -1965,5 +1965,225 @@
     ],
     "last_updated": "2025-12-05T13:43:25.019528",
     "filepath": "persisted/merged_20251205_134324.parquet"
+  },
+  "massive_20251211_123615": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "massive",
+    "date_range": [
+      "2025-11-11",
+      "2025-12-11"
+    ],
+    "row_count": 259206,
+    "columns": [
+      "timestamp",
+      "symbol",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "last_updated": "2025-12-11T12:36:15.758584",
+    "filepath": "persisted/massive_20251211_123615.parquet"
+  },
+  "massive_IAU_PSLV_GDX_3more_1h_20251211_123631": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "massive",
+    "date_range": [
+      "2025-11-11",
+      "2025-12-11"
+    ],
+    "row_count": 259206,
+    "columns": [
+      "timestamp",
+      "symbol",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "last_updated": "2025-12-11T12:36:31.793833",
+    "filepath": "persisted/massive_IAU_PSLV_GDX_3more_1h_20251211_123631.parquet"
+  },
+  "massive_20251211_143637": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "massive",
+    "date_range": [
+      "2025-01-01",
+      "2025-12-11"
+    ],
+    "row_count": 49542,
+    "columns": [
+      "timestamp",
+      "symbol",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "last_updated": "2025-12-11T14:36:37.952297",
+    "filepath": "persisted/massive_20251211_143637.parquet"
+  },
+  "massive_SLV_GDX_GDXJ_3more_1h_20251211_143651": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "massive",
+    "date_range": [
+      "2025-01-01",
+      "2025-12-11"
+    ],
+    "row_count": 304422,
+    "columns": [
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "last_updated": "2025-12-11T14:36:51.559449",
+    "filepath": "persisted/massive_SLV_GDX_GDXJ_3more_1h_20251211_143651.parquet"
+  },
+  "alpaca_20251211_212204": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "alpaca",
+    "date_range": [
+      "2025-01-06",
+      "2025-12-11"
+    ],
+    "row_count": 0,
+    "columns": [],
+    "last_updated": "2025-12-11T21:22:04.323380",
+    "filepath": "persisted/alpaca_20251211_212204.parquet"
+  },
+  "alpaca_20251211_212515": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "alpaca",
+    "date_range": [
+      "2025-07-01",
+      "2025-12-11"
+    ],
+    "row_count": 0,
+    "columns": [],
+    "last_updated": "2025-12-11T21:25:15.177794",
+    "filepath": "persisted/alpaca_20251211_212515.parquet"
+  },
+  "alpaca_20251211_212549": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "alpaca",
+    "date_range": [
+      "2024-01-01",
+      "2025-12-11"
+    ],
+    "row_count": 0,
+    "columns": [],
+    "last_updated": "2025-12-11T21:25:49.653336",
+    "filepath": "persisted/alpaca_20251211_212549.parquet"
+  },
+  "alpaca_20251211_212911": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "alpaca",
+    "date_range": [
+      "2024-01-01",
+      "2025-12-11"
+    ],
+    "row_count": 0,
+    "columns": [],
+    "last_updated": "2025-12-11T21:29:11.153501",
+    "filepath": "persisted/alpaca_20251211_212911.parquet"
+  },
+  "alpaca_20251211_213011": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "alpaca",
+    "date_range": [
+      "2025-11-11",
+      "2025-12-11"
+    ],
+    "row_count": 0,
+    "columns": [],
+    "last_updated": "2025-12-11T21:30:11.063832",
+    "filepath": "persisted/alpaca_20251211_213011.parquet"
+  },
+  "alpaca_20251211_220707": {
+    "symbols": [
+      "GDX",
+      "GDXJ",
+      "GLD",
+      "IAU",
+      "PSLV",
+      "SLV"
+    ],
+    "source": "alpaca",
+    "date_range": [
+      "2021-01-01",
+      "2025-12-11"
+    ],
+    "row_count": 0,
+    "columns": [],
+    "last_updated": "2025-12-11T22:07:07.413655",
+    "filepath": "persisted/alpaca_20251211_220707.parquet"
   }
 }

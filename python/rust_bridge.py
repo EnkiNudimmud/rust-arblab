@@ -7,13 +7,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 try:
-    import rust_connector  # type: ignore[import-not-found]
+    # Prefer explicit gRPC bridge (will route to gRPC backend or shim)
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
     RUST_AVAILABLE = True
-    logger.info("rust_connector available")
+    logger.info("rust_connector bridge available (gRPC or shim)")
 except Exception as e:
     rust_connector = None  # type: ignore[assignment]
     RUST_AVAILABLE = False
-    logger.warning("rust_connector not available: %s", e)
+    logger.warning("rust_connector bridge not available: %s", e)
 
 def list_connectors() -> List[str]:
     """List all available connectors including authenticated and third-party."""

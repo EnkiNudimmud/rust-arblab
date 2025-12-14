@@ -11,14 +11,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Try to import the Finnhub connector
-try:
-    from python.rust_bridge import get_connector
-    FINNHUB_AVAILABLE = True
-except ImportError:
-    FINNHUB_AVAILABLE = False
-    logger.warning("Could not import Finnhub connector")
-
 # Try to import API keys utility
 try:
     from python.api_keys import get_finnhub_key
@@ -50,8 +42,8 @@ def fetch_realtime_quotes(symbols: List[str], api_key: Optional[str] = None, dur
     if api_key is None:
         api_key = get_finnhub_api_key()
     
-    if not api_key or not FINNHUB_AVAILABLE:
-        logger.warning("Generating synthetic data instead of real Finnhub data")
+    if not api_key:
+        logger.warning("Finnhub API key not found, generating synthetic data instead")
         return generate_synthetic_data(symbols, duration_seconds)
     
     try:

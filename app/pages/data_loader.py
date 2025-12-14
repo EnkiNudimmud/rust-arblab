@@ -3,12 +3,15 @@ Data Loading Module
 ===================
 
 Load historical market data from multiple sources:
-- Finnhub (primary)
-- Yahoo Finance (fallback)
+- CCXT (crypto exchanges - FREE!)
+- Yahoo Finance (stocks & ETFs - FREE!)
+- Finnhub (stocks/forex - API key configured)
+- Alpha Vantage (stocks/forex/crypto - API key configured, 25 calls/day)
+- Massive (institutional data - API key configured, 100 calls/day)
 - CSV upload (custom data)
 - Mock/Synthetic data (testing)
 
-Features:
+All API keys are configured in api_keys.propertiesFeatures:
 - Stackable data loading (append new queries to existing data)
 - Persistent storage to /data folder for long-living sessions
 - Rate-limit aware fetching for intraday data
@@ -548,16 +551,33 @@ def render_fetch_tab():
             "🔌 Data Source",
             [
                 "CCXT - Crypto Exchanges (FREE! ⭐)", 
-                "Yahoo Finance", 
-                "Finnhub (API)", 
-                "Alpha Vantage (API - FREE 25 calls/day)",
-                "Massive (Institutional-grade - FREE 100 calls/day)",
+                "Yahoo Finance (FREE! Stocks & ETFs)",
+                "Finnhub (Stock Market Data)",
+                "Alpha Vantage (FREE 25 calls/day)",
+                "Massive (Institutional Data - 100 calls/day)",
                 "Upload CSV", 
                 "Mock/Synthetic"
             ],
-            help="💡 CCXT is recommended for crypto - it's FREE with no API key required!"
+            help="💡 All connectors have API keys configured in api_keys.properties"
         )
         
+        # Add Alpaca to data source list
+        data_sources = [
+            "CCXT - Crypto Exchanges (FREE! ⭐)",
+            "Yahoo Finance (FREE! Stocks & ETFs)",
+            "Finnhub (Stock Market Data)",
+            "Alpha Vantage (FREE 25 calls/day)",
+            "Massive (Institutional Data - 100 calls/day)",
+            "Alpaca (FREE! US Stocks, 1s bars)",
+            "Upload CSV",
+            "Mock/Synthetic"
+        ]
+        data_source = st.selectbox(
+            "🔌 Data Source",
+            data_sources,
+            help="💡 All connectors have API keys configured in api_keys.properties"
+        )
+
         # Exchange selection for CCXT
         exchange_id = 'binance'  # default
         if data_source.startswith("CCXT"):
@@ -565,264 +585,86 @@ def render_fetch_tab():
                 "📊 Exchange",
                 ["binance", "kraken", "coinbase", "bybit", "okx"],
                 help=(
-                    "• Binance: Most liquid, best for most pairs\\n"
-                    "• Kraken: Reliable, regulated\\n"
-                    "• Coinbase: US-based, highly regulated\\n"
-                    "• Bybit: Good for perpetuals\\n"
+                    "• Binance: Most liquid, best for most pairs\n"
+                    "• Kraken: Reliable, regulated\n"
+                    "• Coinbase: US-based, highly regulated\n"
+                    "• Bybit: Good for perpetuals\n"
                     "• OKX: Wide variety of altcoins"
                 )
             )
+
+        # Alpaca limitations and info
+        if data_source.startswith("Alpaca"):
+            st.info("""
+            **Alpaca Data Source (FREE! US Stocks, 1s bars)**
+            - 1-second bars for US stocks (NYSE, NASDAQ, AMEX)
+            - Up to 5 years history
+            - Market hours only
+            - Rate limit: 200 requests/minute
+            - Requires free Alpaca account and API keys (already configured)
+            - Only supports US stocks (no ETFs, no crypto)
+            """)
             st.info(
                 f"✅ Using {exchange_id.title()} - FREE public data, no API key needed!\\n"
                 f"Supports second-level historical data for crypto pairs."
             )
         
-        # Massive rate limit warnings and method selection
-        # Initialize in session state for global access
-        if 'massive_fetch_method' not in st.session_state:
-            st.session_state.massive_fetch_method = "auto"
-        if 'massive_data_type' not in st.session_state:
-            st.session_state.massive_data_type = "ohlcv"
-        
-        if data_source.startswith("Massive"):
-            # Important notice about Massive.com availability
-            st.warning(
-                "⚠️ **Massive.com API Notice**\\n\\n"
-                "Massive.com is currently a placeholder/example service for demonstration purposes. "
-                "The REST API and WebSocket endpoints are not yet publicly available.\\n\\n"
-                "**🔄 Working Alternatives:**\\n"
-                "• **CCXT** - Free real-time crypto data (Binance, Kraken, etc.)\\n"
-                "• **Yahoo Finance** - Free stock data\\n"
-                "• **Finnhub** - Free stock market data with API key\\n\\n"
-                "**Flat File Downloads** may work if you have valid S3 credentials from a compatible provider."
-            )
-            
-            # Initialize rate limit tracking in session state
-            if 'massive_calls_today' not in st.session_state:
-                st.session_state.massive_calls_today = 0
-                st.session_state.massive_last_reset = datetime.now().date()
-            
-            # Reset daily counter if new day
-            if st.session_state.massive_last_reset < datetime.now().date():
-                st.session_state.massive_calls_today = 0
-                st.session_state.massive_last_reset = datetime.now().date()
-            
-            # Method selection
-            st.markdown("#### 📊 Fetch Method")
-            st.session_state.massive_fetch_method = st.radio(
-                "How to fetch data",
-                ["auto", "rest", "flat_file"],
-                index=["auto", "rest", "flat_file"].index(st.session_state.massive_fetch_method) if st.session_state.massive_fetch_method in ["auto", "rest", "flat_file"] else 0,
-                format_func=lambda x: {
-                    "auto": "🤖 Auto (Smart Selection)",
-                    "rest": "📡 REST API (Fast, small queries)",
-                    "flat_file": "📦 Flat Files / S3 (Bulk downloads)"
-                }[x],
-                help=(
-                    "**Auto**: Automatically chooses best method based on query size\\n"
-                    "  - REST API for ≤5 symbols AND ≤7 days\\n"
-                    "  - Flat Files for larger queries\\n\\n"
-                    "**REST API**: Fast for small queries, counts against 100 calls/day\\n\\n"
-                    "**Flat Files (S3)**: Best for bulk data (>10 symbols or >30 days), "
-                    "uses S3 credentials (separate from API key), 10 GB/month quota"
-                )
-            )
-            
-            # Data type selection for flat files
-            if st.session_state.massive_fetch_method == "flat_file":
-                st.session_state.massive_data_type = st.radio(
-                    "Data Type",
-                    ["ohlcv", "trades"],
-                    format_func=lambda x: {
-                        "ohlcv": "📊 OHLCV Bars (Aggregated candles)",
-                        "trades": "⚡ Tick-Level Trades (Raw trade data)"
-                    }[x],
-                    help=(
-                        "**OHLCV Bars**: Aggregated data (open, high, low, close, volume) for backtesting\\n"
-                        "**Tick-Level Trades**: Raw trade-by-trade data from SIP feed (US stocks only, very large files)"
-                    ),
-                    horizontal=True
-                )
-            
-            # Display rate limit status
-            calls_remaining = 100 - st.session_state.massive_calls_today
-            
-            if st.session_state.massive_fetch_method in ["auto", "rest"]:
-                if calls_remaining > 50:
-                    st.info(
-                        f"🏛️ **Massive.com Free Tier Status:**\\n"
-                        f"✅ {calls_remaining}/100 REST API calls remaining today\\n"
-                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
-                        f"🔌 WebSocket: 10 concurrent connections, 100 messages/min\\n"
-                        f"📥 Bulk Files: 10 GB/month downloads available\\n"
-                        f"💡 Institutional-grade data with generous free tier!"
-                    )
-                elif calls_remaining > 20:
-                    st.warning(
-                        f"⚠️ **Massive.com Free Tier Status:**\\n"
-                        f"🔶 {calls_remaining}/100 REST API calls remaining today\\n"
-                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
-                        f"💡 Consider using WebSocket streaming or flat file downloads\\n"
-                        f"📥 10 GB/month bulk downloads available"
-                    )
-                elif calls_remaining > 0:
-                    st.error(
-                        f"🚨 **Massive.com Free Tier Status:**\\n"
-                        f"🔴 Only {calls_remaining}/100 REST API calls left today!\\n"
-                        f"⏱️ Rate limit: 10 calls/minute (6 sec between calls)\\n"
-                        f"💡 Switch to flat file downloads\\n"
-                        f"📥 10 GB/month still available for flat files"
-                    )
-                else:
-                    st.error(
-                        f"🚫 **Massive.com Daily REST Limit Reached!**\\n"
-                        f"❌ 0/100 REST API calls remaining\\n"
-                        f"⏰ Limit resets at midnight UTC\\n"
-                        f"💡 Alternative: Use flat files (10 GB/month)\\n"
-                        f"📥 Get S3 credentials from Massive dashboard"
-                    )
-                    # Auto-switch to flat files if REST limit reached
-                    if st.session_state.massive_fetch_method == "auto":
-                        st.info("🤖 Auto-switching to flat files since REST limit reached")
-                        st.session_state.massive_fetch_method = "flat_file"
-            
-            if st.session_state.massive_fetch_method == "flat_file":
-                st.success(
-                    f"📦 **Using Flat Files (S3 Downloads)**\\n"
-                    f"✅ Doesn't count against REST API quota\\n"
-                    f"📥 10 GB/month download limit\\n"
-                    f"💡 Requires S3 credentials from 'Accessing Flat Files (S3)' tab\\n"
-                    f"⚙️ Add to api_keys.properties: MASSIVE_S3_ACCESS_KEY_ID, MASSIVE_S3_SECRET_ACCESS_KEY"
-                )
-                
-                # Show what's available for bulk download
-                with st.expander("📋 View Available Flat File Data", expanded=False):
-                    if st.session_state.massive_data_type == "ohlcv":
-                        st.markdown("""
-                        **Available OHLCV Bar Data on Massive S3:**
-                        
-                        **Equities (US Stocks):**
-                        - 🕐 Minute-level data: 2000-present
-                        - 📈 Hourly data: 2000-present  
-                        - 📊 Daily data: 1970-present
-                        - 📅 Weekly data: 1970-present
-                        
-                        **Coverage:**
-                        - All NYSE, NASDAQ, AMEX listed stocks
-                        - ~8,000+ active tickers
-                        - Corporate actions adjusted
-                        - Institutional-grade quality
-                        
-                        **File Organization:**
-                        ```
-                        equities/{interval}/{SYMBOL}/{YYYY-MM}.parquet
-                        ```
-                        
-                        **Typical File Sizes:**
-                        - 1 month minute data (1 symbol): ~50-200 MB
-                        - 1 month daily data (1 symbol): ~1-5 MB
-                        - 1 year daily data (1 symbol): ~10-50 MB
-                        
-                        **Performance (Rust Backend):**
-                        - Small files (<1GB): Polars engine (50-100x faster than Python)
-                        - Large files (>1GB): DataFusion streaming
-                        - Automatic engine selection
-                        
-                        **Recommended Usage:**
-                        - ≤10 symbols, ≤30 days: Use REST API
-                        - >10 symbols OR >30 days: Use Flat Files
-                        - Backtesting (100s of symbols): Use Flat Files
-                        """)
-                    else:  # trades
-                        st.markdown("""
-                        **Available Tick-Level Trade Data on Massive S3:**
-                        
-                        **US Stocks SIP (Securities Information Processor):**
-                        - ⚡ Tick-by-tick trade data
-                        - 🕐 Coverage: 2020-present
-                        - 📍 Source: Consolidated SIP feed (all exchanges)
-                        - 📊 Fields: timestamp, symbol, price, size, exchange, conditions
-                        
-                        **Coverage:**
-                        - All NYSE, NASDAQ, AMEX listed stocks
-                        - Every single trade execution
-                        - Sub-millisecond timestamps
-                        - Exchange identifiers and trade conditions
-                        
-                        **File Organization:**
-                        ```
-                        us_stocks_sip/trades_v1/{SYMBOL}/{YYYY-MM-DD}.parquet
-                        ```
-                        
-                        **⚠️ Large File Sizes:**
-                        - 1 day tick data (liquid stock): 100-500 MB
-                        - 1 day tick data (very liquid): 500 MB - 2 GB
-                        - 1 month tick data: 3-15 GB per symbol
-                        
-                        **Performance:**
-                        - Rust backend automatically uses DataFusion for streaming
-                        - Processes millions of ticks efficiently
-                        - Filters applied before loading into memory
-                        
-                        **⚠️ Recommended Usage:**
-                        - HFT strategy development and backtesting
-                        - Market microstructure research
-                        - Order flow analysis
-                        - **Start with 1-2 days for testing due to large file sizes**
-                        - Monitor your 10 GB/month quota carefully
-                        """)
-        
-        # Alpha Vantage rate limit warnings
-        elif data_source.startswith("Alpha Vantage"):
-            # Initialize rate limit tracking in session state
+        # Alpha Vantage rate limiting info
+        if data_source.startswith("Alpha Vantage"):
+            # Initialize rate limit tracking
             if 'av_calls_today' not in st.session_state:
                 st.session_state.av_calls_today = 0
                 st.session_state.av_last_reset = datetime.now().date()
             
-            # Reset daily counter if new day
+            # Reset daily counter
             if st.session_state.av_last_reset < datetime.now().date():
                 st.session_state.av_calls_today = 0
                 st.session_state.av_last_reset = datetime.now().date()
             
-            # Display rate limit status
             calls_remaining = 25 - st.session_state.av_calls_today
             
             if calls_remaining > 15:
                 st.info(
-                    f"📊 **Alpha Vantage Free Tier Status:**\\n"
-                    f"✅ {calls_remaining}/25 API calls remaining today\\n"
-                    f"⏱️ Rate limit: 5 calls/minute (12 sec between calls)\\n"
-                    f"💡 Upgrade at alphavantage.co for more calls"
-                )
-            elif calls_remaining > 5:
-                st.warning(
-                    f"⚠️ **Alpha Vantage Free Tier Status:**\\n"
-                    f"🔶 {calls_remaining}/25 API calls remaining today\\n"
-                    f"⏱️ Rate limit: 5 calls/minute (12 sec between calls)\\n"
-                    f"💡 Use wisely - limit resets at midnight UTC"
+                    f"📊 **Alpha Vantage Status:** ✅ {calls_remaining}/25 calls remaining today\\n"
+                    f"⏱️ Rate: 5 calls/min | Resets: midnight UTC"
                 )
             elif calls_remaining > 0:
-                st.error(
-                    f"🚨 **Alpha Vantage Free Tier Status:**\\n"
-                    f"🔴 Only {calls_remaining}/25 API calls left today!\\n"
-                    f"⏱️ Rate limit: 5 calls/minute (12 sec between calls)\\n"
-                    f"⚠️ Daily limit resets at midnight UTC"
+                st.warning(
+                    f"⚠️ **Alpha Vantage Status:** {calls_remaining}/25 calls remaining\\n"
+                    f"Use wisely - limit resets at midnight UTC"
                 )
             else:
-                st.error(
-                    f"🚫 **Alpha Vantage Daily Limit Reached!**\\n"
-                    f"❌ 0/25 API calls remaining\\n"
-                    f"⏰ Limit resets at midnight UTC\\n"
-                    f"💡 Use Yahoo Finance or CCXT as alternative"
-                )
+                st.error("🚫 Alpha Vantage daily limit reached! Try Yahoo Finance or CCXT")
+        
+        # Massive rate limiting info
+        if data_source.startswith("Massive"):
+            # Initialize rate limit tracking
+            if 'massive_calls_today' not in st.session_state:
+                st.session_state.massive_calls_today = 0
+                st.session_state.massive_last_reset = datetime.now().date()
             
-            # Show recommendation for symbol limits
+            # Reset daily counter
+            if st.session_state.massive_last_reset < datetime.now().date():
+                st.session_state.massive_calls_today = 0
+                st.session_state.massive_last_reset = datetime.now().date()
+            
+            calls_remaining = 100 - st.session_state.massive_calls_today
+            
+            if calls_remaining > 50:
+                st.info(
+                    f"🏛️ **Massive.com Status:** ✅ {calls_remaining}/100 calls remaining\\n"
+                    f"📥 10 GB/month bulk downloads available"
+                )
+            elif calls_remaining > 0:
+                st.warning(f"⚠️ **Massive.com Status:** {calls_remaining}/100 calls remaining")
+            else:
+                st.error("🚫 Massive.com daily limit reached!")
+        
+        # Finnhub info
+        if data_source.startswith("Finnhub"):
             st.info(
-                "💡 **Free Tier Tips:**\\n"
-                "• Fetch 1-5 symbols at a time to stay within limits\\n"
-                "• Use 'compact' output (last 100 points)\\n"
-                "• Save datasets for reuse to avoid re-fetching\\n"
-                "• Consider Yahoo Finance for unlimited stock data"
+                "📊 **Finnhub API** configured from api_keys.properties\\n"
+                "✅ Real-time & historical stock data available"
             )
         
         # Symbol selection
@@ -918,22 +760,33 @@ def render_fetch_tab():
                 placeholder_text = "AAPL\nMSFT\nGOOGL"
             
             # Symbol management buttons
-            symbol_btn_col1, symbol_btn_col2 = st.columns([3, 1])
+            symbol_btn_col1, symbol_btn_col2, symbol_btn_col3 = st.columns([2, 1, 1])
             
             with symbol_btn_col2:
-                if st.button("🗑️ Clear All", use_container_width=True, help="Clear all symbols"):
+                if st.button("🗑️ Clear Symbols", use_container_width=True, help="Clear all symbols"):
                     st.session_state.symbols = []
+                    st.session_state.symbol_clear_count = st.session_state.get('symbol_clear_count', 0) + 1
+                    st.rerun()
+            
+            with symbol_btn_col3:
+                if st.button("🗑️ Clear Data", use_container_width=True, help="Clear loaded data"):
+                    st.session_state.historical_data = None
                     st.rerun()
             
             # Symbol input
             with symbol_btn_col1:
+                # Use a key with timestamp to force refresh when cleared
+                if 'symbol_clear_count' not in st.session_state:
+                    st.session_state.symbol_clear_count = 0
+                
                 symbols_input = st.text_area(
                     "Symbols (one per line or comma-separated)",
                     value="\n".join(st.session_state.symbols) if st.session_state.symbols else "",
                     placeholder=placeholder_text,
                     height=100,
                     help=symbol_help,
-                    label_visibility="visible"
+                    label_visibility="visible",
+                    key=f"symbols_input_{st.session_state.symbol_clear_count}"
                 )
             
             # Parse and clean symbols
@@ -955,15 +808,34 @@ def render_fetch_tab():
                 st.info(f"ℹ️  Cleaned symbols: removed spaces from {len([s for s in original_symbols if ' ' in s])} symbol(s)")
             
             # Interval selection (moved before date range for smart defaults)
-            interval = st.selectbox(
-                "Data Interval",
-                ["1m", "5m", "15m", "30m", "1h", "1d"],
-                index=4,  # Default to 1h
-                help="Time interval for OHLCV data"
-            )
+            if data_source.startswith("Alpaca"):
+                # Alpaca supports 1-second bars
+                interval = st.selectbox(
+                    "Data Interval",
+                    ["1s", "1m", "5m", "15m", "30m", "1h", "1d"],
+                    index=0,  # Default to 1s for Alpaca
+                    help="⭐ Alpaca supports 1-second bars for US stocks!"
+                )
+            else:
+                interval = st.selectbox(
+                    "Data Interval",
+                    ["1m", "5m", "15m", "30m", "1h", "1d"],
+                    index=4,  # Default to 1h
+                    help="Time interval for OHLCV data"
+                )
             
             # Smart default date range based on interval and data source
-            if data_source == "Yahoo Finance":
+            if data_source.startswith("Alpaca"):
+                if interval == "1s":
+                    default_days = 1  # 1-second data: recommend 1 day
+                    st.caption("⭐ Alpaca: 1s bars available! Recommend 1-3 days for optimal performance")
+                elif interval == "1m":
+                    default_days = 7
+                elif interval in ["5m", "15m"]:
+                    default_days = 30
+                else:
+                    default_days = 90
+            elif data_source == "Yahoo Finance":
                 if interval == "1m":
                     default_days = 5  # Yahoo Finance limit: 7 days
                     st.caption("⚠️ Yahoo Finance: 1m data limited to last 7 days")
@@ -1108,56 +980,6 @@ def render_fetch_tab():
                     current_rows = len(st.session_state.historical_data)
                     st.caption(f"📊 Current: {current_rows:,} rows")
             
-            # Show download preview for Massive flat files
-            if data_source.startswith("Massive") and st.session_state.massive_fetch_method == "flat_file":
-                st.markdown("---")
-                st.markdown("#### 📋 Download Preview")
-                
-                days_diff = (end_date - start_date).days
-                num_symbols = len(symbols)
-                
-                # Estimate download size
-                if st.session_state.massive_data_type == "trades":
-                    # Tick-level trade data is MUCH larger
-                    est_mb_per_symbol = days_diff * 300  # ~300 MB per symbol per day for tick data
-                    data_density = "⚡ Tick-Level Trades"
-                elif interval in ['1m', '5m', '15m', '30m']:
-                    est_mb_per_symbol = days_diff * 10  # ~10 MB per symbol per day
-                    data_density = "Minute-level"
-                elif interval in ['1h', '4h']:
-                    est_mb_per_symbol = days_diff * 1  # ~1 MB per symbol per day
-                    data_density = "Hourly"
-                else:
-                    est_mb_per_symbol = days_diff * 0.5  # ~0.5 MB per symbol per day
-                    data_density = "Daily/Weekly"
-                
-                total_est_mb = num_symbols * est_mb_per_symbol
-                
-                # Show preview
-                preview_col1, preview_col2, preview_col3 = st.columns(3)
-                with preview_col1:
-                    st.metric("Symbols", f"{num_symbols}")
-                with preview_col2:
-                    st.metric("Days", f"{days_diff}")
-                with preview_col3:
-                    st.metric("Est. Download", f"~{total_est_mb:.1f} MB")
-                
-                st.info(
-                    f"📊 **{data_density} data** for **{num_symbols} symbol(s)** "
-                    f"over **{days_diff} days**\\n\\n"
-                    f"🦀 Rust backend: {('Polars (fast)' if total_est_mb < 1000 else 'DataFusion (streaming)')}\\n"
-                    f"⏱️ Estimated time: {max(2, total_est_mb / 50):.0f}-{max(5, total_est_mb / 20):.0f} seconds\\n"
-                    f"💾 Quota used: {total_est_mb:.1f} MB of 10 GB monthly limit"
-                )
-                
-                # Warning if approaching quota
-                if total_est_mb > 5000:  # > 5 GB
-                    st.warning(
-                        f"⚠️ This download will use **{total_est_mb/1024:.1f} GB** "
-                        f"of your monthly quota!\\n"
-                        f"Consider reducing the date range or number of symbols."
-                    )
-            
             # Fetch button
             if st.button("🔄 Fetch Data", type="primary", use_container_width=True):
                 if not symbols:
@@ -1170,11 +992,12 @@ def render_fetch_tab():
                         'finnhub': 'finnhub',
                         'alpha': 'alpha_vantage',
                         'massive': 'massive',
+                        'alpaca': 'alpaca',
                         'mock': 'synthetic',
                         'upload': 'synthetic'
                     }
                     source_key = data_source.lower().split()[0]
-                    internal_source = source_map.get(source_key, 'auto')
+                    internal_source = source_map.get(source_key, 'yfinance')  # Default to yfinance
                     
                     fetch_data(
                         symbols=symbols,
@@ -1258,25 +1081,33 @@ def render_fetch_tab():
             st.info("No data loaded yet")
             st.markdown("""
             **Data sources:**
-            - **⭐ CCXT (Recommended)**: FREE access to 100+ crypto exchanges
+            - **⭐ CCXT (Recommended for Crypto)**: FREE access to 100+ crypto exchanges
               - Binance, Kraken, Coinbase, Bybit, OKX and more
               - No API key required for public data
-              - Second-level historical data
+              - Second-level historical data (1m, 5m, 15m, 1h, 1d)
               - Best for crypto trading strategies
-            - **Yahoo Finance**: Free historical data (stocks & major crypto)
-            - **Finnhub**: Real-time & historical via API (requires key)
-            - **Alpha Vantage**: FREE 25 API calls/day (stocks, forex, crypto)
+            - **⭐ Yahoo Finance (Recommended for Stocks)**: FREE historical data
+              - All US stocks, ETFs, indices
+              - Major cryptocurrencies
+              - No API key required
+              - Reliable and unlimited (within reasonable use)
+            - **⭐ Alpaca (Recommended for US Stocks HFT)**: FREE 1-second bars
+              - US stocks with 1-second resolution
+              - FREE tier: perfect for HFT development
+              - API key configured in api_keys.properties
+              - WebSocket support for live trading
+            - **Finnhub**: Stock market data via API
+              - Real-time & historical stock data
+              - API key configured in api_keys.properties
+              - Good for US stocks and forex
+            - **Alpha Vantage**: FREE 25 API calls/day
+              - Stocks, forex, crypto data
+              - API key configured in api_keys.properties
               - ⚠️ Free tier: 5 calls/minute, 25 calls/day
-              - Real-time quotes (15-20 min delay)
-              - Intraday & daily historical data
-              - Requires free API key from alphavantage.co
-            - **🏛️ Massive**: Institutional-grade market data (FREE 100 calls/day)
-              - ⚡ REST API: 100 requests/day, 10/minute
-              - 🔌 WebSocket: 10 concurrent connections, 100 messages/min
-              - 📥 Bulk Files: 10 GB/month historical data downloads
-              - Stocks, options, futures, forex, crypto
-              - Real-time and historical data
-              - Requires free API key from massive.com
+            - **Massive**: Institutional-grade market data
+              - FREE 100 calls/day + 10GB/month bulk files
+              - API key configured in api_keys.properties
+              - Stocks, options, futures, crypto
             - **CSV Upload**: Custom data files
             - **Mock**: Synthetic data for testing
             """)
@@ -1297,17 +1128,6 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             if source == 'ccxt' and exchange_id:
                 from python.data.data_fetcher import _fetch_ccxt
                 new_df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
-            # For Massive, use transparent fetch_data with method selection
-            elif source == 'massive':
-                from python.data.fetchers.massive_helper import fetch_data
-                new_df = fetch_data(
-                    symbols=symbols,
-                    start=start,
-                    end=end,
-                    interval=interval,
-                    method=st.session_state.get('massive_fetch_method', 'auto'),  # "auto", "rest", or "flat_file"
-                    data_type=st.session_state.get('massive_data_type', 'ohlcv') if st.session_state.get('massive_fetch_method', 'auto') == "flat_file" else "ohlcv"  # "ohlcv" or "trades"
-                )
             else:
                 new_df = fetch_intraday_data(
                     symbols=symbols,
@@ -1317,18 +1137,56 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
                     source=source
                 )
             
+            # Alpaca fetch logic
+            if source == 'alpaca':
+                # Map interval to Alpaca timeframe
+                interval_map = {
+                    '1s': '1Sec',
+                    '1m': '1Min',
+                    '5m': '5Min',
+                    '15m': '15Min',
+                    '30m': '30Min',
+                    '1h': '1Hour',
+                    '1d': '1Day'
+                }
+                alpaca_timeframe = interval_map.get(interval, '1Sec')
+                st.info(f"🔄 Fetching data from Alpaca ({alpaca_timeframe} bars, US stocks only)...")
+                try:
+                    from python.data.fetchers.alpaca_helper import fetch_alpaca_batch
+                    new_df = fetch_alpaca_batch(symbols, start, end, timeframe=alpaca_timeframe, limit=10000)
+                    st.success(f"✅ Fetched {len(new_df)} rows from Alpaca")
+                except Exception as e:
+                    st.error(f"Alpaca fetch failed: {e}")
+                    new_df = pd.DataFrame()
+
             # Increment API call counter for rate-limited sources
-            if source == 'massive' and st.session_state.get('massive_fetch_method', 'auto') in ["auto", "rest"]:
-                # Only count REST API calls, not flat file downloads
-                if 'massive_calls_today' in st.session_state:
-                    st.session_state.massive_calls_today += len(symbols)
-            elif source == 'alpha_vantage':
+            if source == 'alpha_vantage':
                 if 'av_calls_today' in st.session_state:
                     st.session_state.av_calls_today += len(symbols)
-            
+            elif source == 'massive':
+                if 'massive_calls_today' in st.session_state:
+                    st.session_state.massive_calls_today += len(symbols)
+
             # Reset index to make it easier to work with
             if isinstance(new_df.index, pd.MultiIndex):
                 new_df = new_df.reset_index()
+
+            # Convert to column-based MultiIndex format for compatibility with analysis tools
+            # Check if data has 'symbol' column (row-based format)
+            if 'symbol' in new_df.columns and 'timestamp' in new_df.columns:
+                st.info("🔄 Converting data to column-based MultiIndex format...")
+                # Pivot to get symbols as columns
+                try:
+                    # Set timestamp and symbol as index
+                    new_df = new_df.set_index(['timestamp', 'symbol'])
+                    # Unstack to move symbol to columns
+                    new_df = new_df.unstack(level='symbol')
+                    # Swap levels to (symbol, ohlcv) format
+                    new_df.columns = new_df.columns.swaplevel(0, 1)
+                    new_df = new_df.sort_index(axis=1)
+                    st.success(f"✅ Converted to MultiIndex format with symbols: {list(new_df.columns.get_level_values(0).unique())}")
+                except Exception as e:
+                    st.warning(f"Could not convert to MultiIndex format: {e}")
             
             # Handle data loading mode: replace, append, or update
             if save_mode == "replace" or st.session_state.historical_data is None:
@@ -1383,42 +1241,72 @@ def display_data_preview():
     
     st.markdown("### 📋 Data Preview & Visualization")
     
+    # Convert column-based MultiIndex to flat format for display/charting
+    df_display = df.copy()
+    if isinstance(df_display.columns, pd.MultiIndex):
+        # Convert from (symbol, ohlcv) to flat with symbol column
+        df_display = df_display.stack(level=0, future_stack=True).reset_index()
+        df_display.columns.name = None
+        # Ensure timestamp column exists
+        if 'level_0' in df_display.columns:
+            df_display = df_display.rename(columns={'level_0': 'timestamp'})
+        if 'level_1' in df_display.columns:
+            df_display = df_display.rename(columns={'level_1': 'symbol'})
+    
     # Tabs for different views
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Charts", "📑 Data Table", "📈 Statistics", "💾 Export"])
     
     with tab1:
         # Symbol selector for charting
-        if 'symbol' in df.columns:
+        if 'symbol' in df_display.columns:
             try:
-                symbols = df['symbol'].unique().tolist()
+                symbols = df_display['symbol'].unique().tolist()
                 selected_symbol = st.selectbox("Select Symbol for Chart", symbols)
                 # Filter data for selected symbol
-                symbol_df = df[df['symbol'] == selected_symbol].copy()
+                symbol_df = df_display[df_display['symbol'] == selected_symbol].copy()
             except Exception as e:
                 st.error(f"Error accessing symbol column: {e}")
-                symbol_df = df.copy()
+                symbol_df = df_display.copy()
                 selected_symbol = None
         else:
             st.info("Data does not contain a 'symbol' column. Showing all data.")
-            symbol_df = df.copy()
+            symbol_df = df_display.copy()
             selected_symbol = None
+        
+        # Ensure timestamp is available (either as column or index)
+        if 'timestamp' not in symbol_df.columns:
+            if symbol_df.index.name == 'timestamp' or 'timestamp' in str(type(symbol_df.index)):
+                symbol_df = symbol_df.reset_index()
+            elif not symbol_df.index.name:
+                # If no name, assume index is timestamp
+                symbol_df = symbol_df.reset_index()
+                if 'index' in symbol_df.columns:
+                    symbol_df = symbol_df.rename(columns={'index': 'timestamp'})
+        
         if 'timestamp' in symbol_df.columns:
             symbol_df = symbol_df.sort_values('timestamp')
         
         # Create OHLC candlestick chart
         if all(col in symbol_df.columns for col in ['open', 'high', 'low', 'close']):
+            # Check if we have timestamp for x-axis
+            if 'timestamp' not in symbol_df.columns:
+                st.warning("⚠️ No timestamp column found. Using index for x-axis.")
+                x_values = symbol_df.index
+            else:
+                x_values = symbol_df['timestamp']
+            
             fig = make_subplots(
                 rows=2, cols=1,
                 shared_xaxes=True,
                 vertical_spacing=0.03,
                 row_heights=[0.7, 0.3],
-                subplot_titles=(f'{selected_symbol} Price', 'Volume')
+                subplot_titles=(f'{selected_symbol} Price' if selected_symbol else 'Price', 'Volume')
             )
             
             # Candlestick chart
             fig.add_trace(
                 go.Candlestick(
-                    x=symbol_df['timestamp'],
+                    x=x_values,
                     open=symbol_df['open'],
                     high=symbol_df['high'],
                     low=symbol_df['low'],
@@ -1435,7 +1323,7 @@ def display_data_preview():
                 
                 fig.add_trace(
                     go.Bar(
-                        x=symbol_df['timestamp'],
+                        x=x_values,
                         y=symbol_df['volume'],
                         name='Volume',
                         marker_color=colors,
@@ -1461,9 +1349,9 @@ def display_data_preview():
         # Filtering options
         col1, col2, col3 = st.columns(3)
         with col1:
-            if 'symbol' in df.columns:
+            if 'symbol' in df_display.columns:
                 try:
-                    filter_symbol = st.multiselect("Filter by Symbol", df['symbol'].unique())
+                    filter_symbol = st.multiselect("Filter by Symbol", df_display['symbol'].unique())
                 except Exception:
                     filter_symbol = []
             else:
@@ -1472,14 +1360,14 @@ def display_data_preview():
             n_rows = st.number_input("Number of rows", min_value=10, max_value=10000, value=100)
         with col3:
             # Dynamic sort options based on available columns
-            sort_options = [col for col in ['timestamp', 'symbol', 'close', 'date'] if col in df.columns]
+            sort_options = [col for col in ['timestamp', 'symbol', 'close', 'date'] if col in df_display.columns]
             if not sort_options:
-                sort_options = df.columns.tolist()[:5]  # First 5 columns as fallback
+                sort_options = df_display.columns.tolist()[:5]  # First 5 columns as fallback
             sort_order = st.selectbox("Sort by", sort_options)
         
         # Apply filters
-        display_df = df.copy()
-        if filter_symbol and 'symbol' in df.columns:
+        display_df = df_display.copy()
+        if filter_symbol and 'symbol' in df_display.columns:
             display_df = display_df[display_df['symbol'].isin(filter_symbol)]
         
         display_df = display_df.sort_values(sort_order, ascending=False).head(n_rows)
@@ -1494,10 +1382,10 @@ def display_data_preview():
         st.markdown("#### Statistical Summary")
         
         # Per-symbol statistics
-        if 'symbol' in df.columns:
+        if 'symbol' in df_display.columns:
             try:
-                for symbol in df['symbol'].unique()[:5]:  # Show first 5 symbols
-                    symbol_df = df[df['symbol'] == symbol]
+                for symbol in df_display['symbol'].unique()[:5]:  # Show first 5 symbols
+                    symbol_df = df_display[df_display['symbol'] == symbol]
                     
                     with st.expander(f"📊 {symbol}", expanded=False):
                         cols = st.columns(4)
@@ -1526,6 +1414,9 @@ def display_data_preview():
                                 st.metric("Sharpe Ratio", f"{sharpe:.3f}")
             except Exception as e:
                 st.error(f"Error displaying symbol statistics: {e}")
+        else:
+            # Overall statistics for non-symbol data
+            st.dataframe(df_display.describe(), use_container_width=True)
     
     with tab4:
         st.markdown("#### 💾 Save & Export")

@@ -17,6 +17,13 @@ env_logger = "0.10"
 libm = "0.2"
 rand = "0.8"
 
+# Parallel processing and statistics
+rayon = "1.8"
+ndarray = { version = "0.15", features = ["rayon"] }
+ndarray-linalg = { version = "0.16", features = ["openblas-system"] }
+statrs = "0.16"
+optimizr = { path = "../../optimiz-r", default-features = false }
+
 # Data processing dependencies
 polars = { version = "0.35", features = ["lazy", "parquet", "csv", "json", "dtype-date", "dtype-datetime"] }
 aws-config = "1.0"

@@ -33,16 +33,16 @@ except ImportError as e:
     optimizr = None
     logger.warning(f"✗ Could not import optimizr: {e} - falling back to Python implementations")
 
-# Also try legacy rust_connector for backwards compatibility
+# Also try legacy rust_connector via the gRPC bridge for backwards compatibility
 try:
-    import rust_connector as rust_conn
+    from python.rust_grpc_bridge import rust_connector as rust_conn  # type: ignore
     RUST_CONNECTOR_AVAILABLE = hasattr(rust_conn, 'optimization')
+    rust_optimizers = getattr(rust_conn, 'optimization', None) if RUST_CONNECTOR_AVAILABLE else None
     if RUST_CONNECTOR_AVAILABLE:
-        rust_optimizers = getattr(rust_conn, 'optimization', None)
-        logger.info("✓ Rust connector optimization module also available")
+        logger.info("✓ Rust connector optimization module (bridge) available")
     else:
         rust_optimizers = None
-except ImportError:
+except Exception:
     RUST_CONNECTOR_AVAILABLE = False
     rust_optimizers = None
 

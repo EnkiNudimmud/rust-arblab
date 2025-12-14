@@ -3,7 +3,9 @@
 # ============================================
 # Stage 1: Rust Builder (gRPC + Connectors)
 # ============================================
-FROM rust:1.82-slim AS rust-builder
+FROM rust:slim AS rust-builder
+
+ENV RUSTUP_TOOLCHAIN=nightly
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -11,13 +13,17 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential pkg-config libssl-dev clang cmake \
     protobuf-compiler libprotobuf-dev \
+    libopenblas-dev gfortran \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
+# Copy optimiz-r library (dependency for gRPC server)
+COPY optimiz-r/ /optimiz-r/
+
 # Copy gRPC server files
-COPY hft-grpc-server/ ./hft-grpc-server/
-COPY proto/ ./proto/
+COPY rust-arblab/hft-grpc-server/ ./hft-grpc-server/
+COPY rust-arblab/proto/ ./proto/
 
 # Build gRPC server
 RUN cd hft-grpc-server && cargo build --release
@@ -46,11 +52,11 @@ WORKDIR /workspace
 RUN pip install --no-cache-dir maturin
 
 # Copy and build optimizr (generic optimization library)
-COPY ../optimiz-r/ ./optimiz-r/
+COPY optimiz-r/ ./optimiz-r/
 RUN cd optimiz-r && maturin build --release --features python-bindings
 
 # Copy and build rust_connector (HFT-specific bindings)
-COPY rust_connector/ ./rust_connector/
+COPY rust-arblab/rust_connector/ ./rust_connector/
 RUN cd rust_connector && maturin build --release
 
 # ============================================
@@ -70,12 +76,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy Python dependencies file and install
-COPY docker/requirements.txt /app/docker/requirements.txt
+COPY rust-arblab/docker/requirements.txt /app/docker/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r docker/requirements.txt
+RUN pip install --no-cache-dir alpaca-trade-api
 
 # Generate Python gRPC stubs from proto files
-COPY proto/ /app/proto/
+COPY rust-arblab/proto/ /app/proto/
 RUN mkdir -p /app/python && \
     python -m grpc_tools.protoc \
         -I/app/proto \
@@ -94,10 +101,10 @@ RUN pip install --no-cache-dir /tmp/wheels/optimiz-r/*.whl && \
     rm -rf /tmp/wheels
 
 # Copy application code
-COPY app/ /app/app/
-COPY python/ /app/python/
-COPY scripts/ /app/scripts/
-COPY examples/ /app/examples/
+COPY rust-arblab/app/ /app/app/
+COPY rust-arblab/python/ /app/python/
+COPY rust-arblab/scripts/ /app/scripts/
+COPY rust-arblab/examples/ /app/examples/
 
 EXPOSE 8501 8888 50051
 

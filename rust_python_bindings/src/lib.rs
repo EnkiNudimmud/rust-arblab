@@ -14,6 +14,8 @@ mod portfolio_drift_bindings;
 mod signature_bindings;
 mod flat_file_bindings;
 mod superspace_bindings;
+mod statistical_analyzer_bindings;
+mod regime_portfolio_bindings;
 // mod alpha_vantage_bindings;  // Temporarily disabled - using Python helper directly
 
 type HandleId = u64;
@@ -177,6 +179,14 @@ fn hft_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Add superspace anomaly detection submodule
     superspace_bindings::register_superspace_module(m)?;
+    
+    // Add statistical analyzer for parallel processing
+    statistical_analyzer_bindings::register_module(m.py(), m)?;
+    
+    // Add regime-switching portfolio optimization
+    let regime_portfolio = PyModule::new_bound(m.py(), "regime_portfolio")?;
+    regime_portfolio_bindings::register_regime_portfolio(m.py(), &regime_portfolio)?;
+    m.add_submodule(&regime_portfolio)?;
     
     // Note: Alpha Vantage connector uses Python helper directly (alpha_vantage_helper.py)
     // No Rust bindings needed since it's REST-only, not real-time WebSocket

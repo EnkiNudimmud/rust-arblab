@@ -17,11 +17,11 @@ import os
 # Add python directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'python'))
 
-# Try to import Rust bindings, fall back to pure Python if not available
+# Try to import Rust bindings via gRPC bridge, fall back to pure Python if not available
 try:
-    import rust_connector
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
     RUST_AVAILABLE = True
-except ImportError:
+except Exception:
     RUST_AVAILABLE = False
 
 st.set_page_config(

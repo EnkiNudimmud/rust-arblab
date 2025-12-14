@@ -184,7 +184,7 @@ class LegacyBackend(BackendInterface):
     def _check_availability(self) -> bool:
         """Check if legacy backend is available"""
         try:
-            import rust_connector
+            from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
             return True
         except Exception as e:
             print(f"Legacy backend not available: {e}")

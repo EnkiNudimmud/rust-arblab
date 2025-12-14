@@ -5,16 +5,20 @@ import numpy as np
 import pandas as pd
 import sys
 import time
+import os
+
+# Add repo root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 try:
-    import rust_connector
-    print("✅ rust_connector imported successfully")
+    from python.rust_grpc_bridge import rust_connector as rust_connector  # type: ignore
+    print("✅ rust_connector bridge imported successfully")
     RUST_AVAILABLE = True
-except ImportError:
-    print("⚠️  rust_connector not available, testing Python fallbacks only")
+except Exception:
+    print("⚠️  rust_connector bridge not available, testing Python fallbacks only")
     RUST_AVAILABLE = False
 
-from python import meanrev
+from python.strategies import meanrev
 
 print("\n" + "="*70)
 print("ADVANCED MEAN-REVERSION FEATURES TEST SUITE")

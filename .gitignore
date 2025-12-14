@@ -48,3 +48,4 @@ env/
 # data/
 # *.csv
 # *.parquet
+.venv/

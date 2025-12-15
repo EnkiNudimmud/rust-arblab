@@ -62,6 +62,7 @@ services:
       - BACKEND_TYPE=grpc
       - GRPC_HOST=grpc-server
       - GRPC_PORT=50051
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=poll
     command: ["streamlit", "run", "app/HFT_Arbitrage_Lab.py", "--server.address=0.0.0.0"]
     depends_on:
       - mock_apis

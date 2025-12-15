@@ -80,7 +80,7 @@ with tab1:
         price_data = data.select_dtypes(include=[np.number]) if data is not None else pd.DataFrame()
     
     # Calculate returns
-    returns = price_data.pct_change().dropna()
+    returns = price_data.pct_change(fill_method=None).dropna()
     
     st.info(f"📊 Analyzing {len(returns.columns)} assets with {len(returns)} time periods")
     
@@ -216,7 +216,7 @@ with tab2:
             index=returns.index
         )
         
-        component_returns = component_df.pct_change().dropna()
+        component_returns = component_df.pct_change(fill_method=None).dropna()
         
         # Signal settings
         lookback = st.slider("Signal Lookback Period", 5, 50, 20)

@@ -87,7 +87,7 @@ if not SPARSE_MEANREV_AVAILABLE:
 # Get data
 df = st.session_state.historical_data
 prices_df = df.pivot_table(index='timestamp', columns='symbol', values='close')
-returns_df = prices_df.pct_change().dropna()
+returns_df = prices_df.pct_change(fill_method=None).dropna()
 
 # Initialize background task state
 if 'construction_results' not in st.session_state:

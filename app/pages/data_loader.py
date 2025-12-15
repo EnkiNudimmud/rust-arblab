@@ -24,6 +24,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -199,8 +200,11 @@ def render():
     st.markdown("Load and preview market data for backtesting strategies")
     
     # Main tabs for different sections
-    main_tab1, main_tab2, main_tab3 = st.tabs(["📥 Fetch Data", "💾 Saved Datasets", "🔗 Merge/Append"])
+    main_tab_auto, main_tab1, main_tab2, main_tab3 = st.tabs(["✨ Auto Smart Fetch", "📥 Manual Fetch", "💾 Saved Datasets", "🔗 Merge/Append"])
     
+    with main_tab_auto:
+        render_auto_fetch_tab()
+
     with main_tab1:
         render_fetch_tab()
     
@@ -209,6 +213,129 @@ def render():
     
     with main_tab3:
         render_merge_append_tab()
+
+
+
+def render_auto_fetch_tab():
+    """Render the Auto Smart Fetch tab"""
+    try:
+        from python.data.smart_fetcher import auto_fetch_wrapper
+    except ImportError:
+        # Hot-reload attempt for new files in running container
+        import importlib
+        import python.data
+        importlib.invalidate_caches()
+        try:
+            importlib.reload(python.data)
+            from python.data.smart_fetcher import auto_fetch_wrapper
+        except ImportError as e:
+            st.error(f"⚠️ Failed to import Smart Fetcher: {e}")
+            st.warning("🔄 Please restart the Docker container to pick up the new module.")
+            # Debug info (collapsed)
+            with st.expander("Debug Info"):
+                import sys
+                import os
+                st.write(f"Current Directory: {os.getcwd()}")
+                st.write(f"Sys Path: {sys.path}")
+                check_path = "python/data/smart_fetcher.py"
+                st.write(f"{check_path} exists: {os.path.exists(check_path)}")
+            return
+    
+    st.markdown("### ✨ Auto Smart Fetch")
+    st.markdown("""
+    Automatically selects the best data source (Alpaca, Yahoo, CCXT) based on:
+    - **Symbol Type** (Crypto vs Stock)
+    - **Interval** (1s/1m/1h/1d)
+    - **Free Tier Limits** (Automatic fallback from SIP to IEX, rate limit handling)
+    """)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Symbol Input
+        symbols_input = st.text_area(
+            "Symbols (Mix of Stocks and Crypto allowed!)", 
+            placeholder="AAPL, BTC/USDT, MSFT, ETH/USDT",
+            help="Enter any mix of symbols. The Smart Fetcher will route them automatically.",
+            height=150
+        )
+        
+        # Parse symbols
+        symbols = [s.strip().upper() for s in symbols_input.replace('\n', ',').split(',') if s.strip()]
+        if symbols:
+            st.caption(f"Found {len(symbols)} symbols: {', '.join(symbols[:10])}{'...' if len(symbols) > 10 else ''}")
+    
+    with col2:
+        # Date and Interval
+        st.markdown("**Settings**")
+        intervals = st.multiselect(
+            "Intervals to Fetch",
+            ["1s", "1m", "5m", "15m", "1h", "1d"],
+            default=["1m", "1h"],
+            help="Select multiple intervals. Results will be combined into one dataset with an 'interval' column."
+        )
+        
+        start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=7))
+        end_date = st.date_input("End Date", value=datetime.now())
+        
+        st.markdown("---")
+        fetch_btn = st.button("🚀 Start Smart Fetch", type="primary", use_container_width=True, disabled=not symbols)
+        
+    if fetch_btn and symbols:
+        # Progress Bar
+        progress_bar = st.progress(0, text="Initializing Smart Fetcher...")
+        status_text = st.empty()
+        
+        try:
+            # Execute Fetch
+            results = auto_fetch_wrapper(symbols, start_date, end_date, intervals, progress_bar=progress_bar)
+            
+            # Post-process results
+            if results:
+                st.success("✅ Fetch complete!")
+                progress_bar.progress(100, text="Done!")
+                
+                # Show summary
+                total_rows = sum(len(df) for df in results.values())
+                st.info(f"Fetched {total_rows:,} records across {len(results)} intervals.")
+                
+                # Combine all into one massive dataframe for saving
+                all_dfs = []
+                for interval, df in results.items():
+                     if not df.empty:
+                         # Ensure interval column exists (it should from fetcher)
+                         if 'interval' not in df.columns:
+                             df['interval'] = interval
+                         all_dfs.append(df)
+                
+                if all_dfs:
+                    final_df = pd.concat(all_dfs, ignore_index=True)
+                    
+                    # Update Session State
+                    st.session_state.historical_data = final_df
+                    st.session_state.symbols = symbols
+                    st.session_state.data_source = "smart_auto"
+                    
+                    # Auto-save
+                    dataset_name = f"auto_smart_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    meta_source = f"SmartAuto_{','.join(intervals)}"
+                    
+                    if save_dataset(
+                        final_df, dataset_name, symbols, 
+                        source=meta_source, 
+                        date_range=(start_date.isoformat(), end_date.isoformat()), 
+                        append=False
+                    ):
+                        st.success(f"💾 Automatically saved as '{dataset_name}'")
+                        time.sleep(1) # Give user a moment to see success
+                        st.rerun()
+            else:
+                 st.warning("⚠️ No data found for the requested parameters.")
+                 progress_bar.empty()
+                 
+        except Exception as e:
+            st.error(f"Smart Fetch failed: {e}")
+            logger.error(f"Smart Fetch Exception: {e}", exc_info=True)
 
 
 def render_saved_datasets_tab():
@@ -734,6 +861,8 @@ def render_fetch_tab():
                             current_symbols = st.session_state.symbols if st.session_state.symbols else []
                             combined = list(set(current_symbols + preset_symbols))
                             st.session_state.symbols = combined
+                            # Increment key version to force text_area refresh
+                            st.session_state.symbol_clear_count = st.session_state.get('symbol_clear_count', 0) + 1
                             new_count = len(combined) - len(current_symbols)
                             st.success(f"✅ Added {new_count} new symbols (Total: {len(combined)})")
                             st.rerun()
@@ -742,6 +871,8 @@ def render_fetch_tab():
                         if st.button("🔄 Replace", use_container_width=True, help="Replace all symbols"):
                             preset_symbols = get_preset_symbols(preset_category, preset_name)
                             st.session_state.symbols = preset_symbols
+                            # Increment key version to force text_area refresh
+                            st.session_state.symbol_clear_count = st.session_state.get('symbol_clear_count', 0) + 1
                             st.success(f"✅ Replaced with {len(preset_symbols)} symbols from {preset_name}")
                             st.rerun()
             
@@ -1243,16 +1374,45 @@ def display_data_preview():
     
     # Convert column-based MultiIndex to flat format for display/charting
     df_display = df.copy()
-    if isinstance(df_display.columns, pd.MultiIndex):
-        # Convert from (symbol, ohlcv) to flat with symbol column
-        df_display = df_display.stack(level=0, future_stack=True).reset_index()
-        df_display.columns.name = None
-        # Ensure timestamp column exists
-        if 'level_0' in df_display.columns:
-            df_display = df_display.rename(columns={'level_0': 'timestamp'})
-        if 'level_1' in df_display.columns:
-            df_display = df_display.rename(columns={'level_1': 'symbol'})
     
+    # Check if we have a MultiIndex columns structure (Symbol, OHLCV)
+    if isinstance(df_display.columns, pd.MultiIndex):
+        try:
+            # Check levels to determine structure
+            # Expecting (Symbol, OHLCV) or (OHLCV, Symbol)
+            if len(df_display.columns.levels) >= 2:
+                # Assume level 0 is Symbol if it has more unique values than level 1, or based on conventions
+                # But our fetch_data ensures (Symbol, Field) structure
+                
+                # Stack based on the symbol level (usually level 0 after our fetch_data transformation)
+                # We want to end up with a flat DataFrame: timestamp, symbol, open, high, low, close...
+                
+                # Stack level 0 (Symbol) to move it to index
+                df_display = df_display.stack(level=0)
+                
+                # Now index is (timestamp, symbol)
+                # Reset index to make them columns
+                df_display = df_display.reset_index()
+                
+                # Rename columns if generic names are assigned
+                if 'level_0' in df_display.columns:
+                    df_display = df_display.rename(columns={'level_0': 'timestamp'})
+                if 'level_1' in df_display.columns:
+                    df_display = df_display.rename(columns={'level_1': 'symbol'})
+                
+                # Ensure we have a symbol column
+                if 'symbol' not in df_display.columns:
+                    # Try to find a column that looks like a symbol
+                    object_cols = df_display.select_dtypes(include=['object']).columns
+                    for col in object_cols:
+                        if df_display[col].nunique() < 500: # Heuristic for symbol column
+                            df_display = df_display.rename(columns={col: 'symbol'})
+                            break
+                            
+        except Exception as e:
+            st.warning(f"Error flattening MultiIndex data: {e}. Showing raw data.")
+            df_display = df.copy() # Fallback
+            
     # Tabs for different views
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Charts", "📑 Data Table", "📈 Statistics", "💾 Export"])
     
@@ -1260,10 +1420,17 @@ def display_data_preview():
         # Symbol selector for charting
         if 'symbol' in df_display.columns:
             try:
-                symbols = df_display['symbol'].unique().tolist()
-                selected_symbol = st.selectbox("Select Symbol for Chart", symbols)
-                # Filter data for selected symbol
-                symbol_df = df_display[df_display['symbol'] == selected_symbol].copy()
+                symbols = sorted([s for s in df_display['symbol'].dropna().unique().tolist() if s is not None])
+                if not symbols:
+                    st.warning("No symbols found in data.")
+                    selected_symbol = None
+                else:
+                    col_sel1, col_sel2 = st.columns([1, 3])
+                    with col_sel1:
+                        selected_symbol = st.selectbox("Select Symbol for Chart", symbols)
+                    
+                    # Filter data for selected symbol
+                    symbol_df = df_display[df_display['symbol'] == selected_symbol].copy()
             except Exception as e:
                 st.error(f"Error accessing symbol column: {e}")
                 symbol_df = df_display.copy()
@@ -1273,75 +1440,88 @@ def display_data_preview():
             symbol_df = df_display.copy()
             selected_symbol = None
         
-        # Ensure timestamp is available (either as column or index)
-        if 'timestamp' not in symbol_df.columns:
-            if symbol_df.index.name == 'timestamp' or 'timestamp' in str(type(symbol_df.index)):
-                symbol_df = symbol_df.reset_index()
-            elif not symbol_df.index.name:
-                # If no name, assume index is timestamp
-                symbol_df = symbol_df.reset_index()
-                if 'index' in symbol_df.columns:
-                    symbol_df = symbol_df.rename(columns={'index': 'timestamp'})
-        
-        if 'timestamp' in symbol_df.columns:
-            symbol_df = symbol_df.sort_values('timestamp')
-        
-        # Create OHLC candlestick chart
-        if all(col in symbol_df.columns for col in ['open', 'high', 'low', 'close']):
-            # Check if we have timestamp for x-axis
+        if not symbol_df.empty:
+            # Ensure timestamp is available (either as column or index)
             if 'timestamp' not in symbol_df.columns:
-                st.warning("⚠️ No timestamp column found. Using index for x-axis.")
-                x_values = symbol_df.index
-            else:
+                if isinstance(symbol_df.index, pd.DatetimeIndex):
+                    symbol_df = symbol_df.reset_index()
+                    symbol_df = symbol_df.rename(columns={'index': 'timestamp'})
+                elif 'index' in symbol_df.columns:
+                    # Check if 'index' column is actually datetime
+                    try:
+                        symbol_df['timestamp'] = pd.to_datetime(symbol_df['index'])
+                    except:
+                        pass
+            
+            # If we still don't have a timestamp column, look for datetime columns
+            if 'timestamp' not in symbol_df.columns:
+                datetime_cols = symbol_df.select_dtypes(include=['datetime64']).columns
+                if not datetime_cols.empty:
+                    symbol_df = symbol_df.rename(columns={datetime_cols[0]: 'timestamp'})
+                else:
+                    # Last resort: use index
+                    symbol_df = symbol_df.reset_index()
+                    symbol_df = symbol_df.rename(columns={'index': 'timestamp'})
+
+            if 'timestamp' in symbol_df.columns:
+                symbol_df = symbol_df.sort_values('timestamp')
+            
+            # Standardize column names (lowercase)
+            symbol_df.columns = [c.lower() for c in symbol_df.columns]
+            
+            # Create OHLC candlestick chart
+            if all(col in symbol_df.columns for col in ['open', 'high', 'low', 'close']):
                 x_values = symbol_df['timestamp']
-            
-            fig = make_subplots(
-                rows=2, cols=1,
-                shared_xaxes=True,
-                vertical_spacing=0.03,
-                row_heights=[0.7, 0.3],
-                subplot_titles=(f'{selected_symbol} Price' if selected_symbol else 'Price', 'Volume')
-            )
-            
-            # Candlestick chart
-            fig.add_trace(
-                go.Candlestick(
-                    x=x_values,
-                    open=symbol_df['open'],
-                    high=symbol_df['high'],
-                    low=symbol_df['low'],
-                    close=symbol_df['close'],
-                    name='OHLC'
-                ),
-                row=1, col=1
-            )
-            
-            # Volume bars
-            if 'volume' in symbol_df.columns:
-                colors = ['red' if close < open else 'green' 
-                         for close, open in zip(symbol_df['close'], symbol_df['open'])]
                 
-                fig.add_trace(
-                    go.Bar(
-                        x=x_values,
-                        y=symbol_df['volume'],
-                        name='Volume',
-                        marker_color=colors,
-                        opacity=0.5
-                    ),
-                    row=2, col=1
+                fig = make_subplots(
+                    rows=2, cols=1,
+                    shared_xaxes=True,
+                    vertical_spacing=0.03,
+                    row_heights=[0.7, 0.3],
+                    subplot_titles=(f'{selected_symbol} Price' if selected_symbol else 'Price', 'Volume')
                 )
-            
-            fig.update_layout(
-                height=600,
-                template="plotly_dark",
-                xaxis_rangeslider_visible=False,
-                showlegend=False
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Missing required columns for candlestick chart")
+                
+                # Candlestick chart
+                fig.add_trace(
+                    go.Candlestick(
+                        x=x_values,
+                        open=symbol_df['open'],
+                        high=symbol_df['high'],
+                        low=symbol_df['low'],
+                        close=symbol_df['close'],
+                        name='OHLC'
+                    ),
+                    row=1, col=1
+                )
+                
+                # Volume bars
+                if 'volume' in symbol_df.columns:
+                    colors = ['red' if close < open else 'green' 
+                             for close, open in zip(symbol_df['close'], symbol_df['open'])]
+                    
+                    fig.add_trace(
+                        go.Bar(
+                            x=x_values,
+                            y=symbol_df['volume'],
+                            name='Volume',
+                            marker_color=colors,
+                            opacity=0.5
+                        ),
+                        row=2, col=1
+                    )
+                
+                fig.update_layout(
+                    height=600,
+                    template="plotly_dark",
+                    xaxis_rangeslider_visible=False,
+                    showlegend=False,
+                    margin=dict(l=10, r=10, t=30, b=10)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning(f"Missing required columns for candlestick chart. Found: {list(symbol_df.columns)}")
+                st.dataframe(symbol_df.head(), use_container_width=True)
     
     with tab2:
         st.markdown("#### Raw Data Table")

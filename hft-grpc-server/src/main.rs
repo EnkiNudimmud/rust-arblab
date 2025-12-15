@@ -19,7 +19,7 @@ use pair_discovery::{PairDiscoveryServiceImpl, proto::pair_discovery_service_ser
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     
-    let addr: SocketAddr = "[::1]:50051".parse()?;
+    let addr: SocketAddr = "127.0.0.1:50051".parse()?;
     let trading_service = TradingServiceImpl::new();
     let pair_discovery_service = PairDiscoveryServiceImpl::default();
     

@@ -604,7 +604,7 @@ with tab4:
                 available_symbols = list(data.keys())
             elif isinstance(data, pd.DataFrame):
                 if 'symbol' in data.columns:
-                    available_symbols = sorted(data['symbol'].unique().tolist())
+                    available_symbols = sorted([s for s in data['symbol'].dropna().unique().tolist() if s is not None])
                 else:
                     # Single asset data - use a generic name
                     available_symbols = ['Asset_1']

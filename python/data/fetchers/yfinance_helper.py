@@ -203,7 +203,7 @@ def validate_date_range(interval: str, start: str, end: str) -> Tuple[bool, Opti
     return True, None
 
 
-def fetch_stocks(
+def fetch_yahoo_batch(
     symbols: List[str],
     days: int = 30,
     interval: str = "1h",
@@ -221,8 +221,8 @@ def fetch_stocks(
         DataFrame with columns: timestamp, symbol, open, high, low, close, volume
     
     Examples:
-        >>> df = fetch_stocks(['AAPL', 'MSFT'], days=30, interval='1h')
-        >>> df = fetch_stocks(['TSLA'], days=7, interval='1m')  # Last 7 days only
+        >>> df = fetch_yahoo_batch(['AAPL', 'MSFT'], days=30, interval='1h')
+        >>> df = fetch_yahoo_batch(['TSLA'], days=7, interval='1m')  # Last 7 days only
     """
     if not YF_AVAILABLE:
         raise ImportError(

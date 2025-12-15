@@ -61,7 +61,7 @@ try:
     logger.info("✅ Rust flat file processor available (Polars-based, 50-100x faster)")
 except (ImportError, AttributeError):
     RUST_FLATFILE_AVAILABLE = False
-    logger.warning("⚠️ Rust flat file processor not available - using Python fallback")
+    logger.info("ℹ️ Rust flat file processor not available - using Python fallback (this is normal if not running in full Docker environment)")
 
 
 # Massive.com API configuration

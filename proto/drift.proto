@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package drift;
+
+// Portfolio Drift Uncertainty Service
+service DriftService {
+  // Robust portfolio choice under uncertainty
+  rpc PortfolioChoice(ChoiceRequest) returns (PortfolioResult);
+
+  // Optimal liquidation under drift uncertainty
+  rpc OptimalLiquidation(LiquidationRequest) returns (LiquidationResult);
+
+  // Portfolio transition under drift uncertainty
+  rpc Transition(TransitionRequest) returns (TransitionResult);
+
+  // Calculate Value at Risk
+  rpc CalculateVaR(RiskRequest) returns (RiskMetric);
+
+  // Calculate Expected Shortfall (CVaR)
+  rpc CalculateCVaR(RiskRequest) returns (RiskMetric);
+}
+
+message ChoiceRequest {
+  repeated double expected_returns = 1;
+  repeated double covariance = 2; // Flattened row-major
+  double risk_aversion = 3;
+  double drift_uncertainty = 4;
+}
+
+message PortfolioResult {
+  repeated double weights = 1;
+  double expected_return = 2;
+  double worst_case_return = 3;
+  double variance = 4;
+  double utility = 5;
+}
+
+message LiquidationRequest {
+  double initial_position = 1;
+  double time_horizon = 2;
+  int32 n_steps = 3;
+  double drift = 4;
+  double drift_uncertainty = 5;
+  double volatility = 6;
+  double temporary_impact = 7;
+  double permanent_impact = 8;
+  double risk_aversion = 9;
+}
+
+message LiquidationResult {
+  repeated double trading_schedule = 1;
+  repeated double trading_rates = 2;
+  double expected_cost = 3;
+  double worst_case_cost = 4;
+  repeated double times = 5;
+}
+
+message TransitionRequest {
+  repeated double initial_weights = 1;
+  repeated double target_weights = 2;
+  double time_horizon = 3;
+  int32 n_steps = 4;
+  repeated double expected_returns = 5;
+  repeated double covariance = 6; // Flattened
+  double drift_uncertainty = 7;
+  double transaction_cost = 8;
+  double risk_aversion = 9;
+}
+
+message TransitionResult {
+  repeated ArrayWrapper trajectory = 1; // List of weight vectors over time
+  repeated ArrayWrapper trading_rates = 2;
+  double expected_cost = 3;
+  double worst_case_cost = 4;
+  repeated double times = 5;
+}
+
+message ArrayWrapper {
+  repeated double values = 1;
+}
+
+message RiskRequest {
+  repeated double weights = 1;
+  repeated double expected_returns = 2;
+  repeated double covariance = 3;
+  double drift_uncertainty = 4;
+  double confidence_level = 5;
+  double time_horizon = 6;
+}
+
+message RiskMetric {
+  double value = 1;
+}

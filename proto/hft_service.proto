@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package hft;
+
+import "trading.proto";
+import "meanrev.proto";
+import "pair_discovery.proto";
+import "regime.proto";
+import "drift.proto";
+import "superspace.proto";
+import "options.proto";
+
+// Unified HFT Service aggregator
+// This file is the main entry point for generating client code
+// It imports all other services to ensure they are available
+
+service HFTService {
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+  repeated string active_services = 3;
+}

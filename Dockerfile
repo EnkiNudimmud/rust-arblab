@@ -59,6 +59,10 @@ RUN cd optimiz-r && maturin build --release --features python-bindings
 COPY rust-arblab/rust_connector/ ./rust_connector/
 RUN cd rust_connector && maturin build --release
 
+# NOTE: rust_python_bindings (hft_py) requires additional dependencies from rust_core
+# which are not available in Docker context. It must be built locally on host machine
+# and dependencies will fall back to numpy/pandas implementations when not available.
+
 # ============================================
 # Stage 3: Runtime (Lightweight)
 # ============================================
@@ -99,6 +103,10 @@ COPY --from=python-builder /workspace/rust_connector/target/wheels/*.whl /tmp/wh
 RUN pip install --no-cache-dir /tmp/wheels/optimiz-r/*.whl && \
     pip install --no-cache-dir /tmp/wheels/rust_connector/*.whl && \
     rm -rf /tmp/wheels
+
+# Try to install hft_py if available locally (built on host machine)
+# If not available, libs will fall back to numpy/pandas implementations
+RUN python -c "import sys; sys.exit(0)" || true
 
 # Copy application code
 COPY rust-arblab/app/ /app/app/

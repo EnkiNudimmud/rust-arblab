@@ -14,7 +14,7 @@ fastapi
 uvicorn
 jupyter
 pytest
-streamlit>=1.22.0
+streamlit>=1.32.0
 plotly>=5.0.0
 # NumPy 2.x is compatible with Python 3.13
 numpy>=1.26.4

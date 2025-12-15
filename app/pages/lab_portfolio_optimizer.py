@@ -40,11 +40,8 @@ def estimate_remaining_time(start_time, completed, total):
         return f"{hours}h {minutes}m"
 
 # Try to import drift uncertainty module
-try:
-    import hft_py.portfolio_drift as pdrift
-    DRIFT_UNCERTAINTY_AVAILABLE = True
-except ImportError:
-    DRIFT_UNCERTAINTY_AVAILABLE = False
+import hft_py.portfolio_drift as pdrift
+DRIFT_UNCERTAINTY_AVAILABLE = True
 
 st.set_page_config(page_title="Portfolio Optimizer Lab", page_icon="🎯", layout="wide")
 
@@ -81,11 +78,8 @@ if not data_available or st.session_state.historical_data is None or st.session_
     st.stop()
 
 # Try to import regime portfolio module
-try:
-    import hft_py.regime_portfolio as regime_portfolio
-    REGIME_PORTFOLIO_AVAILABLE = True
-except ImportError:
-    REGIME_PORTFOLIO_AVAILABLE = False
+import hft_py.regime_portfolio as regime_portfolio
+REGIME_PORTFOLIO_AVAILABLE = True
 
 # Mode selector at top
 modes = ["Multi-Factor Analysis", "Drift Uncertainty (Robust)"]

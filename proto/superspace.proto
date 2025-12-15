@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package superspace;
+
+// Superspace Anomaly Detection Service
+service SuperspaceService {
+  // Detect anomalies in time series data using ghost field theory
+  rpc DetectAnomalies(DetectRequest) returns (DetectResponse);
+
+  // Calculate Chern-Simons invariant for a field
+  rpc CalculateChernSimons(CSRequest) returns (CSResponse);
+  
+  // Generate ghost field representation
+  rpc GenerateGhostField(GhostFieldRequest) returns (GhostFieldResponse);
+}
+
+message DetectRequest {
+  repeated double cs_values = 1; // Chern-Simons values
+  GhostSystemParams params = 2;
+  DetectorParams detector_params = 3;
+  // Option to pass raw bosonic coordinates instead of pre-calc CS values
+  repeated ArrayWrapper bosonic_coords = 4; 
+}
+
+message ArrayWrapper {
+  repeated double values = 1;
+}
+
+message GhostSystemParams {
+  double spring_constant = 1;
+  double damping = 2;
+  double noise_level = 3;
+  int32 n_modes = 4;
+}
+
+message DetectorParams {
+  double threshold = 1;
+  double alpha = 2;
+  double beta = 3;
+}
+
+message DetectResponse {
+  repeated Anomaly anomalies = 1;
+  repeated Signal signals = 2;
+}
+
+message Anomaly {
+  int32 time_index = 1;
+  double score = 2;
+}
+
+message Signal {
+  int32 time_index = 1;
+  int32 signal_type = 2; // 1 for long, -1 for short (example)
+}
+
+message CSRequest {
+  repeated double field = 1;
+  double coupling = 2;
+  int32 window = 3;
+}
+
+message CSResponse {
+  repeated double values = 1;
+  repeated int32 transitions = 2;
+}
+
+message GhostFieldRequest {
+  repeated ArrayWrapper bosonic_coords = 1;
+  GhostSystemParams params = 2;
+}
+
+message GhostFieldResponse {
+  repeated ArrayWrapper fields = 1;
+  repeated double divergence = 2;
+  repeated double curl = 3;
+}

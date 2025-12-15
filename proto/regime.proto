@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package regime;
+
+// Regime-Switching Portfolio Optimization Service
+service RegimeService {
+  // Calibrate model parameters from historical data
+  rpc Calibrate(CalibrationRequest) returns (PortfolioConfig);
+
+  // Optimize portfolio weights
+  rpc Optimize(PortfolioConfig) returns (PortfolioResult);
+
+  // Simulate wealth path using optimal components
+  rpc SimulatePath(SimulationRequest) returns (SimulationResponse);
+  
+  // Estimate current market regime
+  rpc EstimateRegime(RegimeEstimateRequest) returns (RegimeEstimateResponse);
+}
+
+message CalibrationRequest {
+  repeated double returns = 1;
+  repeated int32 known_regimes = 2; // Optional: 0=Bull, 1=Normal, 2=Bear
+}
+
+message PortfolioConfig {
+  double gamma = 1;              // Risk aversion
+  double time_horizon = 2;
+  double rho = 3;                // Discount rate
+  double transaction_cost = 4;
+
+  // Bull regime
+  double r_bull = 5;
+  double mu_bull = 6;
+  double sigma_bull = 7;
+  double lambda_bull = 8;
+  double jump_mean_bull = 9;
+  double jump_std_bull = 10;
+
+  // Normal regime
+  double r_normal = 11;
+  double mu_normal = 12;
+  double sigma_normal = 13;
+  double lambda_normal = 14;
+  double jump_mean_normal = 15;
+  double jump_std_normal = 16;
+
+  // Bear regime
+  double r_bear = 17;
+  double mu_bear = 18;
+  double sigma_bear = 19;
+  double lambda_bear = 20;
+  double jump_mean_bear = 21;
+  double jump_std_bear = 22;
+
+  // Transition probabilities
+  double q_bull_normal = 23;
+  double q_bull_bear = 24;
+  double q_normal_bull = 25;
+  double q_normal_bear = 26;
+  double q_bear_bull = 27;
+  double q_bear_normal = 28;
+}
+
+message PortfolioResult {
+  repeated double wealth = 1;
+  repeated double values = 2; // Value function array
+  repeated double portfolio_weights = 3;
+  repeated double stationary_probs = 4;
+  double expected_weight = 5;
+  double initial_value = 6;
+  int32 iterations = 7;
+  double residual = 8;
+  PortfolioConfig config = 9;
+}
+
+message SimulationRequest {
+  PortfolioResult optimized_result = 1;
+  double initial_wealth = 2;
+  int32 n_steps = 3;
+  double dt = 4;
+}
+
+message SimulationResponse {
+  repeated double times = 1;
+  repeated double wealths = 2;
+  repeated double regimes = 3;
+}
+
+message RegimeEstimateRequest {
+  repeated double returns = 1;
+}
+
+message RegimeEstimateResponse {
+  string regime = 1; // "Bull", "Normal", "Bear"
+}

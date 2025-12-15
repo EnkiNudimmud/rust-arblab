@@ -322,7 +322,7 @@ pub fn backtest_with_costs(
     let mut returns = vec![0.0; n];
     
     let mut current_position: i32 = 0;
-    let mut cash = 100000.0;
+    let cash = 100000.0;
     let mut portfolio_value = cash;
     let mut peak_value = cash;
     let mut max_drawdown = 0.0;
@@ -446,7 +446,7 @@ pub fn compute_pca(data: &[Vec<f64>], n_components: usize) -> (Vec<Vec<f64>>, Ve
     
     // Power iteration to find top components (simplified for initial MVP)
     // In production, use eigendecomposition
-    for k in 0..n_components {
+    for _k in 0..n_components {
         let mut component = vec![1.0 / (n_features as f64).sqrt(); n_features];
         
         // Simple power iteration (5 iterations for stability)

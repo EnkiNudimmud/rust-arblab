@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package options;
+
+// Options Pricing and Hedging Service
+service OptionsService {
+  // Calculate Option Price and Greeks
+  rpc CalculateGreeks(OptionParams) returns (Greeks);
+  
+  // Simulate Delta Hedging PnL
+  rpc SimulateHedging(HedgingRequest) returns (HedgingResponse);
+}
+
+message OptionParams {
+  double spot = 1;
+  double strike = 2;
+  double time_to_expiry = 3;
+  double risk_free_rate = 4;
+  double dividend_yield = 5;
+  double volatility = 6; // implied vol
+  bool is_call = 7;
+}
+
+message Greeks {
+  double price = 1;
+  double delta = 2;
+  double gamma = 3;
+  double theta = 4;
+  double vega = 5;
+  double rho = 6;
+}
+
+message HedgingRequest {
+  OptionParams option = 1;
+  double actual_vol = 2;
+  double hedging_vol = 3;
+  int32 num_simulations = 4;
+  int32 num_steps = 5;
+  double drift = 6;
+}
+
+message HedgingResponse {
+  double expected_profit = 1;
+  double profit_std = 2;
+  double guaranteed_profit = 3; // Theoretical
+}

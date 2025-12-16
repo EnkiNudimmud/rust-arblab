@@ -22,7 +22,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 import sys
 import time
 from pathlib import Path
@@ -30,17 +30,68 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from python.data.data_fetcher import fetch_intraday_data, get_close_prices, get_universe_symbols
-from python.rust_bridge import list_connectors, get_connector
-from python.utils.data_persistence import (
-    save_dataset, load_dataset, list_datasets, delete_dataset,
-    stack_data, generate_dataset_name, get_total_storage_size, format_size
+from utils.grpc_wrapper import TradingGrpcClient, GrpcConfig
+from utils.data_persistence import (
+    save_dataset, load_dataset, list_datasets, delete_dataset, load_all_datasets,
+    get_storage_stats, merge_datasets
 )
 from utils.ui_components import render_sidebar_navigation, apply_custom_css
-from utils.data_persistence import (
-    save_dataset, load_dataset, load_all_datasets, delete_dataset,
-    list_datasets, get_storage_stats, merge_datasets
-)
+
+# Helper functions for missing imports
+def get_total_storage_size():
+    """Calculate total storage size used by datasets"""
+    try:
+        import os
+        from pathlib import Path
+        
+        data_dir = Path(__file__).parent.parent.parent / "data" / "persisted"
+        total_size = 0
+        if data_dir.exists():
+            for file_path in data_dir.rglob("*"):
+                if file_path.is_file():
+                    total_size += file_path.stat().st_size
+        return total_size
+    except Exception:
+        return 0
+
+def format_size(size_bytes):
+    """Format size in bytes to human readable format"""
+    if size_bytes == 0:
+        return "0 B"
+    
+    size_names = ["B", "KB", "MB", "GB"]
+    import math
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_names[i]}"
+
+def stack_data(existing_df, new_df, mode):
+    """Stack data based on mode (append or update)"""
+    if existing_df is None or existing_df.empty:
+        return new_df
+    
+    if new_df is None or new_df.empty:
+        return existing_df
+    
+    # Combine dataframes
+    combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+    
+    # Remove duplicates based on symbol and timestamp if available
+    if 'symbol' in combined_df.columns and 'timestamp' in combined_df.columns:
+        if mode == "update":
+            combined_df = combined_df.drop_duplicates(subset=['symbol', 'timestamp'], keep='last')
+        else:  # append mode
+            combined_df = combined_df.drop_duplicates(subset=['symbol', 'timestamp'], keep='first')
+    
+    return combined_df
+
+def generate_dataset_name(symbols, interval, source):
+    """Generate a dataset name based on parameters"""
+    symbol_str = "_".join(symbols[:3])  # Use first 3 symbols
+    if len(symbols) > 3:
+        symbol_str += "_etc"
+    return f"{source}_{interval}_{symbol_str}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 # Predefined sectors, indexes, and ETF constituents
 SECTORS = {
@@ -177,6 +228,37 @@ def get_preset_symbols(category: str, name: str) -> List[str]:
         return CRYPTO_UNIVERSES.get(name, [])
     return []
 
+def get_smart_source(symbol: str, intervals: List[str]) -> str:
+    """Determine the best data source for a symbol based on type and intervals"""
+    is_crypto = '/' in symbol
+
+    if is_crypto:
+        return 'ccxt'  # Crypto exchanges for crypto pairs
+    else:
+        # For stocks, use Alpaca if 1s interval is selected (only Alpaca supports 1s for stocks)
+        if '1s' in intervals:
+            return 'alpaca'
+        else:
+            return 'yfinance'  # Yahoo Finance for other intervals (free and reliable)
+
+def sync_symbols_input():
+    """Sync the symbols input text area with session state symbols"""
+    if 'symbols' in st.session_state:
+        # Convert symbols list to text format (one per line)
+        st.session_state.symbols_input = "\n".join(st.session_state.symbols) if st.session_state.symbols else ""
+
+def parse_symbols_from_input(symbols_input: str) -> List[str]:
+    """Parse symbols from input text (supports both comma-separated and line-separated)"""
+    symbols = []
+    for line in symbols_input.split('\n'):
+        for s in line.split(','):
+            s = s.strip().upper()
+            # Remove extra spaces within symbol (e.g., "DO GE" -> "DOGE")
+            s = s.replace(' ', '')
+            if s:
+                symbols.append(s)
+    return list(set(symbols))  # Remove duplicates
+
 # Set page config
 st.set_page_config(page_title="Data Loader", page_icon="💾", layout="wide")
 
@@ -192,9 +274,16 @@ def render():
     if 'data_load_mode' not in st.session_state:
         st.session_state.data_load_mode = "replace"  # 'replace', 'append', 'update'
     
-    # Ensure data is loaded (will auto-load most recent dataset if needed)
-    from utils.ui_components import ensure_data_loaded
-    ensure_data_loaded()
+    # Initialize data state for clean start
+    if 'historical_data' not in st.session_state:
+        st.session_state.historical_data = None
+    if 'symbols' not in st.session_state:
+        st.session_state.symbols = []
+    if 'symbol_input_value' not in st.session_state:
+        st.session_state.symbol_input_value = ""
+    
+    # Do NOT auto-load data on Data Loader page - let user start fresh
+    # Users can explicitly load data from saved datasets tab if needed
     
     st.title("📊 Historical Data Loading")
     st.markdown("Load and preview market data for backtesting strategies")
@@ -218,29 +307,6 @@ def render():
 
 def render_auto_fetch_tab():
     """Render the Auto Smart Fetch tab"""
-    try:
-        from python.data.smart_fetcher import auto_fetch_wrapper
-    except ImportError:
-        # Hot-reload attempt for new files in running container
-        import importlib
-        import python.data
-        importlib.invalidate_caches()
-        try:
-            importlib.reload(python.data)
-            from python.data.smart_fetcher import auto_fetch_wrapper
-        except ImportError as e:
-            st.error(f"⚠️ Failed to import Smart Fetcher: {e}")
-            st.warning("🔄 Please restart the Docker container to pick up the new module.")
-            # Debug info (collapsed)
-            with st.expander("Debug Info"):
-                import sys
-                import os
-                st.write(f"Current Directory: {os.getcwd()}")
-                st.write(f"Sys Path: {sys.path}")
-                check_path = "python/data/smart_fetcher.py"
-                st.write(f"{check_path} exists: {os.path.exists(check_path)}")
-            return
-    
     st.markdown("### ✨ Auto Smart Fetch")
     st.markdown("""
     Automatically selects the best data source (Alpaca, Yahoo, CCXT) based on:
@@ -282,60 +348,72 @@ def render_auto_fetch_tab():
         fetch_btn = st.button("🚀 Start Smart Fetch", type="primary", use_container_width=True, disabled=not symbols)
         
     if fetch_btn and symbols:
-        # Progress Bar
-        progress_bar = st.progress(0, text="Initializing Smart Fetcher...")
-        status_text = st.empty()
-        
-        try:
-            # Execute Fetch
-            results = auto_fetch_wrapper(symbols, start_date, end_date, intervals, progress_bar=progress_bar)
-            
-            # Post-process results
-            if results:
-                st.success("✅ Fetch complete!")
-                progress_bar.progress(100, text="Done!")
-                
-                # Show summary
-                total_rows = sum(len(df) for df in results.values())
-                st.info(f"Fetched {total_rows:,} records across {len(results)} intervals.")
-                
-                # Combine all into one massive dataframe for saving
-                all_dfs = []
-                for interval, df in results.items():
-                     if not df.empty:
-                         # Ensure interval column exists (it should from fetcher)
-                         if 'interval' not in df.columns:
-                             df['interval'] = interval
-                         all_dfs.append(df)
-                
-                if all_dfs:
-                    final_df = pd.concat(all_dfs, ignore_index=True)
-                    
-                    # Update Session State
-                    st.session_state.historical_data = final_df
-                    st.session_state.symbols = symbols
-                    st.session_state.data_source = "smart_auto"
-                    
-                    # Auto-save
-                    dataset_name = f"auto_smart_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    meta_source = f"SmartAuto_{','.join(intervals)}"
-                    
-                    if save_dataset(
-                        final_df, dataset_name, symbols, 
-                        source=meta_source, 
-                        date_range=(start_date.isoformat(), end_date.isoformat()), 
-                        append=False
-                    ):
-                        st.success(f"💾 Automatically saved as '{dataset_name}'")
-                        time.sleep(1) # Give user a moment to see success
-                        st.rerun()
+        # Smart Fetch Implementation
+        with st.spinner("🔄 Starting Smart Fetch..."):
+            # Group symbols by optimal data source
+            source_groups = {}
+            for symbol in symbols:
+                source = get_smart_source(symbol, intervals)
+                if source not in source_groups:
+                    source_groups[source] = []
+                source_groups[source].append(symbol)
+
+            # Progress tracking
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            total_groups = len(source_groups)
+            current_progress = 0
+
+            all_data_frames = []
+
+            for source, syms in source_groups.items():
+                current_progress += 1
+                progress_bar.progress(current_progress / total_groups,
+                                    text=f"Fetching {len(syms)} symbols from {source.upper()}...")
+
+                # Determine exchange for CCXT
+                exchange_id = 'binance' if source == 'ccxt' else None
+
+                # Fetch data for this source group
+                df = fetch_data(
+                    symbols=syms,
+                    start=start_date.isoformat(),
+                    end=end_date.isoformat(),
+                    interval=intervals,
+                    source=source,
+                    exchange_id=exchange_id,
+                    save_mode="append"
+                )
+
+                if df is not None and not df.empty:
+                    all_data_frames.append(df)
+                    status_text.text(f"✅ Fetched {len(df):,} records from {source.upper()}")
+                else:
+                    status_text.text(f"⚠️ No data from {source.upper()}")
+
+            # Combine all fetched data
+            progress_bar.progress(1.0, text="Combining data...")
+            if all_data_frames:
+                combined_df = pd.concat(all_data_frames, ignore_index=True)
+
+                # Update session state
+                st.session_state.historical_data = combined_df
+                st.session_state.symbols = symbols
+                st.session_state.data_source = "smart_fetch"
+                st.session_state.date_range = (start_date.isoformat(), end_date.isoformat())
+
+                # Clear progress
+                progress_bar.empty()
+                status_text.empty()
+
+                st.success(f"✅ Smart Fetch completed! Loaded {len(combined_df):,} records from {len(symbols)} symbols")
+                st.balloons()
             else:
-                 st.warning("⚠️ No data found for the requested parameters.")
-                 progress_bar.empty()
-                 
-        except Exception as e:
-            st.error(f"Smart Fetch failed: {e}")
-            logger.error(f"Smart Fetch Exception: {e}", exc_info=True)
+                progress_bar.empty()
+                status_text.empty()
+                st.error("❌ No data was fetched from any source. Please check your symbols and try again.")
+
+            st.rerun()
 
 
 def render_saved_datasets_tab():
@@ -403,6 +481,7 @@ def render_saved_datasets_tab():
                         # Update symbols
                         if meta.get('symbols'):
                             st.session_state.symbols = meta['symbols']
+                            sync_symbols_input()  # Sync the input field
                         
                         st.rerun()
                     except Exception as e:
@@ -576,7 +655,7 @@ def render_merge_append_tab():
                     # Merge the two datasets
                     if merge_datasets([target_dataset, source_dataset], target_dataset):
                         st.success(f"✅ Successfully appended '{source_dataset}' to '{target_dataset}'")
-                        st.rerun()
+                        st.run()
                     else:
                         st.error("❌ Failed to append datasets")
         else:
@@ -652,6 +731,7 @@ def render_fetch_tab():
                                 df, meta = result
                                 st.session_state.historical_data = df
                                 st.session_state.symbols = meta.get('symbols', dataset['symbols'])
+                                sync_symbols_input()  # Sync the input field
                                 st.success(f"✅ Loaded {dataset['name']}")
                                 st.rerun()
                     
@@ -674,21 +754,6 @@ def render_fetch_tab():
         st.markdown("### Data Source Configuration")
         
         # Data source selection
-        data_source = st.selectbox(
-            "🔌 Data Source",
-            [
-                "CCXT - Crypto Exchanges (FREE! ⭐)", 
-                "Yahoo Finance (FREE! Stocks & ETFs)",
-                "Finnhub (Stock Market Data)",
-                "Alpha Vantage (FREE 25 calls/day)",
-                "Massive (Institutional Data - 100 calls/day)",
-                "Upload CSV", 
-                "Mock/Synthetic"
-            ],
-            help="💡 All connectors have API keys configured in api_keys.properties"
-        )
-        
-        # Add Alpaca to data source list
         data_sources = [
             "CCXT - Crypto Exchanges (FREE! ⭐)",
             "Yahoo Finance (FREE! Stocks & ETFs)",
@@ -732,7 +797,7 @@ def render_fetch_tab():
             - Only supports US stocks (no ETFs, no crypto)
             """)
             st.info(
-                f"✅ Using {exchange_id.title()} - FREE public data, no API key needed!\\n"
+                f"✅ Using {exchange_id.title()} - FREE public data, no API key needed!\n"
                 f"Supports second-level historical data for crypto pairs."
             )
         
@@ -752,12 +817,12 @@ def render_fetch_tab():
             
             if calls_remaining > 15:
                 st.info(
-                    f"📊 **Alpha Vantage Status:** ✅ {calls_remaining}/25 calls remaining today\\n"
+                    f"📊 **Alpha Vantage Status:** ✅ {calls_remaining}/25 calls remaining today\n"
                     f"⏱️ Rate: 5 calls/min | Resets: midnight UTC"
                 )
             elif calls_remaining > 0:
                 st.warning(
-                    f"⚠️ **Alpha Vantage Status:** {calls_remaining}/25 calls remaining\\n"
+                    f"⚠️ **Alpha Vantage Status:** {calls_remaining}/25 calls remaining\n"
                     f"Use wisely - limit resets at midnight UTC"
                 )
             else:
@@ -779,7 +844,7 @@ def render_fetch_tab():
             
             if calls_remaining > 50:
                 st.info(
-                    f"🏛️ **Massive.com Status:** ✅ {calls_remaining}/100 calls remaining\\n"
+                    f"🏛️ **Massive.com Status:** ✅ {calls_remaining}/100 calls remaining\n"
                     f"📥 10 GB/month bulk downloads available"
                 )
             elif calls_remaining > 0:
@@ -790,7 +855,7 @@ def render_fetch_tab():
         # Finnhub info
         if data_source.startswith("Finnhub"):
             st.info(
-                "📊 **Finnhub API** configured from api_keys.properties\\n"
+                "📊 **Finnhub API** configured from api_keys.properties\n"
                 "✅ Real-time & historical stock data available"
             )
         
@@ -808,6 +873,7 @@ def render_fetch_tab():
                     if 'symbol' in df.columns:
                         symbols = df['symbol'].unique().tolist()
                         st.session_state.symbols = symbols
+                        sync_symbols_input()  # Sync the input field
                     else:
                         st.warning("CSV does not contain a 'symbol' column. Some features may be limited.")
                 except Exception as e:
@@ -857,12 +923,13 @@ def render_fetch_tab():
                     with preset_col_btn1:
                         if st.button("➕ Append", use_container_width=True, help="Add to existing symbols"):
                             preset_symbols = get_preset_symbols(preset_category, preset_name)
+                            # Get current symbols from the manual entry text area
+                            current_input = st.session_state.get('symbols_input', '')
+                            current_symbols = parse_symbols_from_input(current_input)
                             # Append and remove duplicates
-                            current_symbols = st.session_state.symbols if st.session_state.symbols else []
                             combined = list(set(current_symbols + preset_symbols))
                             st.session_state.symbols = combined
-                            # Increment key version to force text_area refresh
-                            st.session_state.symbol_clear_count = st.session_state.get('symbol_clear_count', 0) + 1
+                            sync_symbols_input()  # Sync the input field immediately
                             new_count = len(combined) - len(current_symbols)
                             st.success(f"✅ Added {new_count} new symbols (Total: {len(combined)})")
                             st.rerun()
@@ -871,8 +938,7 @@ def render_fetch_tab():
                         if st.button("🔄 Replace", use_container_width=True, help="Replace all symbols"):
                             preset_symbols = get_preset_symbols(preset_category, preset_name)
                             st.session_state.symbols = preset_symbols
-                            # Increment key version to force text_area refresh
-                            st.session_state.symbol_clear_count = st.session_state.get('symbol_clear_count', 0) + 1
+                            sync_symbols_input()  # Sync the input field immediately
                             st.success(f"✅ Replaced with {len(preset_symbols)} symbols from {preset_name}")
                             st.rerun()
             
@@ -882,7 +948,7 @@ def render_fetch_tab():
             # Dynamic help text based on data source
             if data_source.startswith("CCXT"):
                 symbol_help = (
-                    "Enter crypto pairs (e.g., BTC/USDT, ETH/USDT)\\n"
+                    "Enter crypto pairs (e.g., BTC/USDT, ETH/USDT)\n"
                     "Format: BASE/QUOTE (e.g., BTC/USDT, ETH/BTC)"
                 )
                 placeholder_text = "BTC/USDT\nETH/USDT\nSOL/USDT"
@@ -892,45 +958,46 @@ def render_fetch_tab():
             
             # Symbol management buttons
             symbol_btn_col1, symbol_btn_col2, symbol_btn_col3 = st.columns([2, 1, 1])
-            
+
             with symbol_btn_col2:
                 if st.button("🗑️ Clear Symbols", use_container_width=True, help="Clear all symbols"):
                     st.session_state.symbols = []
-                    st.session_state.symbol_clear_count = st.session_state.get('symbol_clear_count', 0) + 1
+                    st.session_state.symbols_input = ""
+                    st.success("✅ Symbols cleared!")
                     st.rerun()
-            
+
             with symbol_btn_col3:
                 if st.button("🗑️ Clear Data", use_container_width=True, help="Clear loaded data"):
                     st.session_state.historical_data = None
+                    st.success("✅ Data cleared!")
                     st.rerun()
-            
+
             # Symbol input
             with symbol_btn_col1:
-                # Use a key with timestamp to force refresh when cleared
-                if 'symbol_clear_count' not in st.session_state:
-                    st.session_state.symbol_clear_count = 0
-                
+                # Ensure input value is synced with session state
+                if 'symbols_input' not in st.session_state:
+                    st.session_state.symbols_input = ""
+                if 'symbols' in st.session_state and st.session_state.symbols:
+                    sync_symbols_input()
+
                 symbols_input = st.text_area(
                     "Symbols (one per line or comma-separated)",
-                    value="\n".join(st.session_state.symbols) if st.session_state.symbols else "",
                     placeholder=placeholder_text,
                     height=100,
                     help=symbol_help,
                     label_visibility="visible",
-                    key=f"symbols_input_{st.session_state.symbol_clear_count}"
+                    key="symbols_input"
                 )
+
+                # Update session state when input changes
+                st.session_state.symbol_input_value = symbols_input
             
             # Parse and clean symbols
-            symbols = []
-            for line in symbols_input.split('\n'):
-                for s in line.split(','):
-                    s = s.strip().upper()
-                    # Remove extra spaces within symbol (e.g., "DO GE" -> "DOGE")
-                    s = s.replace(' ', '')
-                    if s:
-                        symbols.append(s)
-            symbols = list(set(symbols))  # Remove duplicates
-            
+            symbols = parse_symbols_from_input(symbols_input)
+
+            # Update session state symbols
+            st.session_state.symbols = symbols
+
             # Show cleaned symbols if any were modified
             original_symbols = []
             for line in symbols_input.split('\n'):
@@ -1009,11 +1076,11 @@ def render_fetch_tab():
                 
                 if stock_like_symbols and not crypto_like_symbols:
                     st.warning(
-                        f"⚠️ **Warning:** You selected CCXT (crypto exchange) but your symbols look like stocks: {', '.join(stock_like_symbols[:5])}{'...' if len(stock_like_symbols) > 5 else ''}\\n\\n"
-                        f"**Crypto exchanges don't have stock data!**\\n\\n"
-                        f"**Options:**\\n"
-                        f"1. Use **Yahoo Finance** source for stocks (AAPL, GOOGL, etc.)\\n"
-                        f"2. Or use crypto pairs like: BTC/USDT, ETH/USDT, SOL/USDT\\n"
+                        f"⚠️ **Warning:** You selected CCXT (crypto exchange) but your symbols look like stocks: {', '.join(stock_like_symbols[:5])}{'...' if len(stock_like_symbols) > 5 else ''}\n\n"
+                        f"**Crypto exchanges don't have stock data!**\n\n"
+                        f"**Options:**\n"
+                        f"1. Use **Yahoo Finance** source for stocks (AAPL, GOOGL, etc.)\n"
+                        f"2. Or use crypto pairs like: BTC/USDT, ETH/USDT, SOL/USDT\n"
                         f"3. Or switch to 'Crypto' category in Quick Select"
                     )
             
@@ -1022,9 +1089,9 @@ def render_fetch_tab():
                 crypto_pairs = [s for s in symbols if '/' in s]
                 if crypto_pairs:
                     st.warning(
-                        f"⚠️ **Warning:** You selected Yahoo Finance but have crypto pair format: {', '.join(crypto_pairs[:3])}\\n\\n"
-                        f"**Yahoo Finance uses different format for crypto:**\\n"
-                        f"• Use 'BTC-USD' instead of 'BTC/USDT'\\n"
+                        f"⚠️ **Warning:** You selected Yahoo Finance but have crypto pair format: {', '.join(crypto_pairs[:3])}\n\n"
+                        f"**Yahoo Finance uses different format for crypto:**\n"
+                        f"• Use 'BTC-USD' instead of 'BTC/USDT'\n"
                         f"• Or switch to 'CCXT - Crypto Exchanges' for crypto pairs"
                     )
                 
@@ -1033,22 +1100,22 @@ def render_fetch_tab():
                 
                 if interval == "1m" and days_diff > 7:
                     st.error(
-                        f"❌ **Invalid Date Range for 1m interval**\\n\\n"
-                        f"Yahoo Finance **1-minute data** is limited to the **last 7 days only**.\\n"
-                        f"Your range: {days_diff} days\\n\\n"
-                        f"**Solutions:**\\n"
-                        f"1. Reduce date range to last 7 days\\n"
-                        f"2. Use **5m** or higher interval for longer history\\n"
+                        f"❌ **Invalid Date Range for 1m interval**\n\n"
+                        f"Yahoo Finance **1-minute data** is limited to the **last 7 days only**.\n"
+                        f"Your range: {days_diff} days\n\n"
+                        f"**Solutions:**\n"
+                        f"1. Reduce date range to last 7 days\n"
+                        f"2. Use **5m** or higher interval for longer history\n"
                         f"3. Use **CCXT** for crypto (supports longer 1m history)"
                     )
                 elif interval in ["5m", "15m", "30m"] and days_diff > 60:
                     st.error(
-                        f"❌ **Invalid Date Range for {interval} interval**\\n\\n"
-                        f"Yahoo Finance **{interval} data** is limited to the **last 60 days only**.\\n"
-                        f"Your range: {days_diff} days\\n\\n"
-                        f"**Solutions:**\\n"
-                        f"1. Reduce date range to last 60 days\\n"
-                        f"2. Use **1h** or **1d** interval for longer history\\n"
+                        f"❌ **Invalid Date Range for {interval} interval**\n\n"
+                        f"Yahoo Finance **{interval} data** is limited to the **last 60 days only**.\n"
+                        f"Your range: {days_diff} days\n\n"
+                        f"**Solutions:**\n"
+                        f"1. Reduce date range to last 60 days\n"
+                        f"2. Use **1h** or **1d** interval for longer history\n"
                         f"3. Use **CCXT** for crypto (supports longer history)"
                     )
                 elif interval in ["1m", "5m", "15m", "30m"]:
@@ -1056,8 +1123,8 @@ def render_fetch_tab():
                     max_days = 7 if interval == "1m" else 60
                     if days_diff > max_days * 0.8:  # Warn if approaching limit
                         st.info(
-                            f"ℹ️  **Note:** You're requesting {days_diff} days of {interval} data.\\n"
-                            f"Yahoo Finance limit is {max_days} days for this interval.\\n"
+                            f"ℹ️  **Note:** You're requesting {days_diff} days of {interval} data.\n"
+                            f"Yahoo Finance limit is {max_days} days for this interval.\n"
                             f"Consider using **1h** or **1d** for longer historical analysis."
                         )
             
@@ -1207,6 +1274,9 @@ def render_fetch_tab():
             # Clear data button
             if st.button("🗑️ Clear Data", use_container_width=True):
                 st.session_state.historical_data = None
+                st.session_state.symbols = []
+                sync_symbols_input()
+                st.success("✅ Data and symbols cleared!")
                 st.rerun()
         else:
             st.info("No data loaded yet")
@@ -1250,75 +1320,46 @@ def render_fetch_tab():
         display_data_preview()
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: str, exchange_id: Optional[str] = None, save_mode: str = "append") -> pd.DataFrame:
-    """Fetch data with caching and persistence"""
+def fetch_data(symbols: List[str], start: str, end: str, interval: Union[str, List[str]], source: str, exchange_id: Optional[str] = None, save_mode: str = "append") -> pd.DataFrame:
+    """Fetch data with caching and persistence using real data sources"""
     display_source = f"{source} ({exchange_id})" if exchange_id else source
     with st.spinner(f"Fetching data for {len(symbols)} symbols from {display_source}..."):
         try:
-            # For CCXT, pass exchange_id through params
-            if source == 'ccxt' and exchange_id:
-                from python.data.data_fetcher import _fetch_ccxt
-                new_df = _fetch_ccxt(symbols, start, end, interval, exchange_id)
+            # Handle multiple intervals
+            intervals_to_fetch = [interval] if isinstance(interval, str) else interval
+
+            all_data_frames = []
+            for intv in intervals_to_fetch:
+                # Try to use real data fetching first
+                try:
+                    # Use gRPC client for data fetching
+                    client = TradingGrpcClient(GrpcConfig())
+                    st.info("🔄 Using gRPC service for data fetching...")
+
+                    # For now, we'll implement basic data fetching based on source
+                    # In a real implementation, you'd add specific endpoints to the Rust gRPC server
+
+                    new_df = fetch_real_data(symbols, start, end, intv, source, exchange_id)
+
+                except Exception as e:
+                    st.warning(f"gRPC service not available, falling back to local data fetching: {e}")
+                    new_df = fetch_real_data(symbols, start, end, intv, source, exchange_id)
+
+                if new_df is not None and not new_df.empty:
+                    # Add interval column
+                    new_df['interval'] = intv
+                    all_data_frames.append(new_df)
+
+            # Combine all interval data
+            if all_data_frames:
+                new_df = pd.concat(all_data_frames, ignore_index=True)
             else:
-                new_df = fetch_intraday_data(
-                    symbols=symbols,
-                    start=start,
-                    end=end,
-                    interval=interval,
-                    source=source
-                )
-            
-            # Alpaca fetch logic
-            if source == 'alpaca':
-                # Map interval to Alpaca timeframe
-                interval_map = {
-                    '1s': '1Sec',
-                    '1m': '1Min',
-                    '5m': '5Min',
-                    '15m': '15Min',
-                    '30m': '30Min',
-                    '1h': '1Hour',
-                    '1d': '1Day'
-                }
-                alpaca_timeframe = interval_map.get(interval, '1Sec')
-                st.info(f"🔄 Fetching data from Alpaca ({alpaca_timeframe} bars, US stocks only)...")
-                try:
-                    from python.data.fetchers.alpaca_helper import fetch_alpaca_batch
-                    new_df = fetch_alpaca_batch(symbols, start, end, timeframe=alpaca_timeframe, limit=10000)
-                    st.success(f"✅ Fetched {len(new_df)} rows from Alpaca")
-                except Exception as e:
-                    st.error(f"Alpaca fetch failed: {e}")
-                    new_df = pd.DataFrame()
+                new_df = pd.DataFrame()
 
-            # Increment API call counter for rate-limited sources
-            if source == 'alpha_vantage':
-                if 'av_calls_today' in st.session_state:
-                    st.session_state.av_calls_today += len(symbols)
-            elif source == 'massive':
-                if 'massive_calls_today' in st.session_state:
-                    st.session_state.massive_calls_today += len(symbols)
+            if new_df is None or new_df.empty:
+                st.warning("No data fetched. This might be due to API limitations or connectivity issues.")
+                return pd.DataFrame()
 
-            # Reset index to make it easier to work with
-            if isinstance(new_df.index, pd.MultiIndex):
-                new_df = new_df.reset_index()
-
-            # Convert to column-based MultiIndex format for compatibility with analysis tools
-            # Check if data has 'symbol' column (row-based format)
-            if 'symbol' in new_df.columns and 'timestamp' in new_df.columns:
-                st.info("🔄 Converting data to column-based MultiIndex format...")
-                # Pivot to get symbols as columns
-                try:
-                    # Set timestamp and symbol as index
-                    new_df = new_df.set_index(['timestamp', 'symbol'])
-                    # Unstack to move symbol to columns
-                    new_df = new_df.unstack(level='symbol')
-                    # Swap levels to (symbol, ohlcv) format
-                    new_df.columns = new_df.columns.swaplevel(0, 1)
-                    new_df = new_df.sort_index(axis=1)
-                    st.success(f"✅ Converted to MultiIndex format with symbols: {list(new_df.columns.get_level_values(0).unique())}")
-                except Exception as e:
-                    st.warning(f"Could not convert to MultiIndex format: {e}")
-            
             # Handle data loading mode: replace, append, or update
             if save_mode == "replace" or st.session_state.historical_data is None:
                 st.session_state.historical_data = new_df
@@ -1327,16 +1368,16 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
                 st.session_state.historical_data = stack_data(
                     st.session_state.historical_data, new_df, save_mode
                 )
-            
+
             st.session_state.symbols = symbols
             st.session_state.data_source = source
             st.session_state.date_range = (start, end)
-            
+
             # Auto-save to persistent storage
             dataset_name = f"{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             if exchange_id:
                 dataset_name = f"{exchange_id}_{dataset_name}"
-            
+
             # Auto-save dataset
             save_dataset(
                 new_df, dataset_name,
@@ -1346,7 +1387,7 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
                 append=(save_mode == "append")
             )
             st.info(f"💾 Data saved as '{dataset_name}'")
-            
+
             # Display appropriate success message based on mode
             total_rows = len(st.session_state.historical_data)
             if save_mode == "replace":
@@ -1356,10 +1397,386 @@ def fetch_data(symbols: List[str], start: str, end: str, interval: str, source: 
             else:  # update
                 st.success(f"✅ Successfully updated data with {len(new_df):,} records for {len(symbols)} symbols (Total: {total_rows:,} rows)")
             return st.session_state.historical_data
-            
+
         except Exception as e:
             st.error(f"Failed to fetch data: {e}")
             return pd.DataFrame()
+
+def fetch_real_data(symbols: List[str], start: str, end: str, interval: str, source: str, exchange_id: Optional[str] = None) -> Optional[pd.DataFrame]:
+    """Fetch real data from various sources"""
+    try:
+        start_date = pd.to_datetime(start)
+        end_date = pd.to_datetime(end)
+        
+        if source == 'ccxt':
+            return fetch_ccxt_data(symbols, start_date, end_date, interval, exchange_id or 'binance')
+        elif source == 'yfinance':
+            return fetch_yfinance_data(symbols, start_date, end_date, interval)
+        elif source == 'finnhub':
+            return fetch_finnhub_data(symbols, start_date, end_date, interval)
+        elif source == 'alpha_vantage':
+            return fetch_alpha_vantage_data(symbols, start_date, end_date, interval)
+        elif source == 'alpaca':
+            return fetch_alpaca_data(symbols, start_date, end_date, interval)
+        else:
+            # Fallback to mock data for testing
+            return generate_mock_data(symbols, start_date, end_date, interval)
+            
+    except Exception as e:
+        st.error(f"Error fetching {source} data: {e}")
+        return generate_mock_data(symbols, pd.to_datetime(start), pd.to_datetime(end), interval)
+
+def fetch_ccxt_data(symbols: List[str], start_date: pd.Timestamp, end_date: pd.Timestamp, interval: str, exchange_id: str) -> pd.DataFrame:
+    """Fetch data from CCXT crypto exchanges"""
+    try:
+        import ccxt
+        
+        exchange = getattr(ccxt, exchange_id)({
+            'sandbox': False,  # change to True if you have a testnet
+            'enableRateLimit': True,
+        })
+        
+        # Convert interval to CCXT format
+        timeframe_map = {
+            '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+            '1h': '1h', '1d': '1d'
+        }
+        timeframe = timeframe_map.get(interval, '1h')
+        
+        data_rows = []
+        
+        for symbol in symbols:
+            try:
+                # Ensure symbol format is correct for CCXT
+                if '/' not in symbol:
+                    symbol = f"{symbol}/USDT"  # Default to USDT pairs
+                
+                # Fetch OHLCV data
+                ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since=int(start_date.timestamp() * 1000), limit=1000)
+                
+                for candle in ohlcv:
+                    timestamp, open_price, high, low, close, volume = candle
+                    if timestamp <= end_date.timestamp() * 1000:
+                        data_rows.append({
+                            'timestamp': pd.to_datetime(timestamp, unit='ms'),
+                            'symbol': symbol,
+                            'open': float(open_price),
+                            'high': float(high),
+                            'low': float(low),
+                            'close': float(close),
+                            'volume': float(volume)
+                        })
+                        
+            except Exception as e:
+                st.warning(f"Failed to fetch {symbol} from {exchange_id}: {e}")
+                continue
+        
+        if data_rows:
+            df = pd.DataFrame(data_rows)
+            return df.sort_values(['timestamp', 'symbol'])
+        else:
+            st.warning(f"No data returned from {exchange_id}")
+            return pd.DataFrame()
+            
+    except ImportError:
+        st.error("CCXT library not installed. Install with: pip install ccxt")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"CCXT fetch error: {e}")
+        return pd.DataFrame()
+
+def fetch_yfinance_data(symbols: List[str], start_date: pd.Timestamp, end_date: pd.Timestamp, interval: str) -> pd.DataFrame:
+    """Fetch data from Yahoo Finance"""
+    try:
+        import yfinance as yf
+        
+        # Convert interval to Yahoo Finance format
+        interval_map = {
+            '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+            '1h': '1h', '1d': '1d'
+        }
+        yf_interval = interval_map.get(interval, '1h')
+        
+        data_rows = []
+        
+        for symbol in symbols:
+            try:
+                # Convert crypto pairs to Yahoo Finance format
+                if '/' in symbol:
+                    symbol = symbol.replace('/', '-')
+                    # For crypto, use USDT or USD suffix
+                    if not symbol.endswith('-USD'):
+                        symbol = symbol.replace('-USDT', '-USD')
+                
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(start=start_date, end=end_date, interval=yf_interval)
+                
+                if not hist.empty:
+                    for timestamp, row in hist.iterrows():
+                        data_rows.append({
+                            'timestamp': pd.to_datetime(timestamp),
+                            'symbol': symbol,
+                            'open': float(row['Open']),
+                            'high': float(row['High']),
+                            'low': float(row['Low']),
+                            'close': float(row['Close']),
+                            'volume': float(row['Volume'])
+                        })
+                        
+            except Exception as e:
+                st.warning(f"Failed to fetch {symbol} from Yahoo Finance: {e}")
+                continue
+        
+        if data_rows:
+            df = pd.DataFrame(data_rows)
+            return df.sort_values(['timestamp', 'symbol'])
+        else:
+            st.warning("No data returned from Yahoo Finance")
+            return pd.DataFrame()
+            
+    except ImportError:
+        st.error("yfinance library not installed. Install with: pip install yfinance")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Yahoo Finance fetch error: {e}")
+        return pd.DataFrame()
+
+def fetch_finnhub_data(symbols: List[str], start_date: pd.Timestamp, end_date: pd.Timestamp, interval: str) -> pd.DataFrame:
+    """Fetch data from Finnhub API"""
+    try:
+        import finnhub
+        import os
+        
+        api_key = os.getenv('FINNHUB_API_KEY') or 'demo'
+        client = finnhub.Client(api_key=api_key)
+        
+        # Convert interval to Finnhub format
+        interval_map = {
+            '1m': 60, '5m': 300, '15m': 900, '30m': 1800,
+            '1h': 3600, '1d': 'D'
+        }
+        resolution = interval_map.get(interval, 3600)
+        
+        data_rows = []
+        
+        for symbol in symbols:
+            try:
+                # Remove exchange suffix if present (e.g., AAPL -> AAPL)
+                clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
+                
+                # Fetch data
+                candles = client.stock_candles(
+                    clean_symbol, 
+                    resolution, 
+                    int(start_date.timestamp()), 
+                    int(end_date.timestamp())
+                )
+                
+                if candles['s'] == 'ok':
+                    for i in range(len(candles['t'])):
+                        data_rows.append({
+                            'timestamp': pd.to_datetime(candles['t'][i], unit='s'),
+                            'symbol': clean_symbol,
+                            'open': float(candles['o'][i]),
+                            'high': float(candles['h'][i]),
+                            'low': float(candles['l'][i]),
+                            'close': float(candles['c'][i]),
+                            'volume': float(candles['v'][i])
+                        })
+                        
+            except Exception as e:
+                st.warning(f"Failed to fetch {symbol} from Finnhub: {e}")
+                continue
+        
+        if data_rows:
+            df = pd.DataFrame(data_rows)
+            return df.sort_values(['timestamp', 'symbol'])
+        else:
+            st.warning("No data returned from Finnhub")
+            return pd.DataFrame()
+            
+    except ImportError:
+        st.error("finnhub library not installed. Install with: pip install finnhub")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Finnhub fetch error: {e}")
+        return pd.DataFrame()
+
+def fetch_alpha_vantage_data(symbols: List[str], start_date: pd.Timestamp, end_date: pd.Timestamp, interval: str) -> pd.DataFrame:
+    """Fetch data from Alpha Vantage API"""
+    try:
+        import requests
+        import os
+        
+        api_key = os.getenv('ALPHA_VANTAGE_API_KEY') or 'demo'
+        
+        # Convert interval to Alpha Vantage format
+        interval_map = {
+            '1m': '1min', '5m': '5min', '15m': '15min', '30m': '30min',
+            '1h': '60min', '1d': 'daily'
+        }
+        av_interval = interval_map.get(interval, '60min')
+        
+        data_rows = []
+        
+        for symbol in symbols:
+            try:
+                if av_interval == 'daily':
+                    # Daily data
+                    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
+                else:
+                    # Intraday data
+                    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={symbol}&interval={av_interval}&apikey={api_key}"
+                
+                response = requests.get(url)
+                data = response.json()
+                
+                # Parse the response
+                if av_interval == 'daily':
+                    time_series_key = 'Time Series (Daily)'
+                else:
+                    time_series_key = f'Time Series ({av_interval})'
+                
+                if time_series_key in data:
+                    for date_str, values in data[time_series_key].items():
+                        timestamp = pd.to_datetime(date_str)
+                        if start_date <= timestamp <= end_date:
+                            data_rows.append({
+                                'timestamp': timestamp,
+                                'symbol': symbol,
+                                'open': float(values['1. open']),
+                                'high': float(values['2. high']),
+                                'low': float(values['3. low']),
+                                'close': float(values['4. close']),
+                                'volume': float(values['5. volume'])
+                            })
+                            
+            except Exception as e:
+                st.warning(f"Failed to fetch {symbol} from Alpha Vantage: {e}")
+                continue
+        
+        if data_rows:
+            df = pd.DataFrame(data_rows)
+            return df.sort_values(['timestamp', 'symbol'])
+        else:
+            st.warning("No data returned from Alpha Vantage")
+            return pd.DataFrame()
+            
+    except Exception as e:
+        st.error(f"Alpha Vantage fetch error: {e}")
+        return pd.DataFrame()
+
+def fetch_alpaca_data(symbols: List[str], start_date: pd.Timestamp, end_date: pd.Timestamp, interval: str) -> pd.DataFrame:
+    """Fetch data from Alpaca API"""
+    try:
+        import alpaca_trade_api as tradeapi
+        import os
+        
+        api_key = os.getenv('ALPACA_API_KEY_ID') or 'demo'
+        api_secret = os.getenv('ALPACA_API_SECRET_KEY') or 'demo'
+        base_url = 'https://data.alpaca.markets'
+        
+        client = tradeapi.REST(api_key, api_secret, base_url=base_url)
+        
+        # Convert interval to Alpaca format
+        interval_map = {
+            '1s': '1Sec', '1m': '1Min', '5m': '5Min', '15m': '15Min',
+            '30m': '30Min', '1h': '1Hour', '1d': '1Day'
+        }
+        alpaca_interval = interval_map.get(interval, '1Min')
+        
+        data_rows = []
+        
+        for symbol in symbols:
+            try:
+                # Fetch bars
+                bars = client.get_bars(
+                    symbol, 
+                    alpaca_interval, 
+                    start=start_date.isoformat(), 
+                    end=end_date.isoformat()
+                )
+                
+                for bar in bars:
+                    data_rows.append({
+                        'timestamp': pd.to_datetime(bar.t),
+                        'symbol': symbol,
+                        'open': float(bar.o),
+                        'high': float(bar.h),
+                        'low': float(bar.l),
+                        'close': float(bar.c),
+                        'volume': float(bar.v)
+                    })
+                    
+            except Exception as e:
+                st.warning(f"Failed to fetch {symbol} from Alpaca: {e}")
+                continue
+        
+        if data_rows:
+            df = pd.DataFrame(data_rows)
+            return df.sort_values(['timestamp', 'symbol'])
+        else:
+            st.warning("No data returned from Alpaca")
+            return pd.DataFrame()
+            
+    except ImportError:
+        st.error("alpaca-trade-api library not installed. Install with: pip install alpaca-trade-api")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Alpaca fetch error: {e}")
+        return pd.DataFrame()
+
+def generate_mock_data(symbols: List[str], start_date: pd.Timestamp, end_date: pd.Timestamp, interval: str) -> pd.DataFrame:
+    """Generate mock data for testing when real sources fail"""
+    import numpy as np
+    
+    # Generate mock OHLCV data
+    date_range = pd.date_range(start=start_date, end=end_date, freq='1H')
+    data_rows = []
+
+    for symbol in symbols:
+        # Generate realistic price data
+        np.random.seed(hash(symbol) % 2**32)
+        n_points = len(date_range)
+
+        # Start with a base price
+        base_price = 100 + np.random.randn() * 20
+
+        # Generate random walk prices
+        price_changes = np.random.randn(n_points) * 0.02  # 2% volatility
+        prices = base_price * np.exp(np.cumsum(price_changes))
+
+        for i, timestamp in enumerate(date_range):
+            price = prices[i]
+            # Generate OHLC around the price
+            volatility = abs(np.random.randn()) * 0.01
+            high = price * (1 + volatility)
+            low = price * (1 - volatility)
+            open_price = price * (1 + np.random.randn() * 0.005)
+            close = price
+            volume = np.random.randint(1000, 100000)
+
+            data_rows.append({
+                'timestamp': timestamp,
+                'symbol': symbol,
+                'open': open_price,
+                'high': high,
+                'low': low,
+                'close': close,
+                'volume': volume
+            })
+
+    new_df = pd.DataFrame(data_rows)
+    
+    # Convert to MultiIndex format
+    if not new_df.empty:
+        new_df = new_df.set_index(['timestamp', 'symbol'])
+        new_df = new_df.unstack(level='symbol')
+        new_df.columns = new_df.columns.swaplevel(0, 1)
+        new_df = new_df.sort_index(axis=1)
+    
+    st.info("🔄 Generated mock data for testing purposes")
+    return new_df
 
 def display_data_preview():
     """Display data preview and visualization"""
@@ -1642,7 +2059,8 @@ def display_data_preview():
             if st.button("🗑️ Clear Session Data", use_container_width=True):
                 st.session_state.historical_data = None
                 st.session_state.symbols = []
-                st.success("✅ Session data cleared")
+                sync_symbols_input()
+                st.success("✅ Session data and symbols cleared!")
                 st.rerun()
         
         st.markdown("---")

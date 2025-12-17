@@ -118,12 +118,7 @@ def render_sidebar_navigation(current_page="Home"):
                 toggle_theme()
                 st.rerun()
         
-        # Backend selector
-        try:
-            from utils.backend_selector import render_backend_selector
-            render_backend_selector()
-        except Exception as e:
-            pass  # Gracefully handle if backend selector is not available
+        # Backend selector removed - now using gRPC only
         
         st.markdown("---")
         

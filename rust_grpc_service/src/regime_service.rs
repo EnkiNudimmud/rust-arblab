@@ -1,6 +1,6 @@
 use tonic::{Request, Response, Status};
-use crate::hft::regime::regime_service_server::RegimeService;
-use crate::hft::regime::{
+use crate::regime::regime_service_server::RegimeService;
+use crate::regime::{
     CalibrationRequest, PortfolioConfig, PortfolioResult, SimulationRequest,
     SimulationResponse, RegimeEstimateRequest, RegimeEstimateResponse,
 };

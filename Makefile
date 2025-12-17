@@ -95,7 +95,7 @@ rebuild:
 run:
 	@echo "Starting Streamlit app..."
 	@echo "Access at: http://localhost:8501"
-	$(PY) -m streamlit run app/streamlit_app.py
+	$(PY) -m streamlit run app/HFT_Arbitrage_Lab.py
 
 # Backwards-compatible alias for older docs and scripts
 .PHONY: run-app
@@ -112,7 +112,7 @@ run-standalone:
 .PHONY: run-background
 run-background:
 	@echo "Starting Streamlit app in background (logs: streamlit.log)"
-	nohup $(PY) -m streamlit run app/streamlit_app.py > streamlit.log 2>&1 &
+	nohup $(PY) -m streamlit run app/HFT_Arbitrage_Lab.py> streamlit.log 2>&1 &
 
 # Run gRPC server (for development)
 .PHONY: run-server

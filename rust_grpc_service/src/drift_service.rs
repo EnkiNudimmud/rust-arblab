@@ -1,6 +1,6 @@
 use tonic::{Request, Response, Status};
-use crate::hft::drift::drift_service_server::DriftService;
-use crate::hft::drift::{
+use crate::drift::drift_service_server::DriftService;
+use crate::drift::{
     ChoiceRequest, PortfolioResult, LiquidationRequest, LiquidationResult,
     TransitionRequest, TransitionResult, RiskRequest, RiskMetric,
 };
@@ -85,11 +85,11 @@ impl DriftService for MyDriftService {
 
         // Map nested vectors to ArrayWrapper
         let trajectory = result.trajectory.into_iter()
-            .map(|v| crate::hft::drift::ArrayWrapper { values: v })
+            .map(|v| crate::drift::ArrayWrapper { values: v })
             .collect();
-            
+
         let trading_rates = result.trading_rates.into_iter()
-            .map(|v| crate::hft::drift::ArrayWrapper { values: v })
+            .map(|v| crate::drift::ArrayWrapper { values: v })
             .collect();
 
         Ok(Response::new(TransitionResult {

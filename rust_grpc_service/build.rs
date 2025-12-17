@@ -6,6 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "../proto/drift.proto",
         "../proto/superspace.proto",
         "../proto/pair_discovery.proto",
+        "../proto/options.proto",
     ], &["../proto"])?;
     Ok(())
 }

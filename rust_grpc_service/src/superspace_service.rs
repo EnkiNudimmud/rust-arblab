@@ -1,6 +1,6 @@
 use tonic::{Request, Response, Status};
-use crate::hft::superspace::superspace_service_server::SuperspaceService;
-use crate::hft::superspace::{
+use crate::superspace::superspace_service_server::SuperspaceService;
+use crate::superspace::{
     DetectRequest, DetectResponse, CsRequest, CsResponse,
     GhostFieldRequest, GhostFieldResponse,
     Anomaly, Signal, ArrayWrapper,

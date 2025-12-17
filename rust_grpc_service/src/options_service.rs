@@ -1,6 +1,6 @@
 use tonic::{Request, Response, Status};
-use crate::hft::options::options_service_server::OptionsService;
-use crate::hft::options::{
+use crate::options::options_service_server::OptionsService;
+use crate::options::{
     OptionParams, Greeks, HedgingRequest, HedgingResponse,
 };
 use rust_core::options::{BlackScholesOption, DeltaHedgingStrategy};

@@ -1,5 +1,5 @@
 use tonic::{Request, Response, Status};
-use crate::hft::trading::*;
+use crate::trading::*;
 use crate::models;
 
 pub struct TradingServiceImpl;
